@@ -1,0 +1,38 @@
+# CI del motor faro: la suite completa (sintaxis de módulos, manifiestos, gobierno de ramas,
+# digestión/requisitos, guardarraíles).
+#
+# COSTE: en un repo PRIVADO los minutos de Actions se facturan, y no cuestan igual —
+# Ubuntu 1x · Windows 2x · macOS 10x. Correr los tres sistemas en cada push de cada rama
+# multiplicaba el gasto por ~13 sin aportar: el 99% de los fallos salen en cualquiera de los tres.
+#
+# Reparto: Ubuntu en cada PR (red rápida y barata, es donde se trabaja) y la matriz COMPLETA solo
+# al entrar en develop/main, que es cuando de verdad importa que funcione en las tres — el equipo
+# mezcla Windows y macOS, y hay guardarraíles específicos de Windows (windowsHide) que hay que
+# seguir probando allí antes de publicar.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+#
+# TROZOS (#178): la suite completa (~1.100 tests, en serie a proposito) se reparte en 4 trozos que corren en
+# paralelo, repartidos por tamaño de fichero (test/run.js --trozo=i/n, determinista). Mismo gasto de minutos
+# (mas el arranque de cada job), un cuarto de espera.
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # En un PR: solo Ubuntu. Al integrar (push a develop/main): los tres.
+        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest","windows-latest","macos-latest"]') }}
+        trozo: [1, 2, 3, 4]
+    name: test (${{ matrix.os }}, trozo ${{ matrix.trozo }}/4)
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # node directo (no `npm test --`): en Windows el shim de npm para PowerShell puede comerse el `--` y cada
+      # job correria la suite entera. Mismos flags que `npm test`.
+      - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4

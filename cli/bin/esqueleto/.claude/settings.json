@@ -1,0 +1,49 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "language": "spanish",
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(git status*)",
+      "Bash(git branch*)",
+      "Bash(git tag*)",
+      "Bash(git show*)",
+      "Bash(git switch*)",
+      "Bash(git add*)",
+      "Bash(git init*)",
+      "Write(documentos/**)",
+      "Edit(documentos/**)",
+      "Write(gestion/**)",
+      "Edit(gestion/**)",
+      "Write(flujos/**)",
+      "Edit(flujos/**)",
+      "Write(fuentes/**)",
+      "Edit(fuentes/**)",
+      "Write(borrador/**)",
+      "Edit(borrador/**)",
+      "Write(notebooks/**)",
+      "Edit(notebooks/**)",
+      "Write(scripts/**)",
+      "Edit(scripts/**)",
+      "Write(ESTADO.md)",
+      "Edit(ESTADO.md)",
+      "Write(README.md)",
+      "Edit(README.md)",
+      "Write(.gitlab-ci.yml)",
+      "Edit(.gitlab-ci.yml)",
+      "PowerShell(git status*)",
+      "PowerShell(git branch*)",
+      "PowerShell(git tag*)",
+      "PowerShell(git show*)",
+      "PowerShell(git switch*)",
+      "PowerShell(git add*)",
+      "PowerShell(git init*)"
+    ]
+  }
+}

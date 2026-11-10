@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<!-- PLANTILLA de PRESENTACION (horizontal) neutra FARO. La rellena render-doc.mjs desde un MD:
+     node .claude/hooks/harness.js docgen <archivo.md> --presentacion
+     Placeholders (mismos que faro-documento.html): TITLE, SUBTITLE, META, CLASSIFICATION, BODY, FOOTL, FOOTREF
+     (NO los escribas aqui con llaves dobles: render-doc los rellenaria y duplicaria el contenido).
+     Reparte el cuerpo en SLIDES: cada encabezado nivel 1 o 2 del MD abre una slide (una idea por slide).
+     Componentes del MD: negrita (acento) · doble-igual = marcador · listas · tablas · codigo · mermaid (se pinta) ·
+     callouts NOTE/WARNING/RISK/OK. El 1er parrafo de cada slide sale grande (lead).
+     Las slides CRECEN con su contenido (no se recorta); si una slide queda muy larga, partela en dos encabezados. -->
+<style>
+  :root{
+    --ink:#1f2933; --paper:#ffffff; --cyan:#6b97c2; --cyan-2:#2f5d8a;
+    --border:#d3dae6; --pale:#eef5fb; --muted:#5b6675; --ok:#1f9d6b; --warn:#e08a2b; --risk:#d8472f;
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{ box-sizing:border-box; } html,body{ margin:0; padding:0; }
+  body{ background:radial-gradient(1200px 600px at 50% -10%, #2a3640 0%, #1a2128 55%); font-family:var(--font); color:var(--ink);
+        -webkit-font-smoothing:antialiased; overflow-x:hidden; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .deck{ max-width:1200px; margin:0 auto; padding:28px 18px; }
+  .slide{ position:relative; background:var(--paper); border-radius:16px; margin:0 0 24px; padding:44px 56px;
+          box-shadow:0 16px 44px rgba(0,0,0,.28); min-height:58vh; display:flex; flex-direction:column; justify-content:flex-start;
+          overflow-wrap:break-word; }
+  .slide::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:8px; border-radius:16px 0 0 16px; background:linear-gradient(180deg,var(--cyan),var(--cyan-2)); }
+  /* Animacion de entrada: SOLO si hay JS (con .js en <html>); sin JS todo es visible (nunca se pierde contenido). */
+  .js .slide{ opacity:0; transform:translateY(22px); transition:opacity .55s ease, transform .55s cubic-bezier(.2,.7,.2,1); }
+  .js .slide.in{ opacity:1; transform:none; }
+  /* Portada */
+  .cover{ background:linear-gradient(135deg,#1f2933 0%,#2a3640 60%,#1f2933 100%); color:#fff; justify-content:center; }
+  .cover::before{ background:linear-gradient(180deg,var(--cyan),transparent); }
+  .cover .kick{ font-size:14px; letter-spacing:.22em; text-transform:uppercase; color:var(--cyan); font-weight:800; }
+  .cover h1{ font-size:52px; line-height:1.07; margin:14px 0 12px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
+  /* Alimentado por 'description' del frontmatter: puede venir largo -> cuerpo contenido y maximo 3
+     lineas con elipsis, para que NUNCA empuje meta/clasificacion fuera de la portada (altura fija). */
+  .cover .subtitle{ font-size:18px; line-height:1.4; color:#aeb8cc; margin:0 0 22px; max-width:88%;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .cover .meta{ display:flex; flex-wrap:wrap; gap:8px 26px; font-size:14px; color:#c7d0e0; }
+  .cover .meta b{ color:#fff; font-weight:600; }
+  .classification{ display:inline-block; margin-top:20px; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#1f2933; background:var(--cyan); border-radius:999px; padding:6px 16px; align-self:flex-start; }
+  /* Contenido de slide */
+  .content h1,.content h2{ font-size:36px; line-height:1.12; margin:0 0 20px; color:var(--ink); font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere; }
+  .content h1::after,.content h2::after{ content:""; display:block; width:60px; height:5px; margin-top:13px; border-radius:3px; background:linear-gradient(90deg,var(--cyan),var(--cyan-2)); }
+  .content h3{ font-size:22px; margin:18px 0 8px; color:var(--cyan-2); font-weight:700; }
+  .content{ font-size:19px; line-height:1.55; color:#1c2537; }
+  .content p{ margin:0 0 13px; }
+  .content > p:first-of-type{ font-size:23px; line-height:1.45; color:#1f2933; font-weight:500; } /* lead: 1er parrafo grande */
+  .content ul,.content ol{ margin:0 0 13px; padding-left:26px; } .content li{ margin:7px 0; }
+  .content a{ color:var(--cyan-2); }
+  .content strong{ color:var(--cyan-2); font-weight:800; }
+  .content mark{ background:#ffe89a; color:var(--ink); padding:1px 5px; border-radius:4px; }
+  .content code{ font-family:var(--mono); background:var(--pale); color:var(--ink); padding:1px 5px; border-radius:4px; font-size:.85em; }
+  .content pre{ background:#1f2933; color:#e6edf7; padding:14px 16px; border-radius:12px; overflow-x:auto; max-width:100%; font-family:var(--mono); font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .content pre code{ background:none; color:inherit; padding:0; font-size:inherit; }
+  .content pre.mermaid{ background:transparent; color:inherit; text-align:center; white-space:normal; }
+  .content img,.content svg{ max-width:100%; height:auto; }
+  .content table{ display:block; width:100%; max-width:100%; overflow-x:auto; border-collapse:collapse; margin:12px 0; font-size:17px; }
+  .content th{ background:var(--ink); color:#fff; text-align:left; padding:10px 14px; }
+  .content td{ padding:10px 14px; border-bottom:1px solid var(--border); }
+  .content tr:nth-child(even) td{ background:var(--pale); }
+  .content blockquote{ margin:12px 0; padding:10px 18px; border-left:5px solid var(--cyan-2); background:var(--pale); border-radius:0 10px 10px 0; }
+  .content .callout{ border:1px solid var(--border); border-left-width:6px; border-radius:10px; padding:14px 18px; margin:12px 0; background:#f7fafd; font-size:18px; }
+  .content .callout .cx-t{ display:block; font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px; }
+  .content .callout.warn{ border-color:var(--warn); background:#fdf3e0; } .content .callout.warn .cx-t{ color:var(--warn); }
+  .content .callout.risk{ border-color:var(--risk); background:#fbecea; } .content .callout.risk .cx-t{ color:var(--risk); }
+  .content .callout.ok{ border-color:var(--ok); background:#eaf6f0; } .content .callout.ok .cx-t{ color:var(--ok); }
+  .content .callout.note{ border-color:var(--cyan-2); } .content .callout.note .cx-t{ color:var(--cyan-2); }
+  .content .toc{ display:none; }
+  .foot{ display:flex; justify-content:space-between; gap:16px; font-size:11px; color:#c7d0e0; padding:6px 20px 26px; max-width:1200px; margin:0 auto; }
+  .net-warn{ display:none; max-width:1200px; margin:0 auto 12px; background:#fdf3e0; color:#8a5a12; border:1px solid var(--warn); border-radius:10px; padding:10px 14px; font-size:14px; }
+  @media (prefers-reduced-motion:reduce){ .js .slide{ transition:none !important; opacity:1 !important; transform:none !important; } }
+  @page{ size:A4 landscape; margin:0; }
+  @media print{
+    body{ background:#fff; } .deck{ padding:0; max-width:none; }
+    /* PDF: manda la PAGINA, no el viewport — 'height:100vh' en print cortaba contenido (vh != pagina).
+       Altura automatica + salto por slide; el contenido que no cabe fluye a la pagina siguiente. */
+    .slide{ box-shadow:none; border-radius:0; margin:0; min-height:auto; height:auto; page-break-after:always; padding:12mm 16mm;
+            opacity:1 !important; transform:none !important; break-inside:avoid; }
+    /* Tras la ULTIMA slide no hay nada: forzar el salto dejaba una pagina en blanco al final del PDF. */
+    .slide:last-child{ page-break-after:auto; break-after:auto; }
+    .content pre,.content table{ overflow-x:visible; }
+    .content table,.content blockquote,.content .callout,.content pre.mermaid,.content svg{ break-inside:avoid; }
+    .foot{ display:none; }
+    /* Los colores (cabeceras, callouts, chips) deben llegar al PDF: Chrome los elimina si
+       no se fuerza, y una presentacion en blanco y negro pierde la jerarquia visual. */
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    /* Un diagrama o imagen mas ancho que la caja se recortaba al imprimir: se encoge al ancho util. */
+    .content img,.content svg,.content pre.mermaid svg{ max-width:100% !important; height:auto !important; }
+    .content table{ width:100%; table-layout:fixed; }
+    .content td,.content th,.content li,.content p{ overflow-wrap:anywhere; }
+    .content pre,.content code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+  }
+</style>
+</head>
+<body>
+  <div id="net-warn" class="net-warn"></div>
+  <div class="deck">
+    <section class="slide cover">
+      <div class="kick">FARO</div>
+      <h1>{{TITLE}}</h1>
+      <div class="subtitle">{{SUBTITLE}}</div>
+      <div class="meta">{{META}}</div>
+      {{CLASSIFICATION}}
+    </section>
+    <div class="content" id="content">{{BODY}}</div>
+  </div>
+  <div class="foot"><span>{{FOOTL}}</span><span>{{FOOTREF}}</span></div>
+
+  <script>
+    // Reparte el contenido en slides (cada h1/h2 abre una) y anima su entrada. Con guardas para que
+    // NUNCA se pierda contenido: sin JS todo es visible; con JS, un backstop revela todo a los 2.2s.
+    (function(){
+      var c = document.getElementById("content"); if(!c) return;
+      document.documentElement.classList.add("js");
+      var nodes = Array.prototype.slice.call(c.childNodes);
+      var deck = c.parentNode, frag = document.createDocumentFragment(), box = null;
+      function open(){ var s=document.createElement("section"); s.className="slide"; var d=document.createElement("div"); d.className="content"; s.appendChild(d); frag.appendChild(s); return d; }
+      // Una slide sin nada visible (solo un indice oculto, un <hr>, espacios...) es una pagina en blanco
+      // en pantalla y en PDF: se descarta en vez de mostrarla (#105).
+      var MEDIA = "img,svg,table,pre,iframe,video";
+      function vacia(s){
+        return !Array.prototype.some.call(s.firstChild.childNodes, function(n){
+          if(n.nodeType===3) return /\S/.test(n.nodeValue||"");
+          if(n.nodeType!==1 || n.classList.contains("toc")) return false;
+          return /\S/.test(n.textContent||"") || n.matches(MEDIA) || !!n.querySelector(MEDIA);
+        });
+      }
+      nodes.forEach(function(n){
+        var ws = n.nodeType===3 && !/\S/.test(n.nodeValue||"");   // nodo de texto SOLO espacios (los saltos de linea del HTML entre bloques)
+        if(n.nodeType===1 && (n.tagName==="H1"||n.tagName==="H2")) box = open();
+        if(!box){ if(ws) return; box = open(); }                  // NO abras una slide por el whitespace inicial (era la 2a slide en blanco)
+        box.appendChild(n);
+      });
+      Array.prototype.slice.call(frag.childNodes).forEach(function(s){ if(vacia(s)) frag.removeChild(s); });
+      deck.replaceChild(frag, c);
+      var slides = document.querySelectorAll(".slide");
+      var reveal = function(s){ s.classList.add("in"); };
+      if("IntersectionObserver" in window){
+        // umbral 0 + rootMargin: la slide se revela en cuanto asoma su borde (robusto con slides altas).
+        var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ reveal(e.target); io.unobserve(e.target); } }); }, { threshold:0, rootMargin:"0px 0px -6% 0px" });
+        slides.forEach(function(s){ io.observe(s); });
+        // Backstop: pase lo que pase, a los 2.2s todo visible (evita cualquier contenido atascado en opacity:0).
+        setTimeout(function(){ slides.forEach(reveal); }, 2200);
+      } else {
+        slides.forEach(reveal);
+      }
+    })();
+  </script>
+  <!-- VERSION EXACTA + SRI. NO volver a 'mermaid@11' (rango flotante) manteniendo el integrity: el CDN
+       sirve la 11.x mas reciente, el hash fijo deja de coincidir en cuanto publican una nueva y el
+       navegador BLOQUEA el script -> mermaid undefined y salta el aviso "sin conexion" con internet.
+       Al subir de version hay que regenerar el hash:
+       curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.min.js" integrity="sha384-aBQXj4hK6Jm05i7aQAsUV3bLdSUrHX1BGYfMB0166TtWt/RRaw+h0Eelme9OCOvy" crossorigin="anonymous"></script>
+  <script>(function(){ if(typeof mermaid==="undefined"){var n=document.getElementById("net-warn"); if(n){n.textContent="Sin conexion: los diagramas Mermaid no se pintan (abrelo con internet).";n.style.display="block";} return;} try{ mermaid.initialize({startOnLoad:false,theme:"base",themeVariables:{primaryColor:"#e8f4fb",primaryTextColor:"#1f2933",primaryBorderColor:"#2f5d8a",lineColor:"#5b6675",fontFamily:"Inter, sans-serif"}}); mermaid.run().catch(function(e){ var n=document.getElementById("net-warn"); if(n){ n.textContent="Diagrama Mermaid con ERROR de sintaxis: "+((e&&e.message)||e); n.style.display="block"; } }); }catch(e){} })();</script>
+</body>
+</html>

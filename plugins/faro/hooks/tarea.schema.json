@@ -1,0 +1,69 @@
+{
+  "$id": "faro/tarea.schema.json",
+  "title": "Registro de tarea FARO (gestion/tareas/<id>.json)",
+  "description": "Un registro = un issue (entregable). Nucleo CERRADO: cualquier campo desconocido fuera de 'extensiones' es error. 'subtareas' es CALCULADO por el motor (nunca se edita a mano). 'fechas.actualizada' la escribe SIEMPRE lib/tareas-json.js al guardar. El orden de 'properties' es el orden de las claves al escribir el fichero.",
+  "type": "object",
+  "required": ["v", "issue", "titulo", "fase", "estado", "objetivo", "resultado", "justificacion", "requisitos", "cambios", "prs", "fechas", "subtareas"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "const": 1 },
+    "issue": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "string", "pattern": "^L-\\d+$" }] },
+    "titulo": { "type": "string", "minLength": 1, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" },
+    "fase": { "type": "integer", "minimum": 0 },
+    "apps": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" } },
+    "estado": { "type": "string", "enum": ["pendiente", "en_curso", "hecha", "descartada", "bloqueada"] },
+    "responsable": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "objetivo": { "type": "string", "minLength": 1 },
+    "resultado": { "type": ["string", "null"] },
+    "justificacion": { "type": ["string", "null"] },
+    "requisitos": { "type": "array", "items": { "type": "string", "pattern": "^REQ-\\d{2,}$" } },
+    "cambios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "estado"],
+        "additionalProperties": false,
+        "properties": {
+          "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "estado": { "type": "string", "enum": ["borrador", "aprobado", "aplicando", "implementada", "archivado"] }
+        }
+      }
+    },
+    "prs": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+    "fechas": {
+      "type": "object",
+      "required": ["creada", "inicio", "objetivo", "cerrada", "actualizada"],
+      "additionalProperties": false,
+      "properties": {
+        "creada": { "type": ["string", "null"], "format": "date" },
+        "inicio": { "type": ["string", "null"], "format": "date" },
+        "objetivo": { "type": ["string", "null"], "format": "date" },
+        "cerrada": { "type": ["string", "null"], "format": "date" },
+        "actualizada": { "type": "string", "format": "date-time" }
+      }
+    },
+    "subtareas": {
+      "type": "object",
+      "required": ["hechas", "total", "fuente"],
+      "additionalProperties": false,
+      "properties": {
+        "hechas": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "fuente": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "origen": {
+      "type": "object",
+      "required": ["tipo", "revisar"],
+      "additionalProperties": false,
+      "properties": {
+        "tipo": { "const": "migrada" },
+        "revisar": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "extensiones": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*\\.[A-Za-z0-9_.-]+$" }
+    }
+  }
+}

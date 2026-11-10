@@ -1,0 +1,13 @@
+{
+  "name": "faro-marketplace",
+  "owner": {
+    "name": "Fernando Acevedo"
+  },
+  "plugins": [
+    {
+      "name": "faro",
+      "source": "./plugins/faro",
+      "description": "Estándar FARO: harness de gobierno + spec-driven nativo + skills /faro:* + roles de agente (naturalezas doc/app/worker)"
+    }
+  ]
+}

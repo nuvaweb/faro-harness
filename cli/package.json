@@ -1,0 +1,28 @@
+{
+  "name": "faro-harness",
+  "version": "2.2.1",
+  "description": "Wizard de FARO (Forge-Agnostic Repo Operations): crea, trae o migra un repo de GitHub o GitLab con el harness para Claude Code: esqueleto, clasificación, main y develop, y plugin.",
+  "bin": {
+    "faro": "bin/crear.mjs"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.12.0"
+  },
+  "files": [
+    "bin/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuvaweb/faro-harness.git"
+  },
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "@clack/prompts": "^1.7.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "prepublishOnly": "npm test"
+  }
+}

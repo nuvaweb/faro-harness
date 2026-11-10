@@ -1,0 +1,1442 @@
+{
+  "version": "2.0",
+  "_nota": "Contrato UNICO de taxonomia FARO. Lo lee el harness (valida) y, opcionalmente, cualquier catalogo/integracion externa que el equipo conecte (agnostico al sistema concreto). MODELO v2 (ver modelo-faro.md): ENTIDAD=clase (alineada con el CDM) · CONCEPTO=instancia con nombre (la identidad) · DOC=documento (apunta al concepto) · REPO=espacio de trabajo DESVINCULADO (git_url). Anadir una clase/tipo/dominio = una entrada aqui.",
+  "referencias": {
+    "_nota": "ESTANDAR DE REFERENCIAS (#157, lib/referencias.js): la forma UNICA de citar un registro desde otro. 'patron' es una expresion regular (sin banderas) que se aplica al texto ya recortado y de como maximo 'max' caracteres; su primer grupo con valor es el identificador. 'canon' dice como se normaliza. Navegar: harness.js ir <ref> [--campo a.b] [--json]; quien la cita: harness.js refs <ref>. 'orden' es el orden de prueba (el primero que casa gana).",
+    "max": 80,
+    "orden": ["fase", "tarea", "cambio", "req", "riesgo", "app", "doc"],
+    "tipos": {
+      "fase": { "patron": "^fase:(\\d{1,3})$", "ejemplo": "fase:2", "canon": "minusculas", "resuelve": "ESTADO.md" },
+      "tarea": { "patron": "^(?:#(\\d{1,7})|L-(\\d{1,7}))$", "ejemplo": "#149", "canon": "mayusculas", "resuelve": "gestion/tareas/<id>.json" },
+      "cambio": { "patron": "^cambio:([a-z0-9][a-z0-9-]{0,63})$", "ejemplo": "cambio:tareas-json-nucleo", "canon": "minusculas", "resuelve": "gestion/cambios/changes/<slug>/ (o archive/)" },
+      "req": { "patron": "^REQ-(\\d{2,4})$", "ejemplo": "REQ-136", "canon": "mayusculas", "resuelve": "gestion/requisitos.md" },
+      "riesgo": { "patron": "^R-(\\d{2,4})$", "ejemplo": "R-07", "canon": "mayusculas", "resuelve": "gestion/risks.md" },
+      "app": { "patron": "^app:([A-Za-z0-9][A-Za-z0-9._-]{0,63})$", "ejemplo": "app:gold-api", "canon": "tal-cual", "resuelve": "lib/apps.js (monorepo)" },
+      "doc": { "patron": "^((?:[A-Z]{2,6}-)?[A-Z0-9]{2,10}-[A-Z]{3,4}-\\d{3})$", "ejemplo": "DEMO-FUN-001", "canon": "mayusculas", "resuelve": "documento controlado con ese doc_id" }
+    }
+  },
+  "enums": {
+    "_nota_entidad": "La ENTIDAD (clase: servicio/proyecto/iniciativa/procedimiento...) YA NO se pregunta en el CLI ni se valida aqui: se gestiona en el grafo de conocimiento por MCP (coleccion faro_entities, alineada con el CDM). En el alta de un repo solo importan el DEPARTAMENTO (dominio) y los teams. La entidad se asigna/usa via MCP cuando hay senal.",
+    "estado_concepto": [
+      "active",
+      "obsolete"
+    ],
+    "_nota_ramas_protegidas": "El ciclo git protege SIEMPRE main/master (aprobacion) y develop (integracion) en toda instancia FARO (ESTADO.md, .faro.json o plugin declarado en settings). EXTENSIBLE por repo via .faro.json 'ramas_protegidas': [\"demo\", \"pre\"] — mismo trato que develop (solo merges; commit directo bloqueado por el harness).",
+    "estado_requisito": [
+      "propuesto",
+      "aceptado",
+      "en-cambio",
+      "entregado",
+      "descartado"
+    ],
+    "_nota_estado_requisito": "Registro gestion/requisitos.md ('## REQ-NN · <nombre>' + estado + origen). El formato lo valida el harness ([req], bloquea); la trazabilidad requisito<->cambio/tarea avisa sin bloquear ([requisitos]).",
+    "estado_fase": [
+      "draft",
+      "backlog",
+      "pending",
+      "in_progress",
+      "testing",
+      "done"
+    ],
+    "_nota_estado_fase": "Estados de fase (los escribe el AGENTE, no el humano). done = terminal; in_progress/testing = ACTIVOS (una sola fase activa); backlog/pending = sin arrancar. draft = la fase existe en ESTADO.md pero su hito TODAVIA no se ha creado en la forja (onboarding, antes de 'hito sync'): exime #N/@quien del formato RIGIDO porque no pueden existir aun; 'hito sync' la promueve a 'pending' al crear el hito, y desde ahi #N SI es obligatorio.",
+    "_nota_vocabulario": "QUE ES CADA COSA, para que ningun agente se invente equivalencias. FASE (ESTADO.md) = HITO de la forja (milestone), 1 a 1, por el titulo 'Fase N — <nombre>': es lo UNICO que se mapea a un hito, porque es lo unico que agrupa trabajo con principio, fin y fecha. En vocabulario agil: la fase es la EPICA, el issue es la HISTORIA DE USUARIO (se escribe asi en su titulo, no es un nivel aparte) y los checkboxes DENTRO del issue son sus subtareas. CICLO no es un hito y no debe serlo — la palabra se usa para dos procesos que ATRAVIESAN el trabajo, no para agruparlo: (a) ciclo de vida de un cambio spec-driven (borrador->aprobada->implementada->archivada, vive en el frontmatter del proposal, lo valida 'validate') y (b) ciclo de desarrollo git (rama->PR->develop->aprobar->main). Un hito por ciclo no agruparia nada. El unico hito que NO es una fase es 'Backlog' (sala de espera del trabajo aceptado sin fecha): no caduca, no lleva fecha y no se cierra nunca — de ahi solo se SALE a una fase. No crear hitos por tipo de trabajo ('Bugs', 'Infra'): para eso estan los labels; un hito que nunca cierra es una etiqueta disfrazada.",
+    "estado_fase_alias": {
+      "pendiente": "pending",
+      "por_hacer": "pending",
+      "a_faire": "pending",
+      "todo": "pending",
+      "en_curso": "in_progress",
+      "en_progreso": "in_progress",
+      "en_cours": "in_progress",
+      "em_andamento": "in_progress",
+      "in_bearbeitung": "in_progress",
+      "activa": "in_progress",
+      "pruebas": "testing",
+      "revision": "testing",
+      "en_revision": "testing",
+      "en_pruebas": "testing",
+      "qa": "testing",
+      "cerrada": "done",
+      "completada": "done",
+      "hecha": "done",
+      "terminada": "done",
+      "finalizada": "done",
+      "termine": "done",
+      "terminee": "done",
+      "concluida": "done",
+      "fertig": "done",
+      "completed": "done",
+      "closed": "done"
+    },
+    "_nota_estado_fase_alias": "Tolerancia de IDIOMA al leer ESTADO.md: el harness NORMALIZA al canonico antes de validar. Anadir idioma = anadir alias; nada de codigo.",
+    "estado_documento": [
+      "draft",
+      "in_review",
+      "approved",
+      "obsolete"
+    ],
+    "_nota_estado_documento": "Ciclo de vida del DOCUMENTO. approved = merge a main; solo lo 'approved' es candidato a publicarse en un catalogo externo, si el equipo conecta uno.",
+    "clasificacion": [
+      "public",
+      "internal",
+      "confidential",
+      "restricted"
+    ],
+    "_nota_clasificacion": "Privacidad / access tier del DOCUMENTO (no del concepto). Un mismo concepto puede tener docs public y confidential.",
+    "dominios": {
+      "financiero": [],
+      "operaciones": [],
+      "producto": [],
+      "comercial": [],
+      "legal": [],
+      "marketing": [],
+      "rrhh": [],
+      "master-data": [],
+      "sistemas": [],
+      "servicios-generales": [],
+      "innovacion": []
+    },
+    "_nota_dominios": "Los 10 DOMINIOS CANONICOS del CDM (atlas-modelo.json). Lista PLANA (sin subareas). El dominio es ORIENTATIVO y FLEXIBLE: normalmente hay uno PRINCIPAL, pero un concepto puede relacionarse con VARIOS dominios (concepto.related cruza dominios libremente). NO es fijo por tipo de documento ni estrictamente obligatorio: si no esta claro, el agente lo PREGUNTA al usuario y puede quedar abierto. Valores SIEMPRE en espanol. Extensible: anade un dominio aqui. Es el eje compartido con el CDM.",
+    "_nota_tipos": "EXTENSIBLE (data-driven): el harness lee los codigos de aqui, no estan hardcodeados. Para ANADIR un tipo: agrega { codigo, nombre, plantilla?, subtipos?, estandar? } en esta lista y (opcional) crea su plantilla en documentos/plantillas/<ambito>/<codigo>-<slug>.md (agrupadas por AMBITO: producto|operaciones|gobierno|negocio|gestion; el campo 'ambito' de cada tipo dice la subcarpeta); el tipo queda disponible al instante. Lookup rapido de la ruta: node .claude/hooks/harness.js plantilla <TIPO> (o --list para el catalogo por ambito). Si se conecta un catalogo externo con un campo 'type' de tipo enum/dropdown, anade tambien el valor alli (si es texto libre, no hace falta). El usuario/agente puede crear tipos nuevos segun necesite.",
+    "tipos_documento": [
+      {
+        "codigo": "BRF",
+        "nombre": "Brief de requerimiento",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/brf-brief.md",
+        "estandar": "resumen ejecutivo de arranque",
+        "familia": "definir"
+      },
+      {
+        "codigo": "PRF",
+        "nombre": "PR-FAQ (incluye el press release)",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/prf-prfaq.md",
+        "estandar": "Amazon working-backwards",
+        "familia": "definir"
+      },
+      {
+        "codigo": "HU",
+        "nombre": "Historias de usuario",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/hu-historias-usuario.md",
+        "estandar": "Connextra + INVEST + Gherkin",
+        "familia": "definir"
+      },
+      {
+        "codigo": "ANA",
+        "nombre": "Analisis",
+        "ambito": "producto",
+        "subtipos": [
+          "funcional",
+          "tecnico",
+          "integracion"
+        ],
+        "plantilla": "documentos/plantillas/producto/ana-<subtipo>.md",
+        "estandar": "IEEE 29148/BABOK · design doc · ICD",
+        "carpeta": "documentos/analisis/",
+        "instrucciones": {
+          "cuando": "Hay que ENTENDER algo antes de construirlo: como funciona un sistema ajeno, que implica una integracion, por que falla un proceso. Si ya sabes que hay que hacer y solo falta especificarlo, es un FUN.",
+          "secciones": [
+            "Contexto y alcance",
+            "Situacion actual",
+            "Hallazgos",
+            "Implicaciones",
+            "Recomendacion"
+          ],
+          "criterio": "Un ANA se sostiene sobre EVIDENCIA (logs, respuestas de API, mediciones): cada hallazgo dice de donde sale. El metodo tecnico (notebook, script) NO va aqui — vive en notebooks/ y este documento lo referencia por ruta.",
+          "errores": [
+            "Mezclar el analisis con la propuesta de solucion (eso es otro documento)",
+            "Hallazgos sin evidencia que los respalde",
+            "Pegar el notebook entero dentro del documento"
+          ]
+        },
+        "familia": "entender"
+      },
+      {
+        "codigo": "FUN",
+        "nombre": "Funcional / tecnico-funcional",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/fun-funcional.md",
+        "estandar": "requisitos + reglas de negocio + entidades",
+        "carpeta": "documentos/funcional/",
+        "instrucciones": {
+          "cuando": "Hay que DEFINIR que debe hacer el sistema, con detalle suficiente para construirlo y para verificar despues que se construyo bien.",
+          "secciones": [
+            "Objetivo",
+            "Alcance y fuera de alcance",
+            "Requisitos funcionales",
+            "Reglas de negocio",
+            "Entidades y datos",
+            "Criterios de aceptacion"
+          ],
+          "criterio": "Cada requisito debe ser VERIFICABLE: alguien tiene que poder decir si se cumple o no sin opinar. Lo que queda FUERA del alcance se escribe explicito — es lo que evita la discusion de despues.",
+          "errores": [
+            "Requisitos ambiguos del tipo \"el sistema sera rapido\"",
+            "No declarar que queda fuera del alcance",
+            "Describir la implementacion en vez del comportamiento esperado"
+          ]
+        },
+        "familia": "definir"
+      },
+      {
+        "codigo": "ARQ",
+        "nombre": "Arquitectura",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/arq-arquitectura.md",
+        "estandar": "arc42 + C4 + ISO 42010",
+        "familia": "disenar"
+      },
+      {
+        "codigo": "DIS",
+        "nombre": "Spec de diseno UX/UI (spec-driven)",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/dis-diseno.md",
+        "estandar": "spec-kit + design systems (Carbon/EightShapes)",
+        "familia": "disenar"
+      },
+      {
+        "codigo": "QA",
+        "nombre": "Plan de pruebas / QA de software",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/qa-plan-pruebas.md",
+        "estandar": "ISO/IEC/IEEE 29119 (ex IEEE 829)",
+        "familia": "definir"
+      },
+      {
+        "codigo": "INV",
+        "nombre": "Investigacion / research",
+        "ambito": "producto",
+        "subtipos": [
+          "tecnica",
+          "mercado",
+          "competencia"
+        ],
+        "plantilla": "documentos/plantillas/producto/inv-investigacion.md",
+        "estandar": "research memo, evidence-based, fuentes citadas (suele derivar en ADR); subtipo mercado = investigacion de mercados; integracion con proveedores = ANA subtipo integracion (ICD)",
+        "familia": "entender"
+      },
+      {
+        "codigo": "SRV",
+        "nombre": "Ficha / descripcion de servicio",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/srv-descripcion-servicio.md",
+        "estandar": "service description, ficha de catalogo de servicio",
+        "familia": "definir"
+      },
+      {
+        "codigo": "CHG",
+        "nombre": "Changelog / release notes",
+        "ambito": "producto",
+        "plantilla": "documentos/plantillas/producto/chg-changelog.md",
+        "estandar": "Keep a Changelog + SemVer",
+        "familia": "operar"
+      },
+      {
+        "codigo": "RUN",
+        "nombre": "Runbook / operacion",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/run-runbook.md",
+        "estandar": "SRE runbook",
+        "familia": "operar"
+      },
+      {
+        "codigo": "MAN",
+        "nombre": "Manual / flujo de automatizacion",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/man-flujo-automatizacion.md",
+        "estandar": "guia operativa",
+        "familia": "operar"
+      },
+      {
+        "codigo": "LEC",
+        "nombre": "Lecciones aprendidas / retrospectiva",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/lec-lecciones-aprendidas.md",
+        "estandar": "PMI Lessons Learned + PIR blameless (SRE) + ISO 9001 §10.2 (accion correctiva) + PDCA",
+        "familia": "dirigir"
+      },
+      {
+        "codigo": "PRO",
+        "nombre": "Procedimiento (SOP)",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/pro-procedimiento.md",
+        "estandar": "procedimiento operativo estandar (SOP) · ISO 9001 (control de procesos)",
+        "familia": "operar"
+      },
+      {
+        "codigo": "GUI",
+        "nombre": "Guia / how-to",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/gui-guia.md",
+        "estandar": "Diataxis (how-to guide) · guia paso a paso orientada a tarea",
+        "familia": "operar"
+      },
+      {
+        "codigo": "INC",
+        "nombre": "Incidente / post-mortem",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/inc-incidente.md",
+        "estandar": "post-incident review · ITIL/ISO 20000 · SRE blameless (SEV, MTTD/MTTR)",
+        "familia": "operar"
+      },
+      {
+        "codigo": "SLA",
+        "nombre": "Acuerdo de nivel de servicio",
+        "ambito": "operaciones",
+        "plantilla": "documentos/plantillas/operaciones/sla-nivel-servicio.md",
+        "estandar": "ISO/IEC 20000 · SLO/SLI/SLA",
+        "familia": "operar"
+      },
+      {
+        "codigo": "COM",
+        "nombre": "Compliance",
+        "ambito": "gobierno",
+        "subtipos": [
+          "rgpd",
+          "ai-act",
+          "ens",
+          "iso",
+          "otro"
+        ],
+        "plantilla": "documentos/plantillas/gobierno/com-compliance.md",
+        "estandar": "evaluacion de conformidad; RGPD (EIPD/DPIA, RoPA) · AI Act (clasificacion de riesgo + conformidad) · ENS · ISO 27001",
+        "familia": "gobernar"
+      },
+      {
+        "codigo": "DPIA",
+        "nombre": "Evaluacion de impacto de proteccion de datos (EIPD/DPIA)",
+        "ambito": "gobierno",
+        "plantilla": "documentos/plantillas/gobierno/dpia-evaluacion-impacto.md",
+        "estandar": "ISO 29134 · RGPD art. 35 (EIPD)",
+        "familia": "gobernar"
+      },
+      {
+        "codigo": "POL",
+        "nombre": "Politica",
+        "ambito": "gobierno",
+        "plantilla": "documentos/plantillas/gobierno/pol-politica.md",
+        "estandar": "politica corporativa · ISO 27001 Anexo A",
+        "familia": "gobernar"
+      },
+      {
+        "codigo": "ACU",
+        "nombre": "Acuerdo / contrato",
+        "ambito": "gobierno",
+        "plantilla": "documentos/plantillas/gobierno/acu-acuerdo.md",
+        "estandar": "acuerdo/contrato (enlaza a entidad CDM Contratos)",
+        "familia": "gobernar"
+      },
+      {
+        "codigo": "COR",
+        "nombre": "Corporativo (manifiesto: mision, vision, valores, contexto)",
+        "ambito": "gobierno",
+        "plantilla": "documentos/plantillas/gobierno/cor-corporativo.md",
+        "estandar": "manifiesto corporativo; identidad, proposito y contexto que enmarca TODO (siempre presente, dominio corporate)",
+        "familia": "general"
+      },
+      {
+        "codigo": "RES",
+        "nombre": "Resumen ejecutivo (stakeholders, lenguaje llano)",
+        "ambito": "gobierno",
+        "plantilla": "documentos/plantillas/gobierno/res-resumen-ejecutivo.md",
+        "estandar": "executive summary · plain language · 1 pagina",
+        "familia": "entender"
+      },
+      {
+        "codigo": "PLN",
+        "nombre": "Plan de proyecto",
+        "ambito": "gestion",
+        "plantilla": "documentos/plantillas/gestion/pln-plan-proyecto.md",
+        "estandar": "PMBOK/PMI (ligero)",
+        "familia": "dirigir"
+      },
+      {
+        "codigo": "RACI",
+        "nombre": "Matriz de responsabilidades (RACI)",
+        "ambito": "gestion",
+        "plantilla": "documentos/plantillas/gestion/raci-matriz.md",
+        "estandar": "RACI (responsibility assignment matrix)",
+        "familia": "dirigir"
+      },
+      {
+        "codigo": "ADR",
+        "nombre": "Decision de arquitectura",
+        "ambito": "gestion",
+        "plantilla": "documentos/plantillas/gestion/adr-decision.md",
+        "estandar": "MADR / Nygard",
+        "_nota": "ADR = artefacto de GESTION (decision del trabajo, no entregable de cliente): vive en gestion/decisions/<AAAA-MM-DD>-<slug>.md con frontmatter propio (fecha, autor, estado: propuesta|aceptada|sustituida|rechazada, contexto/decision/consecuencias). documentos/decisiones/ es compat LEGADO: el harness detecta los ADR que sigan ahi y pide traerlos a gestion/",
+        "carpeta": "gestion/decisions/",
+        "instrucciones": {
+          "cuando": "Una decision tecnica DIFICIL DE REVERTIR, que alguien preguntara dentro de seis meses: por que se hizo asi. Si es facil de cambiar, no necesita ADR.",
+          "secciones": [
+            "Contexto",
+            "Alternativas consideradas",
+            "Decision",
+            "Consecuencias"
+          ],
+          "criterio": "Al menos DOS alternativas reales, con el motivo concreto por el que se descartaron. Las consecuencias incluyen lo MALO que aceptas: un ADR sin coste asumido no se ha pensado. Se escribe ANTES o DURANTE la decision, nunca despues.",
+          "errores": [
+            "Escribirlo cuando ya esta implementado (eso es un acta, no una decision)",
+            "Poner \"alternativas consideradas: ninguna\"",
+            "Consecuencias solo positivas"
+          ]
+        },
+        "familia": "decidir"
+      },
+      {
+        "codigo": "PROP",
+        "nombre": "Propuesta comercial / SOW",
+        "ambito": "negocio",
+        "plantilla": "documentos/plantillas/negocio/prop-propuesta.md",
+        "estandar": "Statement of Work (SOW) · propuesta comercial",
+        "familia": "general"
+      },
+      {
+        "codigo": "PRE",
+        "nombre": "Presupuesto / cotizacion",
+        "ambito": "negocio",
+        "plantilla": "documentos/plantillas/negocio/pre-presupuesto.md",
+        "estandar": "cotizacion / presupuesto comercial",
+        "familia": "general"
+      },
+      {
+        "codigo": "OFE",
+        "nombre": "Descripcion de oferta / one-pager",
+        "ambito": "negocio",
+        "plantilla": "documentos/plantillas/negocio/ofe-oferta.md",
+        "estandar": "one-pager comercial · datasheet de producto/servicio",
+        "familia": "general"
+      },
+      {
+        "codigo": "CAS",
+        "nombre": "Caso de exito / case study",
+        "ambito": "negocio",
+        "plantilla": "documentos/plantillas/negocio/cas-caso-exito.md",
+        "estandar": "case study: reto-solucion-resultados",
+        "familia": "entender"
+      },
+      {
+        "codigo": "CBN",
+        "nombre": "Caso de negocio / business case",
+        "ambito": "negocio",
+        "plantilla": "documentos/plantillas/negocio/cbn-caso-negocio.md",
+        "estandar": "Five Case Model (HM Treasury) · PMI business case",
+        "familia": "entender"
+      },
+      {
+        "codigo": "PUE",
+        "nombre": "Descripcion de puesto",
+        "ambito": "negocio",
+        "plantilla": "documentos/plantillas/negocio/pue-puesto.md",
+        "estandar": "job description (perfil, responsabilidades, requisitos)",
+        "familia": "general"
+      },
+      {
+        "codigo": "ESP",
+        "nombre": "Especificacion / spec",
+        "ambito": "producto",
+        "plantilla": null,
+        "familia": "definir"
+      },
+      {
+        "codigo": "INF",
+        "nombre": "Informe",
+        "ambito": "gestion",
+        "plantilla": null,
+        "familia": "general"
+      },
+      {
+        "codigo": "DOC",
+        "nombre": "Documento generico",
+        "ambito": null,
+        "plantilla": null,
+        "familia": "general"
+      },
+      {
+        "codigo": "TEC",
+        "nombre": "Documentacion tecnica",
+        "ambito": "producto",
+        "familia": "entender",
+        "plantilla": null,
+        "estandar": "como esta construido: modulos, dependencias, puntos de extension"
+      }
+    ],
+    "_nota_atomicidad": "CRITERIO DE ATOMICIDAD del codigo (lo reporta 'harness.js atomico'; AVISA, no bloquea). 'max_lineas' es una SENAL, no una ley: un umbral duro se sortea partiendo un fichero por la mitad, con lo que el numero baja y el diseno empeora. Se pone alto a proposito (400) para que solo cante lo que de verdad mezcla responsabilidades. 'excluir' son rutas donde el tamano no significa nada (dependencias, minificados, datos, plantillas HTML de marca). 'extensiones' acota a codigo: los .md de skills/agentes son prosa y no se miden. Un repo puede declarar su propio .claude/faro-schema.json con otro umbral y manda el suyo.",
+    "atomicidad": {
+      "max_lineas": 400,
+      "extensiones": [".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".go", ".rs", ".java", ".rb", ".php"],
+      "excluir": ["node_modules/", "dist/", "build/", ".git/", "vendor/", "borrador/", "plantillas/", "fuentes/", ".min.", "-lock."],
+      "entradas": ["harness.js", "self-hint.js", "index.js", "main.js", "cli.js", "ramas.js"]
+    },
+    "_nota_entradas": "PUNTOS DE ENTRADA (dentro de 'atomicidad'): ficheros que NADIE importa POR DISENO — los invoca el harness, el CI o el usuario desde la linea de comandos. 'harness.js codigo' los excluye de la lista de huerfanos; sin esto, el informe cantaria como codigo muerto justo los ejecutables. Los tests se excluyen solos (los ejecuta el runner, no un import).",
+    "_nota_generados": "FICHEROS GENERADOS (lib/generados.js, #126): atomicidad y grafo comparten una lista UNICA que se aplica SIEMPRE, ademas de 'excluir' y aunque el repo lo declare vacio — node_modules/, dist/, build/, .wrangler/, .tanstack/ a cualquier profundidad (monorepo: apps/<x>/...), *.gen.* (routeTree.gen.ts), worker-configuration.d.ts, los .d.ts con cabecera de generado y lo ignorado por git. 'excluir' queda para lo que el equipo decida apartar; lo generado nunca es suyo.",
+    "_nota_ears":"EARS (Easy Approach to Requirements Syntax, Mavin): la CONDICION de un requisito normativo va DELANTE y con palabra fija. Cinco formas: ubicua (sin condicion) · CUANDO <disparador> (evento) · MIENTRAS <estado> · DONDE <caracteristica> (opcional) · SI <condicion no deseada>, ENTONCES (no deseado). Lo que de verdad detecta el harness no es que copies la plantilla, sino la CONDICION ENTERRADA: 'el sistema DEBE rechazar el commit si contiene un secreto' esconde el disparador detras del DEBE, y entonces su escenario no se puede derivar. MODO: 'aviso' por defecto (adopcion gradual — un gate duro invalidaria de golpe las specs ya escritas en todos los repos); pon 'gate' cuando el equipo lo tenga interiorizado y quieras que bloquee validate.",
+    "ears": {
+      "modo": "aviso"
+    },
+    "_nota_ria": "RIA e ISO/IEC 42001 (#227, lib/riesgos-ia.js): solo con `ia:` en el frontmatter de ESTADO.md (riesgo: prohibido | alto | transparencia | minimo | no-aplica; rol; iso42001). validate avisa de las obligaciones sin etiqueta RIA:art.N en el RAID y de la evaluacion de impacto / aplicabilidad que falten en gestion/compliance/. `prohibido` es siempre error; modo \"gate\" convierte el resto en errores.",
+    "ria": {
+      "modo": "aviso"
+    },
+    "_nota_plataformas": "PLATAFORMAS DECLARABLES (#256): el motor no trae plataformas de serie. Cada organizacion declara las suyas en .faro.json > \"plataformas\": { \"<id>\": { \"nombre\": \"<Nombre>\", \"pack\": [codigos de documento] } } (id en minusculas: [a-z][a-z0-9-]*). Cada plataforma aporta el tipo <id>-func (funcionalidad acotada que se integra en esa plataforma) con su pack documental recomendado; se declara como tipo en el frontmatter de ESTADO.md o en .faro.json \"tipo\". Sin declaracion solo existen los tipos genericos (proyecto, iniciativa); un tipo fuera de catalogo se ignora en silencio.",
+    "_nota_monorepo": "MODO MONOREPO (#129, lib/apps.js): una gestion FARO UNICA en la raiz y varias apps en el workspace (pnpm-workspace.yaml o 'workspaces' de package.json). Se ACTIVA solo declarando en .faro.json \"monorepo\": { \"apps\": { \"<app>\": { \"rol\": \"<una frase>\", \"funcional\": \"<doc_id>\", \"equipo\": \"<team>\" } }, \"tag\": \"{app}@{version}\" }, con <app> = nombre de su carpeta (apps/<app>). Se DECLARA solo lo que el disco no dice (rol, funcional, equipo, plantilla del tag); lo TECNICO se DEDUCE (ruta, paquete y version de package.json, worker por wrangler.*, front, ARCHITECTURE.md, CHANGELOG.md, tests). carpetas_paquete = carpetas del workspace con codigo compartido: no son apps y no se exige declararlas. validate AVISA (no bloquea) de app del workspace sin declarar, app declarada inexistente, app sin CLAUDE.md propio (Claude Code carga el CLAUDE.md anidado al trabajar en la carpeta: ese es el contexto por app, FARO no lo inyecta) y de lo que incumpla este contrato. Consulta: harness.js apps [--json].",
+    "monorepo": {
+      "claves_raiz": ["apps", "tag"],
+      "claves_app": ["rol", "funcional", "equipo", "plantilla"],
+      "obligatorias_app": ["rol"],
+      "tag_defecto": "{app}@{version}",
+      "tag_marcadores": ["{app}", "{version}"],
+      "carpetas_paquete": ["packages", "libs"]
+    },
+    "_nota_tdd": "TDD VERIFICABLE (#133, lib/tdd.js): el harness comprueba el orden rojo -> verde. Se configura en .faro.json > \"tdd\": { \"modo\": \"aviso\"|\"bloqueo\"|\"off\", \"codigo\": [globs], \"tests\": [globs] }; sin la clave valen los defectos de aqui, y solo en repos FARO (.faro.json o ESTADO.md). Los globs de tests MANDAN sobre los de codigo (un a.test.ts dentro de src/ es test) y solo cuentan las extensiones_codigo. Hooks propios: tdd-post (PostToolUse y PostToolUseFailure sobre Bash|PowerShell) registra los tests que quedan en ROJO con el hash de su contenido, por repo y sesion, en CLAUDE_PLUGIN_DATA; tdd-pre (PreToolUse Write|Edit) avisa una vez por modulo (o bloquea con exit 2 en modo bloqueo) si se edita codigo sin un test rojo de ese modulo en la sesion (por nombre: a.ts <-> a.test.ts / tests/test_a.py; si el modulo no tiene test propio, vale un rojo de la misma app), y si se edita un test en rojo antes de que pase a verde ('no debilites el test'); tdd-stop (Stop) NO ejecuta nada (un hook corre fuera del sistema de permisos y el script 'test' es contenido del repo): si una app tiene codigo editado sin una ejecucion de tests POSTERIOR en verde registrada por tdd-post, devuelve el control al agente con la orden exacta para que la lance por Bash con sus permisos y, cuando el MISMO pendiente se ha devuelto 'repeticiones_stop' veces, deja de insistir y avisa al humano. 'harness.js tdd-revisar [base]' aplica las reglas deterministas de tests debilitados que usa revisor-code.",
+    "tdd": {
+      "modos": ["aviso", "bloqueo", "off"],
+      "modo_defecto": "aviso",
+      "codigo_defecto": ["src/**", "apps/*/src/**", "packages/*/src/**"],
+      "tests_defecto": ["test/**", "tests/**", "**/__tests__/**", "**/*.test.*", "**/*.spec.*", "**/test_*.py", "**/*_test.py", "**/*_test.go"],
+      "extensiones_codigo": [".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".tsx", ".jsx", ".py", ".go", ".rs", ".java", ".kt", ".rb", ".php", ".cs", ".vue", ".svelte", ".astro"],
+      "repeticiones_stop": 3
+    },
+    "_nota_tareas_json": "ESTADO ESTRUCTURADO DE TAREAS (#149, lib/tareas-json.js): un registro gestion/tareas/<id>.json por issue (id = ^\\d+$ o ^L-\\d+$), con el esquema CERRADO tarea.schema.json (v: 1; un campo desconocido es error, lo propio va en 'extensiones' con claves 'espacio.clave'). 'subtareas' es CALCULADO y fechas.actualizada la escribe el modulo al guardar. Reglas cruzadas: objetivo obligatorio; en monorepo 'apps' obligatoria y existente; 'hecha' exige resultado, fechas.cerrada, cambios archivados y subtareas cerradas; 'descartada' exige justificacion; inicio <= objetivo y objetivo dentro de la fase; un cambio pertenece a UN solo issue. Lectura por campo (una linea): harness.js tarea <id> --campo fechas.objetivo; resumen: harness.js tarea <id>; validar: harness.js tarea validar [<id>]; cambiar un campo simple con validacion: harness.js tarea set <id> <campo> <valor>. Contrato publico de lectura para integraciones (repo -> app, un solo sentido): harness.js resumen-json genera gestion/resumen.json de forma determinista; harness.js resumen-json --comprobar sale 1 si esta desactualizado. validate avisa ([tareas-json]) solo si el repo tiene gestion/tareas/. PARTE 2 (lib/tareas-migracion.js, lib/estado-indice.js): 'responsable' (login de la forja o null, opcional). harness.js tarea migrar [--dry-run] [--confirmo] [--incluir-cerradas] rellena un registro por issue del historico desde ESTADO.md, la forja (GitHub por ghApi; sin token, offline), los cambios spec-driven ('issue: N') y los REQ-NN citados; NO inventa: lo no deducible va en origen.revisar (validate lo avisa como pendiente de revisar); idempotente, no pisa registros sin origen migrada. harness.js estado-indice [--comprobar|--escribir] regenera SOLO las lineas de tarea de cada fase ('- [ ] #N · titulo — @quien', [x] si hecha/descartada) y preserva el resto de ESTADO.md byte a byte; validate avisa ([estado-indice]) si no cuadra con los JSON. PARTE 3 (lib/tarea-sync.js): las lineas de fase sin #N propio reciben un id local L-<n> al migrar (orden de ESTADO.md, estable y sin colisiones; origen en extensiones['migracion.origen'] = {fase, linea, texto}); estado-indice las rotula ('- [x] L-3 · titulo'). harness.js tarea sync <N>|--todas [--comprobar] refresca desde la forja SOLO lo derivable (estado abierto/cerrado, PR enlazados, subtareas, fechas.creada/cerrada) y no pisa lo que edita la persona; --comprobar solo informa de la deriva; fail-closed y sin shell.",
+    "_nota_tests": "TESTS POR DOMINIO (#178, lib/dominios.js): un DOMINIO es una FUNCIONALIDAD (no solo una carpeta) encapsulada: interior (codigo+tests propios), contrato publico (lo que otros importan) y dependientes. Se declara en .faro.json > \"tests\": { \"comando\": \"node --test\", \"dominios\": { \"<nombre>\": { \"descripcion\", \"codigo\": [globs], \"tests\": [globs], \"contrato\": [rutas], \"dependientes\": [nombres], \"lento\": [globs de tests], \"comando\", \"pendiente\": [decisiones humanas] } }, \"transversal\": [globs] | { \"<glob>\": [dominios] | \"*\" }, \"entradas\": [rutas], \"codigo\": [globs], \"afinar\": true }. REGLA: cambio solo en el interior -> solo ese dominio; cambio en el contrato -> ese dominio + sus hermanos dependientes (declarados + deducidos del grafo de imports); cambio transversal -> los dominios que lo alcanzan por el grafo (o los del mapa explicito); codigo que ningun dominio cubre -> aviso de hueco de cobertura funcional, nunca se esconde ejecutando todo; la suite completa, solo en CI y en /faro:publicar. Un test que necesita codigo de OTRO dominio se senala como violacion de encapsulacion. SEGURIDAD: el harness NUNCA ejecuta un comando declarado en el repo: solo se aceptan las formas de la lista cerrada (node --test · npx|pnpm|yarn vitest|jest · npm|pnpm|yarn|bun [run] test[:x]) con argumentos validados y sin shell; cualquier otra se muestra para que la lance el usuario. 'harness.js tests-dominios' (sin flags: lista los dominios y avisos) · '--proponer' (borrador desde Evidencia: de las specs, grafo de imports y carpetas de test; SOLO LECTURA) · '--aplicar --confirmo [--claude-md]' (escribe .faro.json > tests.dominios sin pisar lo declarado y marca lo dudoso como 'pendiente'; la regla va en un bloque <!-- faro:tests --> de CLAUDE.md) · '--afectados [--base ref]' (dominios y orden exacta segun git diff; silencio si nada) · '--dominio <nombre>' · '--integridad [--base ref] [--afirmacion texto]' (gate de integridad del diff de tests: aserciones eliminadas, .skip/.only, umbrales o expect relajados, contrastado con lo que el agente afirma; veredicto ok|justificar|bloquear). El hook TDD (tdd-stop) pide los tests por dominio en lugar de la suite completa, avisa del codigo sin dominio (tdd-pre), registra nº de tests y tiempo de cada ejecucion y avisa una vez si se encadenan baterias completas (tdd-post), y contrasta el diff de los tests tocados con la afirmacion del agente. validate avisa de codigo sin dominio y de dominios cuyo test depende de otro; el arranque, tras actualizar el plugin, avisa en UNA linea (con marca de version) de un repo con codigo y sin dominios -> /faro:tests.",
+    "tareas_json": {
+      "esquema": "tarea.schema.json",
+      "directorio": "gestion/tareas",
+      "resumen": "gestion/resumen.json",
+      "estados": ["pendiente", "en_curso", "hecha", "descartada", "bloqueada"],
+      "estados_cambio": ["borrador", "aprobado", "aplicando", "implementada", "archivado"],
+      "campos_editables": ["estado", "resultado", "justificacion", "objetivo", "fechas.creada", "fechas.inicio", "fechas.objetivo", "fechas.cerrada"]
+    },
+    "_nota_recursos": "GOBERNADOR DE RECURSOS (#182, lib/gobernador.js + lib/ejecutar-pesado.js + lib/gates-comandos.js + lib/cache-gates.js + lib/dry-run.js): todo gate pesado (typecheck, lint, test, build y el simulacro wrangler deploy --dry-run) de 'gates' y 'validate --gates' pasa por UN ejecutor: semaforo global por usuario en el directorio privado de procesos.js (max. N a la vez entre todas las sesiones y repos; N=2, FARO_PESADOS o .faro.json > \"recursos\": { \"max_pesados\": 1-8, \"espera_s\", \"mem_min_mb\", \"max_memoria_mb\" }), cola con espera acotada (FARO_PESADOS_ESPERA_S, 300), memoria libre minima (FARO_MEM_MIN_MB, 1024), timeout por trabajo, sin shell, marca FARO_PROC y cierre del arbol de procesos. Sin turno o sin memoria el gate sale NO EVALUADO (validate lo trata como error: no se da por bueno). vitest/jest siempre en modo run con 2 workers y tsc incremental SOLO si el script de package.json tiene una forma reconocida; cualquier otro comando se lanza tal cual (con CI=true en test). CACHE: un gate verde no se repite si no cambio el arbol git de la app y de sus dependencias de workspace (clave = hash del contenido + gate + comando + gestor + version del gate); '--sin-cache' o FARO_SIN_CACHE=1 la ignoran; un rojo nunca se guarda. DRY-RUN de wrangler: solo al publicar (gates --todas), con '--simulacro', o si el cambio toca wrangler.*, el entrypoint o las dependencias de la app; siempre exclusivo. 'harness.js recursos' muestra pesados en curso, memoria libre y cache; 'recursos --limpiar --confirmo [--cache]' retira lo obsoleto (y procesos propios huerfanos via procesos.js). El hook pre-bash avisa en UNA linea (silencio si todo va bien) antes de lanzar un gate pesado con el sistema saturado. git config faro.gates (cualquier stack) NO pasa por el ejecutor.",
+    "_nota_alcance": "RESTRICCIONES DE ALCANCE (#150, lib/alcance.js): el agente NUNCA modifica un repo que no es el de la sesion ni sus worktrees (mismo git-common-dir). pre-doc (Write|Edit|MultiEdit) y pre-bash (git -C/--git-dir/--work-tree, cd <otro repo> && git commit|push…, redirecciones, rm/mv/cp/touch/sed -i…) bloquean la escritura y proponen el camino correcto: abrir un ISSUE en ese repo con 'harness.js asignar-tarea --repo org/repo' (misma organizacion; otra se rechaza). Leer repos ajenos esta permitido; las rutas fuera de cualquier repo (temporales, scratchpad, ~/.claude) no se acotan. El transporte 'harness.js gh' solo opera en la organizacion del remoto y, fuera del repo de la sesion, solo permite leer, crear issues y comentar en ellos. Un git con -C/--git-dir/--work-tree que no se puede resolver y escribe falla CERRADO. Se amplia por repo en .faro.json > \"alcance\": { \"repos_permitidos\": [\"org/repo\"] } (hermanos autorizados, p. ej. un monorepo partido en varios repos); validate avisa de lo mal formado. El agente NO amplia esa lista: escribir .faro.json tocando 'alcance' (Write/Edit/MultiEdit, o Bash con redireccion, tee, cp, mv, sed -i) pide confirmacion. Limites: xargs/find -exec/parallel con git piden confirmacion; el resto de herramientas sueltas no se analizan.",
+    "alcance": {
+      "claves": ["repos_permitidos"],
+      "patron_repo": "^[\\w.-]+/[\\w.-]+$"
+    },
+    "_nota_guardas": "GUARDAS DE SEGURIDAD (lib/guardas.js): lo que el harness BLOQUEA antes de que ocurra. 'max_kb_fichero' es el tope de un fichero preparado para commitear (un binario grande entra en el historial y ya no sale). 'sensibles' y 'sensibles_ext' son ficheros que CONTIENEN credenciales: ni se escriben ni se vuelcan por consola. 'exentos' son los de EJEMPLO, que existen para versionarse. Los PATRONES de secreto viven en el codigo, no aqui: exigen la forma completa de la credencial (bloque PEM, token con su prefijo y longitud) y una lista editable invitaria a aflojarlos, que es como un gate deja de proteger. El force push NO esta aqui: ya lo cubre DESTRUCTIVE_CMD_PATTERNS, que exime '--force-with-lease' a proposito.",
+    "guardas": {
+      "max_kb_fichero": 500,
+      "sensibles": [".env", ".env.local", ".env.production", ".env.development", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".npmrc", ".pypirc", "credentials.json", "serviceaccount.json", ".netrc"],
+      "sensibles_ext": [".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"],
+      "exentos": [".env.example", ".env.sample", ".env.template", ".env.dist", ".dev.vars.example"]
+    },
+    "_nota_labels_github_nativos":"Los 9 labels que GitHub CREA POR DEFECTO en cada repo nuevo. El harness los asume presentes para NO consultar la API al mapear un tipo a su equivalente nativo (campo 'github' de cada label): ahorra queries. Si tu org borra alguno, quitalo de aqui y el harness lo tratara como faro:<slug>.",
+    "labels_github_nativos": [
+      "bug",
+      "documentation",
+      "duplicate",
+      "enhancement",
+      "good first issue",
+      "help wanted",
+      "invalid",
+      "question",
+      "wontfix"
+    ],
+    "_nota_gitlab": "GESTION NATIVA en GitLab (todo GRATUITO salvo lo marcado). etiquetas_con_ambito: las etiquetas de TIPO se crean como tipo::<slug> — en Premium/Ultimate GitLab las hace EXCLUSIVAS (una incidencia, un tipo), en Free es una etiqueta normal. hitos_desde_fases: harness.js hito sync y publicar crean/cierran un hito por fase de ESTADO.md (titulo \"Fase N — nombre\").",
+    "gitlab": { "etiquetas_con_ambito": true, "hitos_desde_fases": true },
+    "_nota_labels": "TIPOS de ISSUE/TAREA (data-driven): el harness los lee de aqui para etiquetar un issue al REGISTRARLO (node .claude/hooks/harness.js asignar-tarea ... --tipo <slug>). MODELO HIBRIDO: 'github' = nombre del label NATIVO de GitHub equivalente (bug, enhancement, question, documentation, duplicate...). Al aplicar, el harness REUTILIZA el label que ya existe en el repo (primero el nativo 'github' si esta, luego 'faro:<slug>'); solo CREA 'faro:<slug>' (con color+descripcion) cuando no hay ninguno. Asi no duplica los labels por defecto de GitHub y respeta lo que el repo ya tiene. Anadir/quitar tipo = editar esta lista; nada de codigo. 'github': null = no hay nativo equivalente -> siempre faro:<slug>. Colores hex SIN '#'. 'transversal': true marca lo que NO es un tipo de trabajo sino una DIMENSION ortogonal (urgente, riesgo, compliance, seguridad): esos NO valen como --tipo, se anaden aparte con --extra <slug> y pueden acompanar a cualquier tipo (un bug puede ser urgente). Un mismo 'github' nativo no debe repetirse en dos tipos: se volverian indistinguibles en el repo. 'ciclo' (OBLIGATORIO en todo tipo no transversal, criterio DETERMINISTA para 'asignar-tarea --hito'): 'plan' = pertenece a lo planificado, --hito es OBLIGATORIA (requerimiento, mejora, tarea, documentacion, investigacion, diseno, datos) — un requerimiento no puede quedar suelto de una fase. 'surge' = nace fuera del plan (bug, infra, pregunta): TAMBIEN lleva hito — sin --hito se propone la fase ACTIVA, que es donde aparecio; un bug no tiene que fingir que estaba planificado, pero si cuelga de una fase. 'entrada' = llega de FUERA sin decidir (reporte): va SIN hito, a la BANDEJA DE ENTRADA (abiertos sin hito), hasta que el triaje le da tipo, plantilla y hito. 'cierre' = no aplica fase (duplicado, descartado): son el final de una tarea, no trabajo nuevo. Los 'transversal': true NO llevan 'ciclo' (son ortogonales, acompanan a cualquiera de los cuatro).",
+    "labels": [
+      {
+        "slug": "requerimiento",
+        "ciclo": "plan",
+        "github": null,
+        "descripcion": "Requerimiento / requisito NUEVO del sistema (feature o capacidad que aun no existe).",
+        "color": "1D76DB"
+      },
+      {
+        "slug": "bug",
+        "ciclo": "surge",
+        "github": "bug",
+        "descripcion": "Defecto: algo que ya existe no funciona como debe. Incluye pasos para reproducir.",
+        "color": "D73A4A"
+      },
+      {
+        "slug": "mejora",
+        "ciclo": "plan",
+        "github": "enhancement",
+        "descripcion": "Mejora incremental sobre algo que ya funciona (optimizacion, refinamiento, UX).",
+        "color": "A2EEEF"
+      },
+      {
+        "slug": "tarea",
+        "ciclo": "plan",
+        "github": null,
+        "descripcion": "Trabajo operativo concreto sin cambio funcional (chore, mantenimiento, configuracion).",
+        "color": "CFD3D7"
+      },
+      {
+        "slug": "documentacion",
+        "ciclo": "plan",
+        "github": "documentation",
+        "descripcion": "Crear o actualizar documentacion controlada, guias, specs o material de conocimiento.",
+        "color": "0075CA"
+      },
+      {
+        "slug": "investigacion",
+        "ciclo": "plan",
+        "github": null,
+        "descripcion": "Spike / investigacion / prueba de concepto: reducir incertidumbre antes de decidir.",
+        "color": "D4C5F9"
+      },
+      {
+        "slug": "diseno",
+        "ciclo": "plan",
+        "github": null,
+        "descripcion": "Trabajo de diseno UX/UI o de arquitectura (specs de diseno, wireframes, decisiones estructurales).",
+        "color": "BFDADC"
+      },
+      {
+        "slug": "seguridad",
+        "github": null,
+        "transversal": true,
+        "descripcion": "Vulnerabilidad, hardening, control de acceso, secretos o cumplimiento de seguridad.",
+        "color": "B60205"
+      },
+      {
+        "slug": "infra",
+        "ciclo": "surge",
+        "github": null,
+        "descripcion": "Infraestructura, despliegue, CI/CD, entornos, bindings o dependencias de plataforma.",
+        "color": "5319E7"
+      },
+      {
+        "slug": "datos",
+        "ciclo": "plan",
+        "github": null,
+        "descripcion": "Modelado de datos, migraciones, calidad de datos, ETL o integraciones de datos.",
+        "color": "006B75"
+      },
+      {
+        "slug": "pregunta",
+        "ciclo": "surge",
+        "github": "question",
+        "descripcion": "Duda o solicitud de aclaracion; no es trabajo ejecutable hasta resolverse.",
+        "color": "D876E3"
+      },
+      {
+        "slug": "reporte",
+        "ciclo": "entrada",
+        "github": null,
+        "descripcion": "Llega de FUERA (usuario del producto, soporte, formulario) y NADIE ha decidido nada todavia: no es trabajo aceptado, es material para triar. Vive en la BANDEJA DE ENTRADA (sin hito), EXENTO de la estructura de una tarea (sin #N de fase, sin owner, sin criterios) porque exigirsela lo convertiria en trabajo ANTES de decidir si merece hacerse. Lo juzga /faro:triaje: si APLICA, se le quita esta etiqueta y pasa a ser tarea con toda su estructura; si no, se cierra con el motivo escrito en el propio issue.",
+        "color": "FBCA04"
+      },
+      {
+        "slug": "compliance",
+        "github": null,
+        "transversal": true,
+        "descripcion": "RGPD, AI Act, ENS, ISO u otra obligacion normativa/legal a cumplir o evidenciar.",
+        "color": "0E8A16"
+      },
+      {
+        "slug": "riesgo",
+        "github": null,
+        "transversal": true,
+        "descripcion": "Riesgo/impedimento del RAID que necesita seguimiento o mitigacion.",
+        "color": "E99695"
+      },
+      {
+        "slug": "duplicado",
+        "ciclo": "cierre",
+        "github": "duplicate",
+        "descripcion": "Ya existe otro issue igual; se cierra en favor del original.",
+        "color": "CFD3D7"
+      },
+      {
+        "slug": "descartado",
+        "ciclo": "cierre",
+        "github": "wontfix",
+        "descripcion": "No se hara (fuera de alcance o no aprobado). Se cierra como not_planned.",
+        "color": "FFFFFF"
+      },
+      {
+        "slug": "urgente",
+        "github": null,
+        "transversal": true,
+        "descripcion": "Prioridad alta: bloquea trabajo o tiene impacto directo; atender antes que el resto.",
+        "color": "B60205"
+      }
+    ],
+    "_nota_plantillas_issue": "PLANTILLA ESTANDAR POR TIPO DE ISSUE (#74, data-driven). Cada tipo es una lista ORDENADA de secciones: titulo, marcador (texto guia que va dentro), si es obligatoria y 'alias' opcional (otros titulos que cuentan como esa seccion: un bug con 'Comportamiento obtenido', como lo manda Userback, ya tiene 'Comportamiento actual'). El bug (#134) lleva Comportamiento actual / esperado / Lo que NO debe cambiar / Pasos: lo que NO debe cambiar es lo que evita que el arreglo rompa lo vecino. harness asignar-tarea crea el issue con la de su tipo; huecosDeIssue y reparar-tarea exigen las obligatorias. '_generica' es la de un tipo sin entrada propia. 'alias' mapea variantes (bugfix/hotfix -> bug). 'exento': sin plantilla ni exigencia (reporte vive en el Backlog hasta el triaje; duplicado/descartado son cierre). Para anadir o cambiar un tipo basta editar aqui.",
+    "plantillas_issue": {
+      "_generica": [
+        {
+          "titulo": "Objetivo",
+          "marcador": "<que se consigue con esto, en una frase>",
+          "obligatoria": true
+        },
+        {
+          "titulo": "Contexto",
+          "marcador": "<que leer primero: ficheros, spec, decision previa>",
+          "obligatoria": true
+        },
+        {
+          "titulo": "Alcance",
+          "marcador": "- <que entra>",
+          "obligatoria": true
+        },
+        {
+          "titulo": "Fuera de alcance",
+          "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+          "obligatoria": true
+        },
+        {
+          "titulo": "Subtareas",
+          "marcador": "- [ ] <paso>",
+          "obligatoria": false
+        },
+        {
+          "titulo": "Criterios de aceptacion",
+          "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+          "obligatoria": true
+        }
+      ],
+      "bug": {
+        "alias": [
+          "bugfix",
+          "hotfix"
+        ],
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que esta fallando y por que importa arreglarlo>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<donde se detecto: fase, PR, repo, quien lo vio>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Comportamiento actual",
+            "alias": [
+              "Comportamiento obtenido"
+            ],
+            "marcador": "<lo que pasa en realidad, con el mensaje de error LITERAL>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Comportamiento esperado",
+            "marcador": "<lo que deberia pasar>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Lo que NO debe cambiar",
+            "marcador": "- <comportamiento vecino que hoy funciona y el arreglo debe respetar (es lo primero que rompe un agente)>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Pasos para reproducir",
+            "marcador": "1. <paso>\n2. <paso>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Entorno",
+            "marcador": "<version del plugin/app, rama, repo, forja, SO si aplica>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Evidencia",
+            "marcador": "<salida, log, captura, commit o PR donde se ve>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que se corrige>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <lo que NO se toca aunque este cerca>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <al repetir los pasos para reproducir, ocurre el comportamiento esperado>\n- [ ] <test de regresion que falla sin el arreglo y pasa con el>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "requerimiento": {
+        "alias": [
+          "feature"
+        ],
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que problema o necesidad resuelve y a quien sirve (usuario/rol)>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "A quien sirve",
+            "marcador": "<Como <rol/usuario> quiero <capacidad> para <beneficio>>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "mejora": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que problema resuelve y a quien sirve (usuario/rol)>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Situacion actual",
+            "marcador": "<como funciona hoy y que limita>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Mejora propuesta",
+            "marcador": "<que cambia>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Impacto",
+            "marcador": "<quien gana que, y como se mide>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "tarea": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que se consigue con esto, en una frase>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Entregable",
+            "marcador": "<que queda hecho y donde se ve>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "documentacion": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que se consigue con esto, en una frase>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Documento",
+            "marcador": "<que documento: ruta o doc_id, crear o actualizar>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Audiencia",
+            "marcador": "<quien lo va a leer y para que>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "investigacion": {
+        "alias": [
+          "spike"
+        ],
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que se consigue con esto, en una frase>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Pregunta",
+            "marcador": "<que hay que responder para poder decidir>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Hipotesis",
+            "marcador": "<lo que creemos antes de investigar>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Limite de tiempo",
+            "marcador": "<cuanto como maximo: pasado ese tiempo se decide con lo que haya>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Resultado esperado",
+            "marcador": "<decision, informe o prototipo que sale de aqui>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "diseno": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que problema resuelve y a quien sirve (usuario/rol)>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Opciones consideradas",
+            "marcador": "<alternativas y por que cada una>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "infra": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que se consigue con esto, en una frase>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Entorno",
+            "marcador": "<donde: dev, pre, pro; que servicio o binding>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Riesgo y vuelta atras",
+            "marcador": "<que puede romper y como se deshace>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "datos": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que se consigue con esto, en una frase>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Origen y destino",
+            "marcador": "<de donde salen los datos y a donde van>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Volumen y calidad",
+            "marcador": "<cuantos, que validaciones, que pasa con los que fallan>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que leer primero: ficheros, spec, decision previa>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que entra>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que NO entra, para que nadie lo amplie por su cuenta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Subtareas",
+            "marcador": "- [ ] <paso>",
+            "obligatoria": false
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <observable desde fuera: al hacer X, ocurre Y — nunca detalle de implementacion>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "pregunta": {
+        "secciones": [
+          {
+            "titulo": "Objetivo",
+            "marcador": "<que decision o trabajo desbloquea la respuesta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Pregunta",
+            "marcador": "<la duda, concreta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Contexto",
+            "marcador": "<que se sabe ya y que se ha mirado>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Alcance",
+            "marcador": "- <que cubre la respuesta>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Fuera de alcance",
+            "marcador": "- <que no se pregunta aqui>",
+            "obligatoria": true
+          },
+          {
+            "titulo": "Criterios de aceptacion",
+            "marcador": "- [ ] <respuesta registrada en el issue y decision anotada donde toque>",
+            "obligatoria": true
+          }
+        ]
+      },
+      "reporte": {
+        "exento": true
+      },
+      "duplicado": {
+        "exento": true
+      },
+      "descartado": {
+        "exento": true
+      }
+    },
+    "_nota_frontmatter_comun": "CONTRATO de cabecera, comun a TODOS los tipos de documento controlado. Se copia LITERAL (no se reinterpreta): lo valida el harness y bloquea validate si falta algo. Cambiarlo AQUI aplica a todos los tipos y, via autoUpdate del plugin, a todos los repos — sin tocar plantilla por plantilla.",
+    "frontmatter_comun": {
+      "obligatorios": [
+        "doc_id",
+        "title",
+        "version",
+        "date",
+        "status",
+        "author"
+      ],
+      "doc_id": {
+        "formato": "CLAVE-TIPO-NNN",
+        "genera": "harness.js docref <TIPO>",
+        "nota": "La CLAVE es del repo (4-10 letras, unica en la org). El numero NUNCA se inventa: lo da docref leyendo lo ya emitido."
+      },
+      "version": {
+        "formato": "SemVer",
+        "nota": "Todo cambio de contenido SUBE la version y anade fila en Control de versiones."
+      },
+      "status": {
+        "valores": [
+          "draft",
+          "in_review",
+          "approved",
+          "obsolete"
+        ],
+        "nota": "La aprobacion real la da el merge a main."
+      },
+      "nombre_fichero": "<doc_id>-<slug-titulo>.md, dentro de la carpeta del tipo (nunca en la raiz de documentos/)",
+      "opcionales": [
+        "subtitle",
+        "owner",
+        "solicitante"
+      ],
+      "roles": {
+        "author": {
+          "que": "Quien REDACTA el contenido",
+          "identificador": "login de GitHub",
+          "obtener": "harness.js identity",
+          "obligatorio": true
+        },
+        "owner": {
+          "que": "Quien RESPONDE del contenido (lo mantiene al dia y lo defiende)",
+          "identificador": "login de GitHub si tiene cuenta; si no, correo corporativo",
+          "obligatorio": false,
+          "nota": "Si no se declara, se asume que es el author."
+        },
+        "solicitante": {
+          "que": "Quien PIDIO el documento (negocio, cliente interno)",
+          "identificador": "correo corporativo (normalmente NO tiene cuenta de GitHub)",
+          "obligatorio": false,
+          "nota": "Un documento tecnico interno puede no tener solicitante: en ese caso se omite, no se inventa."
+        },
+        "_regla": "NUNCA se inventa una persona. Si el rol aplica y no se sabe quien es, se PREGUNTA (AskUserQuestion). Si la persona no esta en GitHub, se pide su CORREO CORPORATIVO — es identificador valido y trazable. Prohibido rellenar con el nombre del repo, del cliente o con placeholders tipo \"Equipo FARO\": es un dato falso en un documento controlado."
+      },
+      "subtitle": {
+        "que": "Una linea que explica el documento a quien no conoce el proyecto",
+        "nota": "Lo renderizan las plantillas HTML de marca bajo el titulo."
+      }
+    },
+    "_nota_familias": "Las familias agrupan tipos por la PREGUNTA que responde el documento. Un tipo hereda las instrucciones de su familia; si ademas declara instrucciones propias, esas MANDAN sobre las heredadas. Anadir un tipo nuevo = declararle su familia (no hay que escribir una guia nueva). Lo leen harness.js tipo y el redactor.",
+    "familias_documento": {
+      "entender": {
+        "pregunta": "Como funciona, por que pasa esto",
+        "cuando": "Hay que COMPRENDER algo antes de tocarlo: un sistema ajeno, una integracion, la causa de un fallo. Si ya sabes que hay que hacer y solo falta especificarlo, no es esta familia.",
+        "secciones": [
+          "Contexto y alcance",
+          "Situacion actual",
+          "Hallazgos",
+          "Implicaciones",
+          "Recomendacion"
+        ],
+        "criterio": "Se sostiene sobre EVIDENCIA: cada hallazgo dice de donde sale (log, respuesta de API, medicion, captura). Sin evidencia es una opinion, y una opinion no se documenta como analisis.",
+        "diagramas": "Util: `sequenceDiagram` para el flujo entre sistemas, `flowchart` para el proceso actual. Solo si aclara algo que el texto no puede.",
+        "errores": [
+          "Mezclar el analisis con la propuesta de solucion (son documentos distintos)",
+          "Hallazgos sin evidencia que los respalde",
+          "Pegar el notebook o el script entero: vive en notebooks/ y aqui se referencia por ruta"
+        ]
+      },
+      "definir": {
+        "pregunta": "Que debe hacer",
+        "cuando": "Hay que DEFINIR el comportamiento esperado con detalle suficiente para construirlo y para verificar despues que se construyo bien.",
+        "secciones": [
+          "Objetivo",
+          "Alcance y fuera de alcance",
+          "Requisitos",
+          "Reglas de negocio",
+          "Entidades y datos",
+          "Criterios de aceptacion"
+        ],
+        "criterio": "Cada requisito debe ser VERIFICABLE: alguien tiene que poder decir si se cumple o no sin opinar. Lo que queda FUERA del alcance se escribe explicito — es lo que evita la discusion de despues.",
+        "diagramas": "Util: `flowchart` para el flujo funcional, `erDiagram` para el modelo de datos, `stateDiagram-v2` si hay estados con transiciones.",
+        "errores": [
+          "Requisitos ambiguos del tipo \"el sistema sera rapido\"",
+          "No declarar que queda fuera del alcance",
+          "Describir la implementacion en vez del comportamiento esperado"
+        ]
+      },
+      "disenar": {
+        "pregunta": "Como se construye",
+        "cuando": "Hay que explicar la ESTRUCTURA de la solucion: componentes, responsabilidades, como se comunican y por que se reparte asi.",
+        "secciones": [
+          "Vision general",
+          "Componentes y responsabilidades",
+          "Flujos principales",
+          "Decisiones de diseno",
+          "Riesgos tecnicos"
+        ],
+        "criterio": "Un documento de diseno se juzga por si alguien nuevo puede situarse: que hace cada pieza y por que esta separada. Las decisiones con alternativa real y coste asumido van a un ADR aparte, enlazado desde aqui.",
+        "diagramas": "CASI OBLIGATORIOS aqui: `flowchart` o `graph` para el mapa de componentes (estilo C4 nivel 2-3), `sequenceDiagram` para los flujos criticos. Un diseno sin diagrama obliga a reconstruir la topologia leyendo prosa.",
+        "errores": [
+          "Describir la topologia solo con texto",
+          "Mezclar el \"como\" con el \"por que\" (eso es un ADR)",
+          "Diagramas que repiten el texto en vez de anadir la vista que falta"
+        ]
+      },
+      "decidir": {
+        "pregunta": "Por que asi y no de otra forma",
+        "cuando": "Una decision DIFICIL DE REVERTIR, que alguien preguntara dentro de seis meses. Si es facil de cambiar, no necesita documento.",
+        "secciones": [
+          "Contexto",
+          "Alternativas consideradas",
+          "Decision",
+          "Consecuencias"
+        ],
+        "criterio": "Al menos DOS alternativas reales, con el motivo concreto por el que se descartaron. Las consecuencias incluyen lo MALO que aceptas: una decision sin coste asumido no se ha pensado. Se escribe ANTES o DURANTE, nunca despues.",
+        "diagramas": "Rara vez hace falta. Si la decision es entre topologias, un `flowchart` minimo por alternativa ayuda a comparar.",
+        "errores": [
+          "Escribirlo cuando ya esta implementado (eso es un acta, no una decision)",
+          "Poner \"alternativas consideradas: ninguna\"",
+          "Consecuencias solo positivas"
+        ]
+      },
+      "operar": {
+        "pregunta": "Como se usa, como se mantiene",
+        "cuando": "Alguien tiene que EJECUTAR algo: usar el sistema, resolver una incidencia, seguir un procedimiento.",
+        "secciones": [
+          "Para quien es y que necesita antes",
+          "Pasos",
+          "Verificacion (como sabes que salio bien)",
+          "Que hacer si falla"
+        ],
+        "criterio": "Se escribe para quien NO conoce el sistema: pasos ejecutables, en orden, con el resultado esperado de cada uno. Si un paso puede fallar, se dice como se ve el fallo y que hacer. Un runbook que solo entiende quien lo escribio no sirve a las 3 de la madrugada.",
+        "diagramas": "Util: `flowchart` con los puntos de decision (\"si responde 500 -> ir al paso 7\"). Para procesos con varios actores, `sequenceDiagram`.",
+        "errores": [
+          "Dar por sabido el contexto (rutas, credenciales, permisos)",
+          "Pasos sin resultado esperado: no se puede verificar si funciono",
+          "No cubrir el camino de error, que es justo cuando se lee el documento"
+        ]
+      },
+      "gobernar": {
+        "pregunta": "Que regla hay que cumplir",
+        "cuando": "Se fija una NORMA, un compromiso o una obligacion: politica interna, requisito legal, acuerdo de servicio, evidencia de cumplimiento.",
+        "secciones": [
+          "Alcance (a quien aplica)",
+          "Norma o compromiso",
+          "Evidencia de cumplimiento",
+          "Responsable",
+          "Revision"
+        ],
+        "criterio": "Una norma sin responsable y sin forma de comprobar que se cumple es una declaracion de intenciones. Di QUIEN responde y COMO se verifica.",
+        "diagramas": "Rara vez. Si hay un flujo de aprobacion, `flowchart` con los puntos de decision.",
+        "errores": [
+          "Norma sin responsable asignado",
+          "Sin criterio para saber si se cumple",
+          "Copiar el texto legal sin decir que implica aqui"
+        ]
+      },
+      "dirigir": {
+        "pregunta": "Como se organiza el trabajo",
+        "cuando": "Se planifica o se reparte: plan de proyecto, matriz de responsabilidades, lecciones aprendidas de una fase.",
+        "secciones": [
+          "Objetivo",
+          "Alcance temporal",
+          "Reparto (quien hace que)",
+          "Hitos o conclusiones",
+          "Seguimiento"
+        ],
+        "criterio": "Nombres reales y fechas reales, o no sirve. Un plan sin responsable por linea es una lista de deseos. En lecciones aprendidas: sin culpables, con causa y accion concreta.",
+        "diagramas": "Util: `gantt` para el plan temporal.",
+        "errores": [
+          "Responsables genericos (\"el equipo\")",
+          "Hitos sin fecha",
+          "Lecciones sin accion correctiva asociada"
+        ]
+      },
+      "general": {
+        "pregunta": "Que hay que comunicar",
+        "cuando": "El documento no encaja en las familias anteriores: material comercial, corporativo, o un documento puntual que no es analisis, definicion, diseno, decision, norma ni operacion.",
+        "secciones": [
+          "Contexto",
+          "Contenido",
+          "Conclusion o siguiente paso"
+        ],
+        "criterio": "Aunque no tenga estructura canonica, mantiene el control documental: cabecera completa, control de versiones y un proposito claro en la primera linea. Si dudas entre esta familia y otra, elige la otra: la generica es el ultimo recurso.",
+        "diagramas": "Los que aclaren. Mermaid en el MD, nunca imagenes sueltas sin fuente.",
+        "errores": [
+          "Usarla por comodidad cuando el documento SI encaja en otra familia",
+          "Sin proposito explicito al principio"
+        ]
+      }
+    }
+  },
+  "_nota_campos": "Nombres de propiedad en INGLES (snake_case). Los VALORES de los enums en su idioma canonico.",
+  "colecciones": {
+    "faro_entities": {
+      "unique": [
+        "slug"
+      ],
+      "_nota": "Las CLASES (que ES una cosa): servicio, proyecto, iniciativa, proceso, contrato, acuerdo, procedimiento, definicion... alineadas con las entidades del CDM. Predefinidas/sembradas. TRANSVERSALES: la clase NO tiene dominio (el dominio lo pone el CONCEPTO). SIN ontologia propia: las relaciones entre clases (servicio<->contrato<->procedimiento) YA viven en el CDM (atlas-modelo.json) — FARO no las duplica. Lo util aqui es solo el vocabulario de clases + el enlace al CDM. El GRAFO util es a nivel de CONCEPTO (concepto.related). Un concepto apunta a UNA entidad; una entidad tiene MUCHOS conceptos. Los ATRIBUTOS de datos viven en el CDM (external_id).",
+      "campos": {
+        "id": "uuid-auto-pk",
+        "slug": "string (unique) — p. ej. 'servicio', 'procedimiento', 'acuerdo', 'definicion'",
+        "name": "string",
+        "description": "text",
+        "external_id": "json (correlacion con el CDM master donde viven los ATRIBUTOS y la ontologia de clases: {\"cdm\": \"<slug>\"})"
+      }
+    },
+    "faro_concepts": {
+      "unique": [
+        "slug"
+      ],
+      "_nota": "Las INSTANCIAS con nombre = la IDENTIDAD (Gratia, Formacion 360, Contrato-Gratia-X). Viven en el catalogo/grafo de conocimiento que el equipo conecte (agnostico), estables. El REPO esta DESVINCULADO. 'related' arma el grafo (Gratia -> su contrato -> sus procedimientos; un procedimiento compartido = un concepto referenciado por muchos). El concepto SE VECTORIZA para RAG: 'definition' es su contenido rico (la definicion vive UNA vez aqui, no se copia en los docs).",
+      "campos": {
+        "id": "uuid-auto-pk",
+        "slug": "string (unique)",
+        "name": "string",
+        "aliases": "csv (otras formas de llamarlo; sinonimos/siglas; buscable — antidoto contra duplicados)",
+        "code": "string (identificador de catalogo, opcional; mutable, NO es la identidad)",
+        "tags": "csv (etiquetas libres, buscables; la valvula de flexibilidad — lo que no encaja en la taxonomia)",
+        "summary": "string (resumen de UNA linea; lo muestra el buscador)",
+        "definition": "text/markdown (la definicion/descripcion rica; FUENTE que se VECTORIZA para RAG; una sola vez aqui, no se copia)",
+        "version": "string (opcional)",
+        "status": "enum:estado_concepto",
+        "entity": "m2o:faro_entities (la CLASE: que ES; MUTABLE, iniciativa->servicio)",
+        "domain": "enum:dominios (UN dominio; obligatorio; el eje compartido con el CDM)",
+        "related": "m2m:faro_concepts (grafo de instancias; cruza dominios/entidades libremente)",
+        "replaced_by": "m2o:faro_concepts (relevo/linaje; el viejo pasa a status obsolete)"
+      }
+    },
+    "faro_docs": {
+      "unique": [
+        "doc_id"
+      ],
+      "_nota": "Los DOCUMENTOS. Apuntan al CONCEPTO directamente (no via repo). El DOMINIO NO vive aqui: se HEREDA del concepto (el dominio vive en UN solo sitio, faro_concepts). El repo esta desvinculado: 'git_url' dice donde vive el .md. La privacidad (classification) SI es del DOC (un mismo concepto tiene docs public y confidential).",
+      "campos": {
+        "id": "uuid-auto-pk",
+        "doc_id": "string (unique) — CLAVE-TIPO-NNN (CLAVE = clave corta del repo, 2-10 caracteres, fijada con 'harness.js clave'; legado ORG-CLAVE-TIPO-NNN sigue siendo valido en doc_id ya emitidos)",
+        "title": "string",
+        "subtitle": "string",
+        "type": "enum:tipos_documento.codigo",
+        "subtype": "string",
+        "version": "string-semver (version del DOCUMENTO, p. ej. 1.2.0)",
+        "date": "date (cuando se ESCRIBIO/publico esta version; NO es el periodo que cubre)",
+        "period": "string (AMBITO TEMPORAL que cubre el trabajo, p. ej. '2025' o '2025-Q1' para una auditoria/informe; DISTINTO de 'date')",
+        "effective_date": "date (opcional; desde cuando APLICA — politicas/procedimientos/contratos)",
+        "next_review": "date (opcional; proxima revision programada — cadencia de revision)",
+        "status": "enum:estado_documento",
+        "classification": "enum:clasificacion (privacidad / access tier del doc)",
+        "concept": "m2o:faro_concepts (a que concepto pertenece; DIRECTO — de aqui HEREDA el dominio)",
+        "language": "string",
+        "author": "string",
+        "reviewer": "string (opcional; quien revisa)",
+        "approver": "string (opcional; quien aprueba — queda aprobado al publicarse a main con /faro:publicar)",
+        "tags": "csv (libres, buscables)",
+        "content_md": "text (fuente + lo que se VECTORIZA para RAG; texto limpio)",
+        "files": "ARRAY de ficheros adjuntos/referenciados (entregable PDF/HTML, diagramas, imagenes, anexos; opcional. content_md = texto vectorizado; files = binarios descargables/servibles por el catalogo externo que se conecte)",
+        "git_url": "string (donde vive el .md; el repo esta desvinculado)",
+        "commit": "string",
+        "cited_concepts": "m2m:faro_concepts (los conceptos que el doc CITA: [[concepto:x]])",
+        "replaced_by": "m2o:faro_docs (relevo del documento)"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "faro-plugin-dev",
+  "private": true,
+  "description": "Desarrollo del plugin faro (marketplace + plugin). Los tests son la red de seguridad del refactor del harness.",
+  "scripts": {
+    "test": "node test/run.js --test-concurrency=1",
+    "test:rapido": "node test/run.js",
+    "test:afectados": "node scripts/test-afectados.js",
+    "test:dominio": "node scripts/test-afectados.js --dominio"
+  },
+  "_nota_test": "--test-concurrency=1 a proposito: los tests crean repos git temporales y ejecutan git/harness de verdad; en paralelo se agotan timeouts y salen ROJOS FALSOS (visto con 63 tests). En serie tarda mas pero el resultado es fiable — un rojo es un rojo."
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hoja de ruta · FARO</title>
+<style>
+  /* ============================================================
+     FARO ROADMAP — A3 horizontal, para presentar a CLIENTE.
+     Responde "¿dónde estamos?" (el one-pager responde "¿qué decido?").
+
+     JERARQUÍA VISUAL — en este orden, y es deliberado:
+       1. La fase EN CURSO domina. Tarjeta elevada, más grande, con su
+          progreso real. Es la única pregunta que este gráfico responde.
+       2. Lo que BLOQUEA. Rojo, reservado a lo que detiene el avance.
+       3. Todo lo demás se atenúa para no competir.
+
+     Un diseño previo fallaba justo aquí: la fase en curso caía en gris
+     cuando no tenía alerta, y una fase retrasada pero no bloqueante
+     salía en rojo. Pesaba más lo secundario que el "dónde estamos".
+
+     COLOR = ESTADO. No se repite en texto ("ÁMBAR" escrito al lado de
+     una bola ámbar es ruido). El color y el icono ya lo dicen; la
+     palabra sobra y ensucia.
+
+     Sin CDN (Tailwind incluido): el HTML se abre desde disco y se
+     imprime a PDF — una hoja remota no carga sin red.
+     ============================================================ */
+  :root{
+    --navy:#1f2933; --cyan:#2f5d8a; --sheet:#fff; --card:#f8fafc;
+    --ink:#0f1c2b; --muted:#64748b; --faint:#94a3b8; --line:#e6ecf2;
+    --ok:#16a34a; --warn:#d97706; --crit:#dc2626; --road:#eef2f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:#eceff3;color:var(--ink);
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .sheet{max-width:1600px;margin:0 auto;background:var(--sheet);border-radius:18px;
+         box-shadow:0 2px 40px rgba(15,28,43,.09);overflow:hidden}
+
+  /* ---- cabecera: solo lo esencial ---- */
+  header{display:flex;justify-content:space-between;align-items:flex-start;gap:28px;
+         padding:26px 36px 22px}
+  .eyebrow{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  h1{margin:6px 0 0;font-size:1.9rem;line-height:1.1;color:var(--navy);letter-spacing:-.02em;font-weight:800}
+  .sub{margin-top:7px;font-size:.87rem;color:var(--muted)}
+  .salud{display:flex;align-items:center;gap:10px;flex:none;padding-top:6px}
+  .salud .bola{width:14px;height:14px;border-radius:50%;flex:none;box-shadow:0 0 0 4px color-mix(in srgb,currentColor 15%,transparent)}
+  .salud .frase{font-size:.82rem;color:var(--muted);max-width:330px;text-align:right;line-height:1.4}
+  .verde{color:var(--ok)} .ambar{color:var(--warn)} .rojo{color:var(--crit)}
+  .salud .bola{background:currentColor}
+
+  /* ---- cifras: sin cajas, solo tipografía ---- */
+  .stats{display:flex;gap:44px;padding:0 36px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .stat .v{font-size:2rem;font-weight:800;color:var(--navy);line-height:1;letter-spacing:-.03em}
+  .stat .v.crit{color:var(--crit)} .stat .v.warn{color:var(--warn)} .stat .v.ok{color:var(--ok)}
+  .stat .n{font-size:.71rem;color:var(--faint);margin-top:6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  .stat .h{font-size:.75rem;margin-top:3px;color:var(--muted)}
+
+  /* ---- carril ---- */
+  .viaje{padding:30px 36px 10px}
+  .lbl{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:26px}
+
+  .ruta{position:relative;padding-top:8px}
+  .via{position:relative;height:6px;border-radius:99px;background:var(--road);margin:0 0 4px}
+  .via .hecho{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--cyan)}
+  /* punto HOY sobre la línea: pequeño pero inequívoco */
+  .via .punto{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;
+              background:var(--navy);border:3px solid var(--sheet);transform:translate(-50%,-50%);
+              box-shadow:0 0 0 3px color-mix(in srgb,var(--navy) 25%,transparent);z-index:3}
+
+  .paradas{display:flex;gap:10px;align-items:stretch;margin-top:18px}
+  /* cada fase es una TARJETA: da sitio al progreso real y se lee como bloque */
+  .fase{flex:1;min-width:0;position:relative;padding:15px 15px 14px;border-radius:13px;
+        background:var(--card);border:1px solid var(--line);
+        display:flex;flex-direction:column;gap:8px;transition:none}
+  .fase .top{display:flex;align-items:center;gap:8px}
+  .fase .num{font-size:.68rem;font-weight:800;color:var(--faint);letter-spacing:.06em}
+  .fase .marca{width:11px;height:11px;border-radius:50%;background:#cbd5e1;flex:none;margin-left:auto}
+  .fase.gate .marca{border-radius:2px;transform:rotate(45deg)}
+  .fase .nom{font-size:.9rem;font-weight:700;line-height:1.3;color:var(--ink);overflow-wrap:anywhere}
+  .fase .fecha{font-size:.73rem;color:var(--muted);margin-top:-2px}
+  .barra{height:5px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:auto}
+  .barra i{display:block;height:100%;border-radius:99px;background:#cbd5e1}
+  .prog{font-size:.72rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+
+  /* CERRADA: verde discreto, ya no compite */
+  .fase.ok{background:color-mix(in srgb,var(--ok) 5%,var(--sheet));border-color:color-mix(in srgb,var(--ok) 22%,var(--line))}
+  .fase.ok .marca{background:var(--ok)} .fase.ok .barra i{background:var(--ok)}
+  .fase.ok .nom{color:var(--muted)}
+
+  /* EN CURSO: domina el gráfico — elevada, borde de marca, sombra */
+  .fase.now{background:var(--sheet);border:2px solid var(--navy);
+            box-shadow:0 10px 26px rgba(15,28,43,.14);transform:translateY(-9px);padding:17px 17px 16px}
+  .fase.now .marca{background:var(--cyan);box-shadow:0 0 0 4px color-mix(in srgb,var(--cyan) 22%,transparent)}
+  .fase.now .nom{font-size:1rem;color:var(--navy)}
+  .fase.now .barra i{background:var(--cyan)}
+  .fase.now .aqui{position:absolute;top:-13px;left:17px;background:var(--navy);color:#fff;
+                  font-size:.63rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+                  padding:4px 11px;border-radius:99px;box-shadow:0 3px 9px rgba(15,28,43,.28)}
+
+  /* BLOQUEADA: rojo, y solo si de verdad detiene */
+  .fase.crit{background:color-mix(in srgb,var(--crit) 4%,var(--sheet));border-color:var(--crit)}
+  .fase.crit .marca{background:var(--crit)} .fase.crit .barra i{background:var(--crit)}
+  .fase.now.crit{border-width:2px}
+
+  /* POR CERRAR / EN RIESGO: ámbar suave, presente pero secundario */
+  .fase.warn{background:color-mix(in srgb,var(--warn) 5%,var(--sheet));border-color:color-mix(in srgb,var(--warn) 35%,var(--line))}
+  .fase.warn .marca{background:var(--warn)} .fase.warn .barra i{background:var(--warn)}
+
+  /* PENDIENTE: atenuada, no compite con nada */
+  .fase.todo{background:var(--sheet);border-style:dashed}
+  .fase.todo .nom{color:var(--muted)}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:800;
+        letter-spacing:.04em;padding:3px 9px;border-radius:99px;align-self:flex-start}
+  .chip.crit{background:color-mix(in srgb,var(--crit) 12%,transparent);color:var(--crit)}
+  .chip.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+
+  .ruta.muchas .fase{padding:11px 11px 10px}
+  .ruta.muchas .nom{font-size:.78rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ruta.muchas .fase.now .nom{font-size:.84rem}
+  .ruta.muchas .fecha,.ruta.muchas .prog{font-size:.66rem}
+  .ruta.muchas .chip{font-size:.6rem;padding:2px 7px}
+
+  /* ---- detalle ---- */
+  .base{display:grid;grid-template-columns:1.15fr .85fr;gap:34px;padding:32px 36px 26px;border-top:1px solid var(--line);margin-top:30px}
+  ul.lista{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+  ul.lista li{display:flex;gap:12px;align-items:flex-start;font-size:.86rem;line-height:1.45}
+  ul.lista li .pip{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;margin-top:8px}
+  ul.lista li.crit .pip{background:var(--crit)}
+  ul.lista li .donde{color:var(--faint);font-size:.78rem;display:block;margin-top:2px}
+  .vacio{font-size:.86rem;color:var(--faint);margin-top:14px}
+  footer{padding:14px 36px;border-top:1px solid var(--line);display:flex;justify-content:space-between;
+         font-size:.7rem;color:var(--faint)}
+
+  /* ---- IMPRESIÓN: A3 horizontal ---- */
+  @media print{
+    body{background:#fff;padding:0}
+    .sheet{box-shadow:none;border-radius:0;max-width:none}
+    @page{size:A3 landscape;margin:11mm}
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+    .fase,ul.lista li,.stat{break-inside:avoid;page-break-inside:avoid}
+    .fase.now{box-shadow:none;transform:none;border-width:3px}
+    .fase.now .aqui{box-shadow:none}
+    li,p,.nom{overflow-wrap:anywhere}
+  }
+  @media (max-width:980px){
+    .paradas{flex-wrap:wrap}
+    .fase{flex:1 1 220px}
+    .fase.now{transform:none}
+    .base{grid-template-columns:1fr;gap:24px}
+  }
+</style>
+</head>
+<body>
+<div class="sheet" id="root"></div>
+
+<script>window.__ROADMAP__ = null; /*__DATA__*/</script>
+<script>
+  var SAMPLE = {
+    meta:{nombre:"Proyecto de ejemplo",tipo:"proyecto",faseActual:3,fasesTotal:4,fecha:"2026-08-05",owner:null},
+    rag:{nivel:"ambar",label:"ÁMBAR",frase:"En marcha con una fase por cerrar"},
+    hoy:{pct:52,fase:3,fecha:"2026-08-05",sig:"warn",motivo:"requiere atención"},
+    avance:{pct:52,nota:"1 de 4 fases cerradas · Fase 3 en curso"},
+    paradas:[
+      {n:1,nombre:"Descubrimiento",estado:"done",sig:"ok",gate:true,objetivo:"2026-06-30",dias:-36,retrasada:false,enRiesgo:false,rezagada:false,bloqueada:false,flujo:"normal",pendientes:0,hechas:4,total:4,pct:100,motivos:[]},
+      {n:2,nombre:"Diseño",estado:"todo",sig:"warn",gate:true,objetivo:"2026-07-20",dias:-16,retrasada:true,enRiesgo:false,rezagada:true,bloqueada:false,flujo:"cola",pendientes:1,hechas:5,total:6,pct:83,motivos:[]},
+      {n:3,nombre:"Construcción",estado:"now",sig:"now",gate:true,objetivo:"2026-08-18",dias:13,retrasada:false,enRiesgo:true,rezagada:false,bloqueada:false,flujo:"normal",pendientes:6,hechas:8,total:14,pct:57,motivos:[]},
+      {n:4,nombre:"Entrega",estado:"todo",sig:"todo",gate:false,objetivo:null,dias:null,retrasada:false,enRiesgo:false,rezagada:false,bloqueada:false,flujo:"normal",pendientes:11,hechas:0,total:11,pct:0,motivos:[]}
+    ],
+    obstaculos:[{txt:"Integración pendiente de credenciales del cliente",sev:"hi",fase:3}],
+    bloqueadas:[], enCola:[2], retrasadas:[2], kpis:{definidos:false,items:[]}
+  };
+
+  var D = window.__ROADMAP__ || SAMPLE;
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+
+  var m = D.meta || {}, rag = D.rag || {}, h = D.hoy || {};
+  var paradas = D.paradas || [], obst = D.obstaculos || [];
+  var bloq = D.bloqueadas || [], cola = D.enCola || [], retr = D.retrasadas || [];
+  var cerradas = paradas.filter(function(p){ return p.estado === 'done'; }).length;
+  var pos = Math.max(3, Math.min(97, Number(h.pct) || 0));
+  var actual = paradas.find(function(p){ return p.estado === 'now'; }) || {};
+
+  // Fecha en lenguaje llano: "en 13 días" comunica mejor que una fecha suelta.
+  function fecha(p){
+    if (p.estado === 'done') return p.objetivo ? 'Cerrada · ' + p.objetivo : 'Cerrada';
+    if (!p.objetivo) return 'Sin fecha objetivo';
+    if (p.dias === null) return p.objetivo;
+    if (p.dias < 0) return p.objetivo + ' · ' + Math.abs(p.dias) + ' d de retraso';
+    if (p.dias === 0) return p.objetivo + ' · hoy';
+    return p.objetivo + ' · en ' + p.dias + ' d';
+  }
+  function chip(p){
+    if (p.bloqueada) return '<span class="chip crit">Bloquea</span>';
+    if (p.retrasada) return '<span class="chip warn">Fuera de plazo</span>';
+    if (p.flujo === 'cola') return '<span class="chip warn">Por cerrar</span>';
+    if (p.enRiesgo) return '<span class="chip warn">Vence pronto</span>';
+    return '';
+  }
+  function prog(p){
+    if (!p.total) return '';
+    return '<div class="prog"><span>' + esc(p.hechas) + ' de ' + esc(p.total) + ' tareas</span>'
+         + '<span>' + esc(p.pct) + '%</span></div>'
+         + '<div class="barra"><i style="width:' + esc(p.pct) + '%"></i></div>';
+  }
+
+  var bloqueos = [];
+  paradas.forEach(function(p){
+    (p.motivos || []).forEach(function(mt){ bloqueos.push({fase:p.n, nombre:p.nombre, txt:mt, crit:true}); });
+  });
+  var pendientes = paradas.filter(function(p){ return p.flujo === 'cola'; });
+
+  var html = ''
+    + '<header>'
+    +   '<div>'
+    +     '<div class="eyebrow">Hoja de ruta</div>'
+    +     '<h1>' + esc(m.nombre) + '</h1>'
+    +     '<div class="sub">' + esc(D.avance && D.avance.nota ? D.avance.nota : '') + (m.owner ? ' · ' + esc(m.owner) : '') + '</div>'
+    +   '</div>'
+    +   '<div class="salud ' + esc(rag.nivel || '') + '">'
+    +     '<span class="bola"></span><span class="frase">' + esc(rag.frase || '') + '</span>'
+    +   '</div>'
+    + '</header>'
+
+    + '<div class="stats">'
+    +   '<div class="stat"><div class="v">' + esc(h.pct) + '%</div><div class="n">Avance</div>'
+    +     '<div class="h">' + esc(cerradas) + ' de ' + esc(m.fasesTotal || paradas.length) + ' fases cerradas</div></div>'
+    +   '<div class="stat"><div class="v">' + esc(actual.n || m.faseActual || '?') + '</div><div class="n">Fase en curso</div>'
+    +     '<div class="h">' + esc(actual.nombre || '—') + '</div></div>'
+    +   '<div class="stat"><div class="v' + (bloq.length ? ' crit' : ' ok') + '">' + esc(bloq.length) + '</div><div class="n">Bloquea</div>'
+    +     '<div class="h">' + (bloq.length ? 'fase ' + esc(bloq.join(', ')) + ' detenida' : 'nada detiene el avance') + '</div></div>'
+    +   '<div class="stat"><div class="v' + (cola.length ? ' warn' : ' ok') + '">' + esc(cola.length) + '</div><div class="n">Por cerrar</div>'
+    +     '<div class="h">' + (cola.length ? 'sin frenar el trabajo' : 'sin cabos sueltos') + '</div></div>'
+    + '</div>'
+
+    + '<div class="viaje">'
+    +   '<div class="lbl">Dónde estamos</div>'
+    +   '<div class="ruta' + (paradas.length >= 7 ? ' muchas' : '') + '">'
+    +     '<div class="via"><div class="hecho" style="width:' + pos + '%"></div>'
+    +       '<div class="punto" style="left:' + pos + '%"></div></div>'
+    +     '<div class="paradas">'
+    +       paradas.map(function(p){
+              var cls = ['fase', p.sig || 'todo', p.gate ? 'gate' : ''];
+              if (p.bloqueada && p.estado === 'now') cls.push('crit');
+              return '<div class="' + cls.filter(Boolean).join(' ') + '">'
+                + (p.estado === 'now' ? '<span class="aqui">Aquí estamos</span>' : '')
+                + '<div class="top"><span class="num">FASE ' + esc(p.n) + '</span><span class="marca"></span></div>'
+                + '<div class="nom" title="' + esc(p.nombre) + '">' + esc(p.nombre) + '</div>'
+                + '<div class="fecha">' + esc(fecha(p)) + '</div>'
+                + chip(p)
+                + prog(p)
+                + '</div>';
+            }).join('')
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+
+    + '<div class="base">'
+    +   '<div>'
+    +     '<div class="lbl">Qué nos frena</div>'
+    +     ((bloqueos.length || obst.length)
+            ? '<ul class="lista">'
+              + bloqueos.map(function(b){
+                  return '<li class="crit"><span class="pip"></span><span>' + esc(b.txt)
+                    + '<span class="donde">Bloquea la fase ' + esc(b.fase) + ' · ' + esc(b.nombre) + '</span></span></li>';
+                }).join('')
+              + obst.map(function(o){
+                  return '<li class="' + (o.sev === 'hi' ? 'crit' : '') + '"><span class="pip"></span><span>' + esc(o.txt)
+                    + (o.fase ? '<span class="donde">Riesgo abierto · fase ' + esc(o.fase) + '</span>' : '') + '</span></li>';
+                }).join('')
+              + '</ul>'
+            : '<div class="vacio">Nada detiene el trabajo ahora mismo.</div>')
+    +   '</div>'
+    +   '<div>'
+    +     '<div class="lbl">Queda por cerrar</div>'
+    +     (pendientes.length
+            ? '<ul class="lista">' + pendientes.map(function(p){
+                return '<li><span class="pip"></span><span>' + esc(p.nombre)
+                  + '<span class="donde">Fase ' + esc(p.n) + ' · ' + esc(p.pendientes) + ' de ' + esc(p.total)
+                  + ' tareas abiertas — el trabajo ya avanza en la fase ' + esc(m.faseActual) + '</span></span></li>';
+              }).join('') + '</ul>'
+            : '<div class="vacio">Sin fases pendientes de cerrar.</div>')
+    +   '</div>'
+    + '</div>'
+
+    + '<footer><span>Generado por FARO el ' + esc(m.fecha) + '</span><span></span></footer>';
+
+  document.getElementById('root').innerHTML = html;
+</script>
+</body>
+</html>

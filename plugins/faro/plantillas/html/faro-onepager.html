@@ -1,0 +1,277 @@
+<!--
+  faro-onepager.html — PLANTILLA del one-pager ejecutivo FARO.
+  Data-driven: se renderiza desde un objeto DATA. El harness (`harness.js onepager`)
+  calcula el modelo desde ESTADO.md + risks.md + kpis.md e inyecta:
+      <script>window.__ONEPAGER__ = { ... };</script>
+  reemplazando el marcador /*__DATA__*/ de abajo. Si abres esta plantilla SIN datos,
+  muestra un EJEMPLO para ver el formato. NO editar datos aquí; el diseño sí.
+  Paleta neutra FARO: tinta #1f2933 + acento azul pizarra #2f5d8a (coherente con faro-documento/presentacion).
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One-pager ejecutivo · FARO</title>
+<style>
+  :root{
+    --navy:#1f2933; --cyan:#2f5d8a; --cyan-2:#6b97c2;
+    --paper:#e9eef5; --sheet:#ffffff; --card:#f6f9fc;
+    --ink:#1f2933; --muted:#53617a; --faint:#8b97ad; --line:#dde6f1;
+    --ok:#188a5f; --ok-bg:#e6f5ee; --ok-line:#bfe6d3;
+    --warn:#c67d17; --warn-bg:#fbf1dc; --warn-line:#efd9a8;
+    --crit:#bb3a31; --crit-bg:#fbe6e4; --crit-line:#efc3bf;
+    --accent:var(--cyan);
+    --shadow:0 1px 2px rgba(31,41,51,.06), 0 8px 24px rgba(31,41,51,.06);
+    --mono:"Cascadia Code",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#121518; --sheet:#1b2025; --card:#232a31;
+      --ink:#e8ecf0; --muted:#a9b3bd; --faint:#76808a; --line:#343d47;
+      --ok:#43c98d; --ok-bg:#0e2a20; --ok-line:#1d4a38;
+      --warn:#e0a13c; --warn-bg:#2b2110; --warn-line:#4c3c1a;
+      --crit:#e56258; --crit-bg:#2c1513; --crit-line:#512622;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#e9eef5; --sheet:#ffffff; --card:#f6f9fc; --ink:#1f2933; --muted:#53617a; --faint:#8b97ad; --line:#dde6f1;
+    --ok:#188a5f; --ok-bg:#e6f5ee; --ok-line:#bfe6d3; --warn:#c67d17; --warn-bg:#fbf1dc; --warn-line:#efd9a8;
+    --crit:#bb3a31; --crit-bg:#fbe6e4; --crit-line:#efc3bf;
+    --shadow:0 1px 2px rgba(31,41,51,.06), 0 8px 24px rgba(31,41,51,.06);
+  }
+  :root[data-theme="dark"]{
+    --paper:#121518; --sheet:#1b2025; --card:#232a31; --ink:#e8ecf0; --muted:#a9b3bd; --faint:#76808a; --line:#343d47;
+    --ok:#43c98d; --ok-bg:#0e2a20; --ok-line:#1d4a38; --warn:#e0a13c; --warn-bg:#2b2110; --warn-line:#4c3c1a;
+    --crit:#e56258; --crit-bg:#2c1513; --crit-line:#512622;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.45;-webkit-font-smoothing:antialiased;padding:24px}
+  .sheet{max-width:1180px;margin:0 auto;background:var(--sheet);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .lbl{font-family:var(--mono);font-size:.63rem;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .num{font-variant-numeric:tabular-nums}
+  header.bluf{display:grid;grid-template-columns:1fr auto;gap:18px;padding:20px 24px 18px;background:linear-gradient(180deg,color-mix(in srgb,var(--navy) 5%,var(--sheet)),var(--sheet));border-bottom:2px solid var(--navy)}
+  :root[data-theme="dark"] header.bluf{border-bottom-color:var(--cyan)}
+  @media (prefers-color-scheme:dark){header.bluf{border-bottom-color:var(--cyan)}}
+  .brand-mark{font-family:var(--mono);font-size:.78rem;font-weight:800;letter-spacing:.2em;color:var(--navy);margin-bottom:11px}
+  :root[data-theme="dark"] .brand-mark{color:var(--ink)}
+  @media (prefers-color-scheme:dark){.brand-mark{color:var(--ink)}}
+  :root[data-theme="light"] .brand-mark{color:var(--navy)}
+  .eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:7px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:.64rem;font-weight:600;letter-spacing:.04em;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--card)}
+  .chip.k{border-color:color-mix(in srgb,var(--cyan) 45%,var(--line));color:color-mix(in srgb,var(--cyan) 70%,var(--ink))}
+  h1{margin:0;font-size:1.7rem;font-weight:800;letter-spacing:-.015em;text-wrap:balance}
+  .obj{margin:6px 0 0;color:var(--muted);font-size:.92rem;max-width:62ch}
+  .rag{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:4px;text-align:right;min-width:150px}
+  .rag .dot{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:1.02rem;letter-spacing:-.01em;padding:8px 14px;border-radius:11px;border:1px solid}
+  .rag .dot::before{content:"";width:13px;height:13px;border-radius:50%;box-shadow:0 0 0 4px color-mix(in srgb,currentColor 18%,transparent)}
+  .rag .verde{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+  .rag .ambar{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+  .rag .rojo{color:var(--crit);background:var(--crit-bg);border-color:var(--crit-line)}
+  .rag .note{font-size:.72rem;color:var(--faint)}
+  /* auto-fit: envuelve con CUALQUIER numero de dimensiones/fases (4, 5, 7…) en vez de comprimirlas. */
+  .dims{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+  .dim{background:var(--sheet);padding:12px 18px;display:flex;align-items:center;gap:11px}
+  .dim .sig{width:11px;height:11px;border-radius:50%;flex:none;margin-top:1px}
+  .sig.ok{background:var(--ok)} .sig.warn{background:var(--warn)} .sig.crit{background:var(--crit)}
+  .dim .t b{display:block;font-size:.9rem}
+  .dim .t span{font-size:.74rem;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+  .col{background:var(--sheet);padding:18px 22px;display:flex;flex-direction:column;gap:17px}
+  .block > .lbl{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .block > .lbl::after{content:"";flex:1;height:1px;background:var(--line)}
+  .prog{display:flex;align-items:baseline;gap:10px;margin-bottom:9px}
+  .prog .big{font-size:1.85rem;font-weight:800;letter-spacing:-.02em}
+  .prog small{color:var(--muted);font-size:.8rem}
+  .phases{display:flex;gap:5px}
+  .ph{flex:1;height:8px;border-radius:4px;background:var(--card);border:1px solid var(--line);overflow:hidden}
+  .ph.done{background:var(--ok);border-color:var(--ok)}
+  .ph.now{background:linear-gradient(90deg,var(--cyan) 55%,var(--card) 55%);border-color:color-mix(in srgb,var(--cyan) 50%,var(--line))}
+  .phlabels{display:flex;gap:5px;margin-top:6px}
+  .phlabels span{flex:1;font-size:.64rem;color:var(--faint);text-align:center;font-family:var(--mono)}
+  .phlabels span.cur{color:var(--cyan);font-weight:700}
+  ul.mile{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+  ul.mile li{display:flex;align-items:center;gap:10px;font-size:.86rem}
+  ul.mile .d{font-family:var(--mono);font-size:.74rem;color:var(--ink);background:var(--card);border:1px solid var(--line);padding:2px 7px;border-radius:6px;flex:none;font-variant-numeric:tabular-nums}
+  ul.mile .d.hot{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+  .kpis-empty{border:1px dashed var(--warn-line);background:var(--warn-bg);border-radius:10px;padding:13px 15px}
+  .kpis-empty b{color:var(--warn);font-size:.9rem}
+  .kpis-empty p{margin:4px 0 0;font-size:.8rem;color:var(--muted)}
+  .kpi-row{display:flex;flex-direction:column;gap:8px}
+  .kpi-item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:9px 12px;background:var(--card);border:1px solid var(--line);border-radius:9px}
+  .kpi-item .kn{font-size:.84rem;font-weight:700}
+  .kpi-item .kv{font-family:var(--mono);font-size:.82rem;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+  .kpi-item .ko{grid-column:1/-1;font-size:.72rem;color:var(--muted)}
+  .derived{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:11px}
+  .kcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .kcard .v{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+  .kcard .n{font-size:.72rem;color:var(--muted);margin-top:2px}
+  ul.risk{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  ul.risk li{display:grid;grid-template-columns:auto 1fr;gap:11px;padding:9px 11px;border-radius:9px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line)}
+  ul.risk li.hi{border-left-color:var(--crit)} ul.risk li.md{border-left-color:var(--warn)}
+  ul.risk .id{font-family:var(--mono);font-weight:700;font-size:.74rem;color:var(--muted)}
+  ul.risk .tx{font-size:.82rem;line-height:1.35}
+  ul.risk .tx b{color:var(--ink)}
+  .sev{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:5px;margin-left:6px;vertical-align:1px}
+  .sev.hi{color:var(--crit);background:var(--crit-bg)} .sev.md{color:var(--warn);background:var(--warn-bg)}
+  .decisions{background:linear-gradient(180deg,color-mix(in srgb,var(--cyan) 7%,var(--sheet)),var(--sheet));border:1px solid color-mix(in srgb,var(--cyan) 30%,var(--line));border-radius:11px;padding:15px 17px}
+  .decisions > .lbl{color:color-mix(in srgb,var(--cyan) 72%,var(--ink))}
+  .decisions > .lbl::after{background:color-mix(in srgb,var(--cyan) 25%,var(--line))}
+  ol.dec{list-style:none;counter-reset:d;margin:11px 0 0;padding:0;display:flex;flex-direction:column;gap:11px}
+  ol.dec li{counter-increment:d;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+  ol.dec li::before{content:counter(d);font-family:var(--mono);font-weight:800;font-size:.82rem;color:var(--cyan);background:var(--card);border:1.5px solid color-mix(in srgb,var(--cyan) 40%,var(--line));width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:none}
+  ol.dec .q{font-size:.86rem;font-weight:700;line-height:1.3}
+  ol.dec .m{font-size:.76rem;color:var(--muted);margin-top:2px}
+  ol.dec .who{font-family:var(--mono);font-size:.66rem;color:var(--faint)}
+  .empty-soft{font-size:.8rem;color:var(--faint);font-style:italic}
+  footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:12px 24px;border-top:1px solid var(--line);background:var(--card);font-size:.72rem;color:var(--muted)}
+  footer .grow{flex:1}
+  footer code{font-family:var(--mono);color:var(--ink);background:var(--sheet);border:1px solid var(--line);padding:1px 6px;border-radius:5px;font-size:.7rem}
+  footer .adapt{color:var(--faint)}
+  footer b{color:var(--ink)}
+  /* --- AJUSTE DE TEXTO: los hijos de grid/flex deben poder encogerse (min-width:0) para que el texto ROMPA en vez de cortarse/desbordar --- */
+  .sheet, .grid, .col, .block, header.bluf, header.bluf > div, .dims, .dim, .dim .t,
+  ul.risk li, ul.risk li > .tx, ol.dec li, ol.dec li > div,
+  .kpi-item, .kpi-item > .kn, ul.mile li, .rag{min-width:0}
+  .obj, .tx, .q, .m, .kn, .kv, .kpis-empty p, .derived .n, .dim .t span,
+  .rag .note, .chip, ul.mile li, .empty-soft{overflow-wrap:break-word; word-break:break-word; hyphens:auto}
+  ul.mile li{flex-wrap:wrap}
+  @media (max-width:760px){.dims{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}header.bluf{grid-template-columns:1fr}.rag{align-items:flex-start;text-align:left}.derived{grid-template-columns:1fr 1fr}}
+  /* ---- IMPRESION / PDF (A4 horizontal) ----
+     Sin print-color-adjust, Chrome ELIMINA los fondos de color al imprimir: el semaforo RAG, las
+     barras de fase y los chips de severidad salian en blanco — justo lo que se lee de un vistazo.
+     Sin break-inside, una card se parte entre paginas. Sin max-width, una tabla o una URL larga
+     desborda el ancho del papel y se recorta. Los tres son imprescindibles aqui: este documento
+     nace para imprimirse a PDF y mandarse a direccion. */
+  @media print{
+    body{background:#fff;padding:0}
+    .sheet{box-shadow:none;border:none;border-radius:0;max-width:none}
+    @page{size:A4 landscape;margin:10mm}
+    /* que los colores lleguen al PDF */
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+    /* nada se parte por la mitad */
+    .block,.kpi-item,ul.risk li,ol.dec li,.dim,.derived > *{break-inside:avoid;page-break-inside:avoid}
+    .col{break-inside:auto}
+    /* sin desbordes horizontales */
+    table{width:100%;table-layout:fixed}
+    td,th,li,p{overflow-wrap:anywhere;word-break:break-word}
+    img,svg{max-width:100% !important;height:auto}
+    /* la animacion del punto RAG no aporta en papel y puede dejar halos */
+    .rag .dot::before{animation:none !important;box-shadow:none !important}
+  }
+  /* En pantalla tambien: una URL larga o una tabla ancha no deben romper el layout. */
+  .block,.kpi-item,ul.risk li,ol.dec li{overflow-wrap:anywhere}
+  img,svg{max-width:100%;height:auto}
+  @media (prefers-reduced-motion:no-preference){.rag .dot::before{animation:pulse 2.4s ease-in-out infinite}}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px color-mix(in srgb,currentColor 18%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in srgb,currentColor 6%,transparent)}}
+</style>
+</head>
+<body>
+<div class="sheet" id="root"></div>
+
+<script>window.__ONEPAGER__ = null; /*__DATA__*/</script>
+<script>
+  // ---- EJEMPLO (solo si abres la plantilla sin datos inyectados) ----
+  var SAMPLE = {
+    meta:{nombre:"Nombre del trabajo",tipo:"proyecto",entidad:"proyecto",domain:"operaciones",owner:"usuario",faseActual:2,fasesTotal:4,faseNombre:"En curso",fecha:"AAAA-MM-DD",objetivo:"Objetivo del trabajo en una frase."},
+    rag:{nivel:"ambar",label:"ÁMBAR",frase:"Estado global derivado de riesgos, plazo y KPIs."},
+    dims:[{k:"Alcance",sig:"ok",nota:"—"},{k:"Plazo",sig:"ok",nota:"—"},{k:"Coste",sig:"warn",nota:"—"},{k:"Riesgo",sig:"crit",nota:"—"}],
+    avance:{pct:25,nota:"1 de 4 fases cerradas",fases:[{n:1,nombre:"Fase 1",estado:"done"},{n:2,nombre:"Fase 2",estado:"now"},{n:3,nombre:"Fase 3",estado:"todo"},{n:4,nombre:"Fase 4",estado:"todo"}]},
+    hitos:[{fecha:"AAAA-MM-DD",txt:"Hito de la fase en curso",hot:true}],
+    kpis:{definidos:false,pendienteMsg:"Sin KPIs de negocio definidos en gestion/kpis.md.",items:[],derivados:[{v:"25%",n:"avance por fases"},{v:"1/4",n:"fases cerradas"},{v:"0",n:"KPIs definidos"}]},
+    riesgos:{abiertos:0,total:0,top:[]},
+    decisiones:[],
+    adaptativo:{tipoLabel:"proyecto",notaPie:"Adaptativo por tipo: proyecto muestra fases · RAID · KPIs; worker/app mostraría gates · tests · despliegue; iniciativa, OKRs · discovery."}
+  };
+  var D = window.__ONEPAGER__ || SAMPLE;
+  var esc = function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+
+  function bluf(){
+    var m=D.meta, r=D.rag;
+    var chips=[["k","tipo · "+m.tipo]];
+    if(m.domain) chips.push(["","",m.domain]);
+    var chipHtml=
+      '<span class="chip k">tipo · '+esc(m.tipo)+'</span>'+
+      (m.domain?'<span class="chip">'+esc(m.domain)+'</span>':'')+
+      '<span class="chip">Fase '+esc(m.faseActual)+' / '+esc(m.fasesTotal)+(m.faseNombre?' · '+esc(m.faseNombre):'')+'</span>'+
+      (m.owner?'<span class="chip">owner · '+esc(m.owner)+'</span>':'');
+    return '<header class="bluf"><div>'+
+      '<div class="brand-mark">FARO</div>'+
+      '<div class="eyebrow">'+chipHtml+'</div>'+
+      '<h1>'+esc(m.nombre)+'</h1>'+
+      (m.objetivo?'<p class="obj">'+esc(m.objetivo)+'</p>':'')+
+      '</div><div class="rag"><span class="lbl">Estado global</span>'+
+      '<span class="dot '+esc(r.nivel)+'">'+esc(r.label)+'</span>'+
+      (r.frase?'<span class="note">'+esc(r.frase)+'</span>':'')+'</div></header>';
+  }
+  function dims(){
+    if(!D.dims||!D.dims.length) return '';
+    return '<section class="dims">'+D.dims.map(function(d){
+      return '<div class="dim"><span class="sig '+esc(d.sig)+'"></span><div class="t"><b>'+esc(d.k)+'</b><span>'+esc(d.nota)+'</span></div></div>';
+    }).join('')+'</section>';
+  }
+  function avance(){
+    var a=D.avance; if(!a) return '';
+    var bars=a.fases.map(function(f){return '<div class="ph '+(f.estado==="done"?"done":f.estado==="now"?"now":"")+'"></div>';}).join('');
+    var labs=a.fases.map(function(f){return '<span'+(f.estado==="now"?' class="cur"':'')+'>'+esc(f.n)+' · '+esc(f.nombre)+'</span>';}).join('');
+    return '<div class="block"><div class="lbl">Avance del proyecto</div>'+
+      '<div class="prog"><span class="big num">'+esc(a.pct)+'%</span><small>'+esc(a.nota)+'</small></div>'+
+      '<div class="phases">'+bars+'</div><div class="phlabels">'+labs+'</div></div>';
+  }
+  function hitos(){
+    if(!D.hitos||!D.hitos.length) return '<div class="block"><div class="lbl">Hitos y fechas</div><p class="empty-soft">Sin fechas objetivo declaradas en las fases.</p></div>';
+    return '<div class="block"><div class="lbl">Hitos y fechas</div><ul class="mile">'+
+      D.hitos.map(function(h){return '<li><span class="d'+(h.hot?' hot':'')+'">'+esc(h.fecha)+'</span> '+esc(h.txt)+'</li>';}).join('')+
+      '</ul></div>';
+  }
+  function kpis(){
+    var k=D.kpis; if(!k) return '';
+    var head='<div class="block"><div class="lbl">KPIs de negocio</div>';
+    var body='';
+    if(!k.definidos){
+      body='<div class="kpis-empty"><b>⚠ Sin definir todavía ('+(k.items?k.items.length:0)+' KPIs)</b><p>'+esc(k.pendienteMsg||"")+'</p></div>';
+    } else {
+      body='<div class="kpi-row">'+k.items.map(function(it){
+        return '<div class="kpi-item"><div class="kn">'+esc(it.nombre)+'</div><div class="kv">'+esc(it.actual||"—")+'</div>'+
+          '<div class="ko">objetivo: '+esc(it.obj||"?")+(it.estado?' · '+esc(it.estado):'')+'</div></div>';
+      }).join('')+'</div>';
+    }
+    var der = (k.derivados&&k.derivados.length)?'<div class="derived">'+k.derivados.map(function(c){
+      return '<div class="kcard"><div class="v num">'+esc(c.v)+'</div><div class="n">'+esc(c.n)+'</div></div>';
+    }).join('')+'</div>':'';
+    return head+body+der+'</div>';
+  }
+  function riesgos(){
+    var r=D.riesgos; if(!r) return '';
+    var head='<div class="block"><div class="lbl">Top riesgos (RAID)'+(r.total?' · '+esc(r.abiertos)+' abiertos de '+esc(r.total):'')+'</div>';
+    if(!r.top||!r.top.length) return head+'<p class="empty-soft">Sin riesgos registrados en gestion/risks.md.</p></div>';
+    return head+'<ul class="risk">'+r.top.map(function(x){
+      return '<li class="'+esc(x.sev)+'"><span class="id">'+esc(x.id)+'</span><div class="tx"><b>'+esc(x.txt)+'</b>'+
+        (x.tag?'<span class="sev '+esc(x.sev)+'">'+esc(x.tag)+'</span>':'')+'</div></li>';
+    }).join('')+'</ul></div>';
+  }
+  function decisiones(){
+    var ds=D.decisiones||[];
+    var head='<div class="decisions"><div class="lbl">Decisiones para dirección</div>';
+    if(!ds.length) return head+'<p class="empty-soft" style="margin-top:9px">Sin decisiones pendientes marcadas. (Se derivan de riesgos bloqueados / a decidir en risks.md.)</p></div>';
+    return head+'<ol class="dec">'+ds.map(function(d){
+      return '<li><div><div class="q">'+esc(d.q)+'</div><div class="m">'+esc(d.m)+(d.who?' <span class="who">'+esc(d.who)+'</span>':'')+'</div></div></li>';
+    }).join('')+'</ol></div>';
+  }
+  function foot(){
+    var a=D.adaptativo||{};
+    return '<footer><span class="lbl">Generado por</span> <code>harness.js onepager</code>'+
+      '<span class="adapt">— datos de ESTADO.md + risks.md + kpis.md, sin edición manual</span>'+
+      '<span class="grow"></span>'+
+      (a.notaPie?'<span class="adapt">'+esc(a.notaPie)+'</span>':'')+
+      '<span class="lbl num">actualizado '+esc(D.meta.fecha||"")+'</span></footer>';
+  }
+  document.getElementById('root').innerHTML =
+    bluf()+dims()+'<div class="grid"><div class="col">'+avance()+hitos()+kpis()+
+    '</div><div class="col">'+riesgos()+decisiones()+'</div></div>'+foot();
+</script>
+</body>
+</html>

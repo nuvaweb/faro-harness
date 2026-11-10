@@ -1,0 +1,26 @@
+# CI del motor faro en GitLab (espejo secundario del origen en GitHub; .github/workflows/ci.yml es el
+# pipeline del remoto principal). La suite corre EN SERIE (npm test = --test-concurrency=1): en paralelo
+# los tests con operaciones git reales se agotaban bajo carga y la suite salia roja de forma intermitente.
+#
+# Solo Linux en los runners compartidos de gitlab.com. Windows y macOS los cubren los desarrolladores
+# en local (el equipo mezcla los tres): un job de Windows/macOS que no tenga runner disponible en el plan
+# se queda "pending" para siempre y bloquea la MR, que es peor que no tenerlo.
+stages: [test]
+
+test:linux:
+  stage: test
+  image: node:22
+  variables:
+    GIT_DEPTH: "0"          # los tests de release/tag leen etiquetas: sin historial completo fallan
+    GIT_TERMINAL_PROMPT: "0"
+  before_script:
+    - git config --global user.email "ci@faro.local"
+    - git config --global user.name "faro-ci"
+    - git config --global commit.gpgsign false
+    - node --version
+  script:
+    - npm test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"

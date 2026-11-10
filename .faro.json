@@ -1,0 +1,434 @@
+{
+  "tests": {
+    "comando": "node --test",
+    "afinar": true,
+    "entradas": [
+      "plugins/faro/hooks/harness.js"
+    ],
+    "codigo": [
+      "plugins/faro/hooks/**/*.js",
+      "scripts/**/*.js"
+    ],
+    "dominios": {
+      "tareas": {
+        "descripcion": "Registro estructurado de tareas (gestion/tareas/*.json): esquema, migración, índice de ESTADO y comandos de tarea",
+        "codigo": [
+          "plugins/faro/hooks/lib/tarea.js",
+          "plugins/faro/hooks/lib/tarea-cli.js",
+          "plugins/faro/hooks/lib/tareas-json.js",
+          "plugins/faro/hooks/lib/tareas-legacy.js",
+          "plugins/faro/hooks/lib/tareas-migracion.js",
+          "plugins/faro/hooks/lib/resumen-json.js",
+          "plugins/faro/hooks/lib/validador-json.js",
+          "plugins/faro/hooks/lib/estado-indice.js",
+          "plugins/faro/hooks/lib/fases-lite.js",
+          "plugins/faro/hooks/lib/ficha.js",
+          "plugins/faro/hooks/lib/tarea-sync.js",
+          "plugins/faro/hooks/lib/campos-issue.js",
+          "plugins/faro/hooks/lib/flag-hito.js"
+        ],
+        "tests": [
+          "test/tarea-cableado.test.mjs",
+          "test/tarea-reconciliar.test.mjs",
+          "test/tareas-json.test.mjs",
+          "test/tareas-json-migracion.test.mjs",
+          "test/mover-tarea.test.mjs",
+          "test/bandeja-entrada.test.mjs",
+          "test/estado-indice-de-issues.test.mjs",
+          "test/estado-migrado-valida.test.mjs",
+          "test/aviso-migrar-tareas.test.mjs",
+          "test/asignar-tarea-cableado.test.mjs",
+          "test/tareas-ancladas-al-ciclo.test.mjs",
+          "test/tareas-locales-sync.test.mjs",
+          "test/campos-issue.test.mjs",
+          "test/anclar-con-hito.test.mjs"
+        ]
+      },
+      "ciclo-spec": {
+        "descripcion": "Ciclo spec-driven: issue → cambio → requisitos → Evidencia; cierre de fases, plantillas de issue, EARS, épicas",
+        "codigo": [
+          "plugins/faro/hooks/lib/ciclo.js",
+          "plugins/faro/hooks/lib/ears.js",
+          "plugins/faro/hooks/lib/specs.js",
+          "plugins/faro/hooks/lib/tipos.js",
+          "plugins/faro/hooks/lib/digestion.js"
+        ],
+        "tests": [
+          "test/cambio-ligado-a-su-decision.test.mjs",
+          "test/cambio-ligado-a-su-issue.test.mjs",
+          "test/cerrar-fase.test.mjs",
+          "test/cerrar-fase-comando.test.mjs",
+          "test/cierre-degradacion-honesta.test.mjs",
+          "test/cierre-forzoso-fase.test.mjs",
+          "test/completar-plantilla.test.mjs",
+          "test/desajuste-estado-forja.test.mjs",
+          "test/digestion.test.mjs",
+          "test/ears.test.mjs",
+          "test/estado-formato-garantizado.test.mjs",
+          "test/evidencia-tras-escenarios.test.mjs",
+          "test/issue-amplio-y-cierre-de-ciclo.test.mjs",
+          "test/issue-estructura.test.mjs",
+          "test/issue-obligatorio-y-publicar.test.mjs",
+          "test/marcador-pm.test.mjs",
+          "test/plantilla-bug.test.mjs",
+          "test/plantilla-por-tipo.test.mjs",
+          "test/registro-observado.test.mjs",
+          "test/spec-viva-con-evidencia.test.mjs",
+          "test/terminar-cierra-el-ciclo.test.mjs",
+          "test/tipo-por-etiqueta.test.mjs",
+          "test/gestion-no-pide-issue.test.mjs",
+          "test/adr-secciones.test.mjs",
+          "test/adr-superseded-by.test.mjs",
+          "test/pr-exige-issue-si-toca-codigo.test.mjs"
+        ]
+      },
+      "estado": {
+        "descripcion": "ESTADO.md, onboarding y frescura: lectura/escritura del estado de la iniciativa y del repo",
+        "codigo": [
+          "plugins/faro/hooks/lib/estado.js",
+          "plugins/faro/hooks/lib/frescura.js",
+          "plugins/faro/hooks/lib/kpis.js",
+          "plugins/faro/hooks/lib/guardas.js",
+          "plugins/faro/hooks/lib/riesgos-ia.js"
+        ],
+        "tests": [
+          "test/doc-check-invalidar-estado.test.mjs",
+          "test/escribir-estado.test.mjs",
+          "test/root-desde-subdirectorio.test.mjs",
+          "test/fecha-objetivo-en-hitos.test.mjs",
+          "test/onboarding.test.mjs",
+          "test/plataformas-declarables.test.mjs",
+          "test/onboarding-arranque-ordenado.test.mjs",
+          "test/repo-sin-adoptar.test.mjs",
+          "test/catalogo-ligero.test.mjs",
+          "test/gaps-rol-cache-topes.test.mjs",
+          "test/motor-directiva-ciclo.test.mjs",
+          "test/riesgos-ia.test.mjs"
+        ]
+      },
+      "contexto": {
+        "descripcion": "Contexto mínimo de sesión y navegación por referencias bajo demanda",
+        "codigo": [
+          "plugins/faro/hooks/lib/contexto.js",
+          "plugins/faro/hooks/lib/navegacion.js",
+          "plugins/faro/hooks/lib/referencias.js",
+          "plugins/faro/hooks/lib/grafo.js",
+          "plugins/faro/hooks/lib/ir-cli.js"
+        ],
+        "tests": [
+          "test/contexto-minimo.test.mjs",
+          "test/optimizacion-contexto.test.mjs",
+          "test/guardas-recontexto.test.mjs",
+          "test/referencias.test.mjs",
+          "test/grafo-cableado.test.mjs",
+          "test/motor-prompt-sin-bloque-fijo.test.mjs"
+        ]
+      },
+      "forja": {
+        "descripcion": "Adaptadores de forja (GitHub/GitLab), credenciales e hitos",
+        "codigo": [
+          "plugins/faro/hooks/lib/forge.js",
+          "plugins/faro/hooks/lib/forge-contrato.js",
+          "plugins/faro/hooks/lib/forge-intencion.js",
+          "plugins/faro/hooks/lib/hito-destino.js",
+          "plugins/faro/hooks/lib/forge-gitlab.js",
+          "plugins/faro/hooks/lib/forge-gitlab-equipo.js",
+          "plugins/faro/hooks/lib/forge-gitlab-gestion.js",
+          "plugins/faro/hooks/lib/forge-gitlab-proyecto.js",
+          "plugins/faro/hooks/lib/forge-gitlab-tareas.js",
+          "plugins/faro/hooks/lib/github.js",
+          "plugins/faro/hooks/lib/github-clave.js",
+          "plugins/faro/hooks/lib/github-contrato.js",
+          "plugins/faro/hooks/lib/github-gestion.js",
+          "plugins/faro/hooks/lib/github-identidad.js",
+          "plugins/faro/hooks/lib/github-tareas.js",
+          "plugins/faro/hooks/lib/credenciales.js",
+          "plugins/faro/hooks/lib/hito-version.js"
+        ],
+        "tests": [
+          "test/forge-atomico-timeouts.test.mjs",
+          "test/forja-cimiento.test.mjs",
+          "test/forja-contrato.test.mjs",
+          "test/forja-declarada.test.mjs",
+          "test/forja-local.test.mjs",
+          "test/forja-marketplace-premium.test.mjs",
+          "test/github-gestion.test.mjs",
+          "test/gitlab-equipo-directo.test.mjs",
+          "test/gitlab-gestion.test.mjs",
+          "test/gitlab-pr-api.test.mjs",
+          "test/almacen-credenciales-aislado.test.mjs",
+          "test/credenciales-concurrencia.test.mjs",
+          "test/credenciales-refresh.test.mjs",
+          "test/hito-auditar-repo-correcto.test.mjs",
+          "test/hito-cerrar-valida.test.mjs",
+          "test/auditar-issues-sin-hito.test.mjs",
+          "test/fases-llegan-al-adaptador.test.mjs",
+          "test/schema-ruta.test.mjs",
+          "test/wrangler-repo-url.test.mjs",
+          "test/integrar-por-api.test.mjs"
+        ]
+      },
+      "git-ramas": {
+        "descripcion": "Ramas, PRs, consolidación y protección de ramas",
+        "codigo": [
+          "plugins/faro/hooks/lib/git.js",
+          "plugins/faro/hooks/lib/ramas.js",
+          "plugins/faro/hooks/lib/worktrees.js",
+          "plugins/faro/hooks/lib/base.js",
+          "plugins/faro/hooks/lib/sincronizar.js",
+          "plugins/faro/hooks/lib/atomico.js",
+          "plugins/faro/hooks/lib/paths.js",
+          "plugins/faro/hooks/lib/subir.js",
+          "plugins/faro/hooks/lib/consolidar.js"
+        ],
+        "tests": [
+          "test/consolidar.test.mjs",
+          "test/consolidar-sin-versionar.test.mjs",
+          "test/desfase-integracion.test.mjs",
+          "test/pr-cierra-su-issue.test.mjs",
+          "test/pr-crear-publica-rama.test.mjs",
+          "test/rama-acompana.test.mjs",
+          "test/rama-actual-barata.test.mjs",
+          "test/refs-no-cierra-por-rama.test.mjs",
+          "test/squash-merge.test.mjs",
+          "test/sincronizar.test.mjs",
+          "test/motor-protege-ramas.test.mjs",
+          "test/hooks-en-worktrees.test.mjs",
+          "test/worktrees-limpieza.test.mjs",
+          "test/publicar-confirmacion.test.mjs",
+          "test/subir-con-token.test.mjs",
+          "test/consolidar-seleccion.test.mjs"
+        ],
+        "lento": [
+          "test/consolidar.test.mjs"
+        ]
+      },
+      "release": {
+        "descripcion": "Versionado, CHANGELOG y publicación (develop → main)",
+        "codigo": [
+          "plugins/faro/hooks/lib/release.js"
+        ],
+        "tests": [
+          "test/changelog-keep-a-changelog.test.mjs",
+          "test/motor-changelog-coherencia.test.mjs",
+          "test/publicar-tag.test.mjs",
+          "test/release-bajo-demanda.test.mjs",
+          "test/release-desde-main.test.mjs",
+          "test/release-en-la-forja.test.mjs",
+          "test/release-por-app.test.mjs",
+          "test/release-version-sugerida.test.mjs",
+          "test/repo-sin-version-aprueba.test.mjs"
+        ],
+        "lento": [
+          "test/publicar-tag.test.mjs"
+        ]
+      },
+      "codigo-apps": {
+        "descripcion": "Repos con código: apps de un monorepo, CI generado, gates, contrato y salud del código",
+        "codigo": [
+          "plugins/faro/hooks/lib/apps.js",
+          "plugins/faro/hooks/lib/apps-forja.js",
+          "plugins/faro/hooks/lib/code.js",
+          "plugins/faro/hooks/lib/generados.js",
+          "plugins/faro/hooks/lib/contrato.js",
+          "plugins/faro/hooks/lib/reconocer.js",
+          "plugins/faro/hooks/lib/monorepo.js",
+          "plugins/faro/hooks/lib/monorepo-gestion.js",
+          "plugins/faro/hooks/lib/monorepo-importar.js",
+          "plugins/faro/hooks/lib/monorepo-plan.js",
+          "plugins/faro/hooks/lib/app-nueva.js"
+        ],
+        "tests": [
+          "test/ci-generado.test.mjs",
+          "test/ci-pnpm.test.mjs",
+          "test/ci-vigente.test.mjs",
+          "test/gates-por-app.test.mjs",
+          "test/monorepo-apps.test.mjs",
+          "test/issues-monorepo.test.mjs",
+          "test/revisores-por-app.test.mjs",
+          "test/salud-codigo-generados.test.mjs",
+          "test/simulacro-despliegue.test.mjs",
+          "test/dev-vars-sensible.test.mjs",
+          "test/gate-planes.test.mjs",
+          "test/contrato-deriva.test.mjs",
+          "test/reconocer.test.mjs",
+          "test/monorepo-gestion.test.mjs",
+          "test/monorepo-importar.test.mjs",
+          "test/monorepo-init.test.mjs",
+          "test/monorepo-plan.test.mjs",
+          "test/monorepo-skill.test.mjs",
+          "test/app-nueva.test.mjs",
+          "test/validate-rapido.test.mjs"
+        ],
+        "lento": [
+          "test/gates-por-app.test.mjs",
+          "test/simulacro-despliegue.test.mjs"
+        ]
+      },
+      "alcance": {
+        "descripcion": "Restricciones de alcance: el agente solo escribe en el repo de la sesión",
+        "codigo": [
+          "plugins/faro/hooks/lib/alcance.js",
+          "plugins/faro/hooks/lib/orden-inocua.js"
+        ],
+        "tests": [
+          "test/restricciones-alcance.test.mjs",
+          "test/pre-bash-salida-temprana.test.mjs",
+          "test/gh-expande-org-y-repo.test.mjs"
+        ],
+        "lento": [
+          "test/restricciones-alcance.test.mjs"
+        ]
+      },
+      "tdd-tests": {
+        "descripcion": "TDD verificable y tests por dominio (este mismo servicio)",
+        "codigo": [
+          "plugins/faro/hooks/lib/tdd.js",
+          "plugins/faro/hooks/lib/dominios.js",
+          "plugins/faro/hooks/lib/validado.js",
+          "scripts/test-afectados.js"
+        ],
+        "tests": [
+          "test/tdd-verificable.test.mjs",
+          "test/dominios.test.mjs",
+          "test/tests-dominios-hooks.test.mjs",
+          "test/tests-motor-dominios.test.mjs",
+          "test/tests-trozos-y-apps.test.mjs",
+          "test/tests-validado.test.mjs",
+          "test/tests-sin-firma.test.mjs",
+          "test/tdd-monorepo-dominio-verde-app.test.mjs"
+        ],
+        "lento": [
+          "test/tdd-verificable.test.mjs"
+        ]
+      },
+      "triaje": {
+        "descripcion": "Triaje de bandeja y adjuntos",
+        "codigo": [
+          "plugins/faro/hooks/lib/triaje.js",
+          "plugins/faro/hooks/lib/adjuntos.js"
+        ],
+        "tests": [
+          "test/triaje.test.mjs",
+          "test/triaje-adjuntos.test.mjs",
+          "test/triaje-bug-no-se-descarta-por-alcance.test.mjs"
+        ]
+      },
+      "reporting": {
+        "descripcion": "Reporting: agregados, informe semanal y one-pager",
+        "codigo": [
+          "plugins/faro/hooks/lib/agregado.js",
+          "plugins/faro/hooks/lib/semanal.js",
+          "plugins/faro/hooks/lib/onepager.js",
+          "plugins/faro/hooks/lib/docx.js",
+          "plugins/faro/hooks/lib/reporte-negocio.js"
+        ],
+        "tests": [
+          "test/agregado-resumen.test.mjs",
+          "test/semanal-a-peticion.test.mjs",
+          "test/presentacion-sin-slide-en-blanco.test.mjs",
+          "test/reporte-negocio-docx.test.mjs",
+          "test/sin-telemetria.test.mjs",
+          "test/plantillas-neutras.test.mjs",
+          "test/marca-universal.test.mjs"
+        ]
+      },
+      "planificacion": {
+        "descripcion": "Planificador externo declarado (.faro.json > planificacion) leído de la forja: proyecto, épicas y milestones (#218, #277)",
+        "codigo": [
+          "plugins/faro/hooks/lib/planificacion.js"
+        ],
+        "tests": [
+          "test/planificacion.test.mjs"
+        ]
+      },
+      "nucleo": {
+        "descripcion": "Núcleo del harness: despachador, hooks.json, esquema y coherencia de documentación/comandos",
+        "codigo": [
+          "plugins/faro/hooks/harness.js",
+          "plugins/faro/hooks/hooks.json",
+          "plugins/faro/hooks/faro-schema.json",
+          "plugins/faro/hooks/harness-manifest.json",
+          "plugins/faro/hooks/self-hint.js",
+          "plugins/faro/hooks/lib/remoto-arranque.js",
+          "plugins/faro/hooks/lib/json-seguro.js"
+        ],
+        "tests": [
+          "test/coherencia-docs-comandos.test.mjs",
+          "test/smoke.test.mjs",
+          "test/windows-hide.test.mjs",
+          "test/flujo.test.mjs",
+          "test/stop-check-salida.test.mjs",
+          "test/vigilar-background.test.mjs",
+          "test/json-seguro.test.mjs",
+          "test/remoto-arranque.test.mjs",
+          "test/stop-avisos-informativos.test.mjs",
+          "test/adr-un-solo-enum-de-status.test.mjs"
+        ],
+        "contrato": [
+          "plugins/faro/hooks/harness.js",
+          "plugins/faro/hooks/hooks.json",
+          "plugins/faro/hooks/faro-schema.json"
+        ],
+        "dependientes": [
+          "contexto",
+          "estado"
+        ]
+      },
+      "recursos": {
+        "descripcion": "Gobernador de recursos de los gates (#182): semáforo global, ejecutor, comandos acotados, caché de verdes y política del simulacro",
+        "codigo": [
+          "plugins/faro/hooks/lib/gobernador.js",
+          "plugins/faro/hooks/lib/ejecutar-pesado.js",
+          "plugins/faro/hooks/lib/gates-comandos.js",
+          "plugins/faro/hooks/lib/cache-gates.js",
+          "plugins/faro/hooks/lib/dry-run.js"
+        ],
+        "tests": [
+          "test/gobernador.test.mjs",
+          "test/ejecutar-pesado.test.mjs",
+          "test/gates-comandos.test.mjs",
+          "test/cache-gates.test.mjs",
+          "test/dry-run.test.mjs",
+          "test/gates-gobernados.test.mjs"
+        ]
+      },
+      "procesos": {
+        "descripcion": "Higiene de procesos y recursos de la batería: marca FARO_PROC, listado/limpieza de huérfanos, candado de batería y servidores de desarrollo",
+        "codigo": [
+          "plugins/faro/hooks/lib/procesos.js",
+          "plugins/faro/hooks/lib/servidores.js"
+        ],
+        "tests": [
+          "test/procesos.test.mjs",
+          "test/bateria-higiene.test.mjs",
+          "test/lib-fixtures.test.mjs",
+          "test/servidores-dev.test.mjs"
+        ]
+      },
+      "wizard": {
+        "descripcion": "Wizard npm faro-harness (cli/): crear, traer y migrar, conectar y actualizar (#257)",
+        "codigo": [
+          "cli/bin/**/*.mjs"
+        ],
+        "tests": [
+          "cli/test/*.test.mjs"
+        ]
+      },
+      "hexagonal": {
+        "descripcion": "Arquitectura hexagonal verificada: sección «## Hexagonal» de ARCHITECTURE.md, comprobación de imports por capa (JS/TS y Python), gate en validate y plan de migración",
+        "codigo": [
+          "plugins/faro/hooks/lib/hexagonal.js",
+          "plugins/faro/hooks/lib/hexagonal-lenguajes.js",
+          "plugins/faro/hooks/lib/hexagonal-fuentes.js",
+          "plugins/faro/skills/code/SKILL.md",
+          "plugins/faro/agents/revisor-code.md",
+          "plugins/faro/agents/revisor-code-worker.md"
+        ],
+        "tests": [
+          "test/hexagonal.test.mjs"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  PLANTILLA + LIBRERÍA DE COMPONENTES — FARO Informe
+  ============================================================================
+  Este archivo tiene DOS partes:
+
+  1) EJEMPLO DE LÁMINA (.bp-stage) — una lámina completa por capas.
+     Cópialo y reemplaza el contenido por el tuyo. Cambia la estructura según
+     el caso (ver references/structures.md).
+
+  2) GALERÍA DE COMPONENTES (.gal) — un catálogo de TODOS los bloques
+     disponibles, renderizados y con su clase. Es SOLO REFERENCIA: copia las
+     piezas que necesites del <style> y del markup. NO incluyas la galería en
+     la lámina final.
+
+  Reglas: un solo archivo autocontenido · paleta editable en :root · imprimible
+  a PDF · textos en el idioma de la petición · el acento es para énfasis/relación,
+  no para rellenar · no conectes todo con todo.
+  ============================================================================
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FARO Informe — plantilla de presentación y componentes</title>
+<style>
+  :root{
+    /* ---- Paleta (cambia SOLO esto para retematizar) ---- */
+    --bp-bg:#F8F9FA; --bp-ink:#1f2933; --bp-night:#1f2933; --bp-night-2:#2a3640;
+    --bp-cyan:#6b97c2; --bp-cyan-2:#2f5d8a; --bp-border:#d3dae6;
+    --bp-card:#ffffff; --bp-pale:#eef5fb; --bp-muted:#5b6675;
+    /* estados (usar con moderación, sin romper la paleta) */
+    --bp-ok:#1f9d6b; --bp-warn:#e08a2b; --bp-risk:#d8472f;
+    /* forma y tipografía */
+    --bp-radius:14px; --bp-radius-s:999px;
+    --bp-font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --bp-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --bp-shadow:0 10px 30px rgba(31,41,51,.10);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:#e9edf2; font-family:var(--bp-font); color:var(--bp-ink); -webkit-font-smoothing:antialiased; padding:28px; }
+
+  /* ============ LIENZO ============ */
+  .bp-stage{
+    width:100%; max-width:1280px; margin:0 auto 40px; min-height:730px;
+    background:var(--bp-bg); border:1px solid var(--bp-border); border-radius:18px;
+    box-shadow:var(--bp-shadow); overflow:hidden; display:flex; flex-direction:column; position:relative;
+  }
+  /* El lienzo crece con el contenido (min-height, no aspect-ratio fijo): nunca recorta
+     ni deja medio slide en blanco. Rellena cada .bp-stage con contenido real y grande. */
+  .bp-stage::before{ content:""; position:absolute; right:-120px; top:-120px; width:360px; height:360px; border-radius:50%;
+    background:radial-gradient(circle,rgba(47,93,138,.06),transparent 70%); pointer-events:none; }
+
+  /* ============ CABECERA ============ */
+  .bp-header{ background:var(--bp-night); color:#fff; padding:22px 30px 20px; position:relative; }
+  .bp-header::after{ content:""; position:absolute; left:30px; right:30px; bottom:0; height:2px; background:linear-gradient(90deg,var(--bp-cyan),transparent); }
+  .bp-kicker{ font-size:12.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--bp-cyan); font-weight:600; margin-bottom:6px; }
+  .bp-title{ font-size:34px; font-weight:800; margin:0; line-height:1.1; }
+  .bp-subtitle{ font-size:15px; color:#aeb8cc; margin:7px 0 0; font-weight:500; }
+
+  /* ============ CUERPO / LAYOUT ============ */
+  .bp-body{ flex:1; padding:22px 30px; display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .bp-grid{ display:grid; grid-template-columns:1fr 168px; gap:14px; flex:1; min-height:0; }
+  .bp-stack{ display:flex; flex-direction:column; gap:10px; }
+  .bp-cols{ display:flex; gap:12px; }
+
+  /* ============ CAPA HORIZONTAL ============ */
+  .bp-layer{ display:grid; grid-template-columns:130px 1fr; gap:14px; align-items:center; background:#fff; border:1px solid var(--bp-border); border-radius:var(--bp-radius); padding:12px 14px; }
+  .bp-layer-label{ font-size:13.5px; font-weight:700; color:var(--bp-night); border-left:3px solid var(--bp-cyan); padding-left:10px; line-height:1.25; }
+  .bp-layer-label small{ display:block; font-weight:500; color:var(--bp-muted); font-size:11.5px; margin-top:2px; }
+  /* Cards VERSATILES: envuelven solas con cualquier numero (3 fases o 7) y nunca bajan de un ancho
+     LEGIBLE — con min-width:120px, 6+ cards quedaban como columnas ilegibles en vez de envolver. */
+  .bp-cards{ display:flex; gap:10px; flex-wrap:wrap; }
+  .bp-cards > *{ min-width:0; }
+
+  /* ============ CARDS (y variantes) ============ */
+  .bp-card{ flex:1 1 220px; min-width:200px; background:var(--bp-card); border:1px solid var(--bp-border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+  .bp-card-head{ display:flex; align-items:center; gap:8px; }
+  .bp-card-head .bp-icon{ color:var(--bp-cyan-2); flex:none; }
+  .bp-card-title{ font-size:14.5px; font-weight:700; color:var(--bp-ink); }
+  .bp-card-sub{ font-size:12.5px; color:var(--bp-muted); line-height:1.4; }
+  .bp-card--accent{ border-left:3px solid var(--bp-cyan); }
+  .bp-card--key{ background:var(--bp-night); color:#fff; border-color:transparent; }
+  .bp-card--key .bp-card-title{ color:#fff; }
+  .bp-card--key .bp-icon{ color:var(--bp-cyan); }
+  .bp-card--key .bp-pill{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#dbe6f2; }
+  .bp-card--ghost{ background:transparent; border-style:dashed; }           /* opcional / planificado / futuro */
+  .bp-card--ghost .bp-card-title{ color:var(--bp-muted); }
+  .bp-card--strip{ padding-top:0; overflow:hidden; }
+  .bp-card-strip{ margin:0 -12px 8px; padding:6px 12px; font-size:11px; font-weight:700; color:#fff; background:var(--bp-cyan-2); }
+  .bp-card-strip.dark{ background:var(--bp-night); }
+  .bp-ribbon{ position:relative; }
+  .bp-ribbon::after{ content:attr(data-tag); position:absolute; top:8px; right:-2px; background:var(--bp-cyan); color:#14202b; font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:4px 0 0 4px; }
+
+  /* ============ TILES / MÉTRICAS ============ */
+  .bp-tile, .bp-metric{ flex:1; background:var(--bp-pale); border:1px solid #dbe6f2; border-radius:12px; padding:10px 12px; }
+  .bp-tile b, .bp-metric b{ display:block; font-size:27px; color:var(--bp-night); line-height:1; }
+  .bp-tile span, .bp-metric span{ font-size:12.5px; color:var(--bp-muted); }
+
+  /* ============ PILLS, BADGES, INDICADORES ============ */
+  .bp-pills{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+  .bp-pill{ font-size:12px; font-weight:600; color:var(--bp-night); background:var(--bp-pale); border:1px solid #dbe6f2; padding:4px 10px; border-radius:var(--bp-radius-s); white-space:nowrap; }
+  .bp-pill.cyan{ background:rgba(107,151,194,.12); border-color:rgba(47,93,138,.45); color:#24496d; }
+  .bp-pill.ok{   background:rgba(31,157,107,.12); border-color:rgba(31,157,107,.4); color:#0f6b46; }
+  .bp-pill.warn{ background:rgba(224,138,43,.14); border-color:rgba(224,138,43,.4); color:#8a4f0e; }
+  .bp-pill.risk{ background:rgba(216,71,47,.12); border-color:rgba(216,71,47,.4); color:#9b2c1a; }
+  .bp-num{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:var(--bp-night); color:#fff; font-size:11px; font-weight:700; flex:none; }
+  .bp-num.cyan{ background:var(--bp-cyan); color:#14202b; }
+  .bp-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; background:var(--bp-muted); }
+  .bp-dot.ok{ background:var(--bp-ok); } .bp-dot.warn{ background:var(--bp-warn); } .bp-dot.risk{ background:var(--bp-risk); }
+  .bp-maturity{ display:inline-flex; gap:3px; }
+  .bp-maturity i{ width:9px; height:9px; border-radius:50%; border:1.5px solid var(--bp-cyan-2); }
+  .bp-maturity i.on{ background:var(--bp-cyan-2); }
+
+  /* ============ ZONAS / AGRUPACIONES ============ */
+  .bp-zone{ border:1px solid var(--bp-border); border-radius:var(--bp-radius); padding:14px 12px 12px; position:relative; background:rgba(238,245,251,.45); }
+  .bp-zone--dashed{ border-style:dashed; background:transparent; }            /* frontera lógica / de confianza */
+  .bp-zone-label{ position:absolute; top:-9px; left:14px; background:var(--bp-bg); padding:0 8px; font-size:10.5px; font-weight:700; letter-spacing:.04em; color:var(--bp-muted); text-transform:uppercase; }
+  .bp-zone .bp-cards{ margin-top:2px; }
+
+  /* ============ RAÍL TRANSVERSAL ============ */
+  .bp-rail{ display:flex; flex-direction:column; gap:10px; }
+  .bp-rail-card{ flex:1; background:var(--bp-night); color:#fff; border-radius:var(--bp-radius); padding:12px; display:flex; flex-direction:column; gap:6px; justify-content:center; }
+  .bp-rail-card .bp-icon{ color:var(--bp-cyan); }
+  .bp-rail-title{ font-size:12px; font-weight:700; }
+  .bp-rail-card .bp-pill{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#dbe6f2; }
+
+  /* ============ FLUJO IZQUIERDA-DERECHA ============ */
+  .bp-flow{ display:flex; align-items:stretch; gap:8px; }
+  .bp-step{ flex:1; background:#fff; border:1px solid var(--bp-border); border-radius:12px; padding:11px 12px; display:flex; flex-direction:column; gap:6px; }
+  .bp-step h4{ margin:0; font-size:14px; color:var(--bp-night); display:flex; align-items:center; gap:7px; }
+  .bp-arrow{ color:var(--bp-cyan); flex:none; align-self:center; }
+
+  /* ============ ANTES / DESPUÉS ============ */
+  .bp-split{ display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--bp-border); border-radius:var(--bp-radius); overflow:hidden; }
+  .bp-side{ padding:14px; display:flex; flex-direction:column; gap:8px; transition:opacity .4s ease, transform .4s ease; }
+  .bp-side.before{ background:#f3f4f6; }
+  .bp-side.after{ background:#fff; border-left:2px solid var(--bp-cyan); }
+  .bp-side h3{ margin:0; font-size:12.5px; }
+  .bp-side.before h3{ color:var(--bp-muted); } .bp-side.after h3{ color:var(--bp-night); }
+
+  /* ============ HUB CENTRAL ============ */
+  /* auto-fit + minmax: envuelve SOLO cuando hace falta y con CUALQUIER numero de elementos (3, 5, 7…)
+     — con repeat(3,1fr) fijo, 5 fases se comprimian/desbordaban en vez de pasar a la fila siguiente. */
+  .bp-hub{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); grid-auto-rows:1fr; gap:10px; align-items:stretch; }
+  /* .bp-core ya NO se posiciona a mano (grid-column/row fijos se SOLAPABAN al envolver el hub):
+     fluye como una card mas, destacada por color. */
+  .bp-core{ background:var(--bp-night); color:#fff; border-radius:var(--bp-radius); display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; font-size:12.5px; padding:14px; min-width:0; }
+
+  /* ============ MAPA DE CAPACIDADES ============ */
+  .bp-capmap{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .bp-capgroup{ background:#fff; border:1px solid var(--bp-border); border-radius:12px; padding:11px 12px; }
+  .bp-capgroup h5{ margin:0 0 8px; font-size:12px; color:var(--bp-night); border-bottom:2px solid var(--bp-cyan); padding-bottom:5px; display:inline-block; }
+
+  /* ============ MATRIZ 2D ============ */
+  .bp-matrix{ width:100%; border-collapse:separate; border-spacing:6px; }
+  .bp-matrix th{ font-size:11px; color:var(--bp-muted); font-weight:600; padding:4px; text-align:center; }
+  .bp-matrix th.row{ text-align:right; }
+  .bp-matrix td{ background:var(--bp-pale); border:1px solid #dbe6f2; border-radius:10px; padding:9px; text-align:center; font-size:11px; min-width:80px; }
+
+  /* ============ ROADMAP / FASES ============ */
+  .bp-road{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:10px; }
+  .bp-phase{ background:#fff; border:1px solid var(--bp-border); border-radius:12px; padding:12px; border-top:3px solid var(--bp-cyan); }
+  .bp-phase h5{ margin:0 0 8px; font-size:14px; color:var(--bp-night); }
+  /* Fase actual: resáltala con .bp-phase--now (borde y fondo), y añade el marcador .bp-here */
+  .bp-phase--now{ border-top-color:var(--bp-cyan); box-shadow:0 0 0 2px var(--bp-cyan) inset; background:rgba(107,151,194,.05); }
+
+  /* ============ SWIMLANE (procesos) ============ */
+  .bp-lanes{ display:flex; flex-direction:column; gap:8px; }
+  .bp-lane{ display:grid; grid-template-columns:110px 1fr; gap:10px; align-items:center; }
+  .bp-lane-label{ font-size:11px; font-weight:700; color:#fff; background:var(--bp-night); border-radius:8px; padding:8px 10px; text-align:center; }
+  .bp-lane .bp-flow{ background:var(--bp-pale); border:1px solid #dbe6f2; border-radius:10px; padding:8px; }
+
+  /* ============ DIVISORES, NOTAS, LEYENDA, RESULTADOS ============ */
+  .bp-divider{ display:flex; align-items:center; gap:10px; color:var(--bp-muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin:4px 0; }
+  .bp-divider::before, .bp-divider::after{ content:""; flex:1; height:1px; background:var(--bp-border); }
+  .bp-note{ background:var(--bp-pale); border-left:3px solid var(--bp-cyan); border-radius:8px; padding:10px 13px; font-size:13px; color:var(--bp-ink); line-height:1.45; }
+  .bp-note.warn{ background:rgba(224,138,43,.1); border-left-color:var(--bp-warn); }
+
+  /* ============ INFORME A DIRECCIÓN (comité) ============ */
+  /* Párrafo de contexto / "qué es el proyecto" — grande y legible */
+  .bp-lead{ font-size:16px; line-height:1.55; color:var(--bp-ink); max-width:70ch; }
+  .bp-lead b{ color:var(--bp-night); }
+
+  /* BLUF — resumen ejecutivo arriba del todo: semáforo + titular + qué se pide */
+  .bp-bluf{ display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:center;
+    background:var(--bp-night); color:#fff; border-radius:var(--bp-radius); padding:16px 20px; }
+  .bp-bluf .bp-rag{ display:flex; flex-direction:column; align-items:center; gap:6px; padding-right:16px; border-right:1px solid rgba(255,255,255,.15); }
+  .bp-rag-dot{ width:38px; height:38px; border-radius:50%; box-shadow:0 0 0 4px rgba(255,255,255,.08); }
+  .bp-rag-dot.ok{ background:var(--bp-ok); } .bp-rag-dot.warn{ background:var(--bp-warn); } .bp-rag-dot.risk{ background:var(--bp-risk); }
+  .bp-rag small{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#aeb8cc; font-weight:700; }
+  .bp-bluf-msg{ font-size:15px; line-height:1.5; }
+  .bp-bluf-msg b{ color:var(--bp-cyan); }
+
+  /* Chip de tendencia (↑ mejora / → estable / ↓ empeora) */
+  .bp-trend{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; padding:3px 10px; border-radius:var(--bp-radius-s); }
+  .bp-trend.up{ background:rgba(31,157,107,.15); color:#0f6b46; }
+  .bp-trend.flat{ background:rgba(47,93,138,.14); color:#24496d; }
+  .bp-trend.down{ background:rgba(216,71,47,.14); color:#9b2c1a; }
+
+  /* Bloque de DECISIONES / PEDIDOS al comité (call to action) */
+  .bp-ask{ background:rgba(107,151,194,.08); border:1px solid rgba(47,93,138,.4); border-left:4px solid var(--bp-cyan-2);
+    border-radius:var(--bp-radius); padding:12px 14px; }
+  .bp-ask h5{ margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--bp-cyan-2); }
+  .bp-ask ul{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.55; color:var(--bp-ink); }
+
+  /* Marcador "AQUÍ ESTAMOS" con punto parpadeando — para roadmap/flujo */
+  .bp-here{ display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:800;
+    letter-spacing:.04em; text-transform:uppercase; color:var(--bp-cyan-2); }
+  .bp-here::before{ content:""; width:11px; height:11px; border-radius:50%; background:var(--bp-cyan);
+    box-shadow:0 0 0 0 rgba(107,151,194,.5); animation:bp-pulse 1.8s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce){ .bp-here::before{ animation:none; box-shadow:0 0 0 3px rgba(107,151,194,.3); } }
+  .bp-legend{ display:flex; gap:16px; padding:8px 30px 16px; font-size:11px; color:var(--bp-muted); flex-wrap:wrap; }
+  .bp-legend i{ width:12px; height:12px; border-radius:3px; display:inline-block; vertical-align:-1px; margin-right:5px; }
+  .bp-results{ margin-top:2px; border-top:1px dashed var(--bp-border); padding-top:12px; display:flex; gap:12px; align-items:stretch; }
+  .bp-results-label{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--bp-muted); writing-mode:vertical-rl; transform:rotate(180deg); align-self:center; }
+
+  /* ============ CONECTORES SVG (helpers) ============ */
+  .bp-line{ stroke:var(--bp-cyan); stroke-width:2; fill:none; }
+  .bp-line--dash{ stroke-dasharray:5 5; }              /* relación débil / opcional / planificada */
+  .bp-line--soft{ stroke:var(--bp-border); }            /* relación secundaria */
+  .bp-conn{ position:relative; height:2px; background:var(--bp-cyan); margin:18px 0; }
+  .bp-conn--dash{ background:repeating-linear-gradient(90deg,var(--bp-cyan) 0 6px,transparent 6px 11px); }
+  .bp-conn .bp-pill{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+
+  /* ============ ICONOS ============ */
+  .bp-icon{ flex:none; }
+
+  /* ====== ANIMACIÓN: entrada escalonada (sutil, reduced-motion-safe) ======
+     Parte de estado visible: si no corre, todo se ve igual. Opt-in extra abajo. */
+  @media (prefers-reduced-motion: no-preference){
+    .bp-layer, .bp-rail-card, .bp-metric, .bp-tile{ animation:bp-rise .5s cubic-bezier(.22,.61,.36,1) both; }
+    .bp-stack .bp-layer:nth-child(1){ animation-delay:.05s; }
+    .bp-stack .bp-layer:nth-child(2){ animation-delay:.13s; }
+    .bp-stack .bp-layer:nth-child(3){ animation-delay:.21s; }
+    .bp-stack .bp-layer:nth-child(4){ animation-delay:.29s; }
+    .bp-rail .bp-rail-card:nth-child(1){ animation-delay:.20s; }
+    .bp-rail .bp-rail-card:nth-child(2){ animation-delay:.28s; }
+    .bp-rail .bp-rail-card:nth-child(3){ animation-delay:.36s; }
+    .bp-results .bp-metric:nth-child(2){ animation-delay:.40s; }
+    .bp-results .bp-metric:nth-child(3){ animation-delay:.46s; }
+    .bp-results .bp-metric:nth-child(4){ animation-delay:.52s; }
+    .bp-header::after{ transform-origin:left; animation:bp-wipe .7s ease .15s both; }
+    /* opt-in (añade la clase donde quieras): */
+    .bp-flow-line{ stroke-dasharray:6 8; animation:bp-dash 1.2s linear infinite; }      /* dirección de flujo */
+    .bp-pulse{ animation:bp-pulse 2.4s ease-in-out infinite; }                            /* foco en EL nodo clave */
+  }
+  @keyframes bp-rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes bp-wipe{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+  @keyframes bp-dash{ to{ stroke-dashoffset:-28; } }
+  @keyframes bp-pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(107,151,194,.35); } 50%{ box-shadow:0 0 0 8px rgba(107,151,194,0); } }
+
+  /* ============ LOGO ============ */
+  /* Marca tipográfica en la cabecera (texto, sin imagen) — usar sobre fondos oscuros */
+  .bp-logo{ position:absolute; top:22px; right:30px; font-size:13px; font-weight:800; letter-spacing:.18em; color:var(--bp-cyan); opacity:.95; }
+
+  /* ============ TOOLBAR (opciones JS, solo pantalla) ============ */
+  .bp-toolbar{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:50;
+    display:flex; gap:6px; align-items:center; background:var(--bp-night); color:#fff;
+    border-radius:var(--bp-radius-s); padding:8px 12px; box-shadow:var(--bp-shadow); }
+  .bp-toolbar button{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.25);
+    border-radius:var(--bp-radius-s); font:600 11.5px var(--bp-font); padding:5px 12px; cursor:pointer; }
+  .bp-toolbar button:hover{ border-color:var(--bp-cyan); color:var(--bp-cyan); }
+  .bp-toolbar .bp-count{ font:700 11.5px var(--bp-mono); color:var(--bp-cyan); padding:0 6px; }
+  @media print{ .bp-toolbar{ display:none !important; } }
+  /* RESPONSIVE (era la unica plantilla sin fallback): las columnas FIJAS de estos grids provocaban
+     solape/scroll horizontal en pantalla estrecha. A una columna + hijos encogibles (min-width:0,
+     mismo patron que el onepager) para que el texto ROMPA en vez de desbordar. */
+  @media (max-width:760px){
+    .bp-grid, .bp-layer, .bp-lane{ grid-template-columns:1fr; }
+    .bp-lane-label{ text-align:left; }
+    .bp-layer-label{ border-left:0; border-top:3px solid var(--bp-cyan); padding-left:0; padding-top:8px; }
+  }
+  .bp-grid > *, .bp-layer > *, .bp-lane > *{ min-width:0; }
+
+  /* ============ IMPRESIÓN A PDF ============ */
+  @media print{
+    *{ animation:none !important; }
+    @page{ size:A4 landscape; margin:12mm; }
+    body{ background:#fff; padding:0; }
+    .gal{ display:none; }            /* la galería no se imprime */
+    .bp-stage{ max-width:none; width:100%; aspect-ratio:auto; min-height:auto; box-shadow:none; border:none; border-radius:0; margin:0; }
+    .bp-card,.bp-layer,.bp-rail-card,.bp-metric,.bp-tile,.bp-header,.bp-core,.bp-phase{ -webkit-print-color-adjust:exact; print-color-adjust:exact; break-inside:avoid; }
+    /* El color va en TODO, no solo en las cards: los chips de estado, las barras y los SVG de
+       mermaid tambien pierden el fondo si no se fuerza. */
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    /* MERMAID: es la plantilla que mas diagramas lleva y no tenia NINGUNA proteccion — un flowchart
+       ancho se salia del papel y se recortaba. Se encoge al ancho util y no se parte entre paginas. */
+    .mermaid,pre.mermaid{ break-inside:avoid; page-break-inside:avoid; max-width:100%; overflow:visible; }
+    .mermaid svg,pre.mermaid svg{ max-width:100% !important; height:auto !important; }
+    img,svg{ max-width:100% !important; height:auto; }
+    table{ width:100%; table-layout:fixed; }
+    td,th,li,p{ overflow-wrap:anywhere; word-break:break-word; }
+    pre,code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+  }
+  /* En PANTALLA: un diagrama mermaid ancho debe poder desplazarse dentro de su caja, nunca romper
+     el layout de la pagina (regla que ya tenian documento/presentacion y a esta le faltaba). */
+  .mermaid,pre.mermaid{ max-width:100%; overflow-x:auto; }
+  .mermaid svg,pre.mermaid svg{ max-width:100%; height:auto; }
+
+  /* ============ ESTILOS DE LA GALERÍA (no son de la lámina) ============ */
+  .gal{ max-width:1280px; margin:0 auto; }
+  .gal-intro{ background:#fff; border:1px solid var(--bp-border); border-radius:12px; padding:14px 16px; font-size:12.5px; color:var(--bp-muted); margin-bottom:8px; }
+  .gal-h{ font-size:13px; font-weight:800; letter-spacing:.04em; color:var(--bp-night); text-transform:uppercase; margin:28px 0 12px; padding-bottom:6px; border-bottom:2px solid var(--bp-cyan); }
+  .gal-row{ display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start; }
+  .gal-item{ background:#fff; border:1px solid var(--bp-border); border-radius:12px; padding:14px; min-width:170px; }
+  .gal-item.wide{ flex:1 1 100%; }
+  .gal-lbl{ display:block; font-size:10.5px; color:var(--bp-muted); margin-top:10px; font-family:var(--bp-mono); }
+</style>
+</head>
+<body>
+
+  <!-- ===================================================================== -->
+  <!-- PARTE 1 · EJEMPLO DE LÁMINA (capas) — copia y adapta                 -->
+  <!-- ===================================================================== -->
+  <div class="bp-stage">
+    <header class="bp-header">
+      <div class="bp-logo">FARO</div>
+      <div class="bp-kicker">Arquitectura de referencia</div>
+      <h1 class="bp-title">Plataforma de datos e inteligencia</h1>
+      <p class="bp-subtitle">De datos confiables a decisiones automatizadas · audiencia: comité técnico</p>
+    </header>
+    <div class="bp-body">
+      <div class="bp-grid">
+        <div class="bp-stack">
+          <div class="bp-layer">
+            <div class="bp-layer-label">Aplicaciones<small>Consumo de valor</small></div>
+            <div class="bp-cards">
+              <div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 18v2M16 18v2"/></svg><span class="bp-card-title">Dashboards &amp; BI</span></div><div class="bp-pills"><span class="bp-pill">Self-service</span><span class="bp-pill">Alertas</span></div></div>
+              <div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg><span class="bp-card-title">Apps de negocio</span></div><div class="bp-pills"><span class="bp-pill">APIs</span><span class="bp-pill cyan">Acciones</span></div></div>
+            </div>
+          </div>
+          <div class="bp-layer">
+            <div class="bp-layer-label">Inteligencia<small>Modelos y agentes</small></div>
+            <div class="bp-cards">
+              <div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="bp-card-title">ML &amp; GenAI</span></div><div class="bp-pills"><span class="bp-pill">RAG</span><span class="bp-pill">Guardrails</span></div></div>
+              <div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg><span class="bp-card-title">Orquestación</span></div><div class="bp-pills"><span class="bp-pill cyan">Agentes</span><span class="bp-pill">Herramientas</span></div></div>
+            </div>
+          </div>
+          <div class="bp-layer">
+            <div class="bp-layer-label">Capa semántica<small>Contexto compartido</small></div>
+            <div class="bp-cards">
+              <div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span class="bp-card-title">Modelo semántico</span></div><div class="bp-pills"><span class="bp-pill">Métricas</span><span class="bp-pill">Definiciones</span></div></div>
+            </div>
+          </div>
+          <div class="bp-layer">
+            <div class="bp-layer-label">Datos<small>Base confiable</small></div>
+            <div class="bp-cards">
+              <div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><span class="bp-card-title">Lakehouse</span></div><div class="bp-pills"><span class="bp-pill">Ingesta</span><span class="bp-pill">Calidad</span><span class="bp-pill">Linaje</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="bp-rail">
+          <div class="bp-rail-card"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg><span class="bp-rail-title">Seguridad</span><div class="bp-pills"><span class="bp-pill">Zero Trust</span></div></div>
+          <div class="bp-rail-card"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h18M3 12h18M3 18h18"/></svg><span class="bp-rail-title">Gobierno</span><div class="bp-pills"><span class="bp-pill">Catálogo</span></div></div>
+          <div class="bp-rail-card"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg><span class="bp-rail-title">Observabilidad</span><div class="bp-pills"><span class="bp-pill">Evaluación</span></div></div>
+        </div>
+      </div>
+      <div class="bp-results">
+        <div class="bp-results-label">Resultados</div>
+        <div class="bp-metric"><b>−40%</b><span>tiempo de ciclo de decisión</span></div>
+        <div class="bp-metric"><b>1</b><span>fuente única de la verdad</span></div>
+        <div class="bp-metric"><b>+</b><span>trazabilidad y auditoría continuas</span></div>
+      </div>
+    </div>
+    <div class="bp-legend">
+      <span><i style="background:var(--bp-night)"></i>Bloque clave / transversal</span>
+      <span><i style="background:var(--bp-cyan)"></i>Énfasis / acción</span>
+      <span><i style="background:var(--bp-pale);border:1px solid var(--bp-border)"></i>Componente</span>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PARTE 2 · GALERÍA DE COMPONENTES (referencia — no incluir en el final) -->
+  <!-- ===================================================================== -->
+  <div class="gal">
+    <div class="gal-intro"><b>Catálogo de bloques.</b> Copia el CSS y el markup de las piezas que necesites. No incluyas esta galería en la lámina final. Toda la maquetación usa los tokens de <code>:root</code>.</div>
+
+    <!-- ---------- CONTENEDORES / CARDS ---------- -->
+    <div class="gal-h">Contenedores / cards</div>
+    <div class="gal-row">
+      <div class="gal-item"><div class="bp-card"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg><span class="bp-card-title">Card base</span></div><div class="bp-pills"><span class="bp-pill">Etiqueta</span></div></div><span class="gal-lbl">.bp-card</span></div>
+      <div class="gal-item"><div class="bp-card bp-card--accent"><div class="bp-card-head"><span class="bp-card-title">Con acento</span></div><div class="bp-card-sub">borde cian a la izquierda</div></div><span class="gal-lbl">.bp-card--accent</span></div>
+      <div class="gal-item"><div class="bp-card bp-card--key"><div class="bp-card-head"><svg class="bp-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/></svg><span class="bp-card-title">Bloque clave</span></div><div class="bp-pills"><span class="bp-pill">Núcleo</span></div></div><span class="gal-lbl">.bp-card--key</span></div>
+      <div class="gal-item"><div class="bp-card bp-card--ghost"><div class="bp-card-head"><span class="bp-card-title">Planificado</span></div><div class="bp-card-sub">opcional / futuro</div></div><span class="gal-lbl">.bp-card--ghost (borde discontinuo)</span></div>
+      <div class="gal-item"><div class="bp-card bp-card--strip"><div class="bp-card-strip">Cabecera</div><div class="bp-card-title">Con franja</div><div class="bp-pills"><span class="bp-pill cyan">Activo</span></div></div><span class="gal-lbl">.bp-card--strip + .bp-card-strip</span></div>
+      <div class="gal-item"><div class="bp-card bp-ribbon" data-tag="NUEVO"><div class="bp-card-head"><span class="bp-card-title">Con cinta</span></div><div class="bp-card-sub">esquina destacada</div></div><span class="gal-lbl">.bp-ribbon data-tag="…"</span></div>
+      <div class="gal-item"><div class="bp-card"><div class="bp-card-head"><span class="bp-dot ok"></span><span class="bp-card-title">Con estado</span></div><div class="bp-card-sub">punto de estado</div></div><span class="gal-lbl">.bp-dot.ok / .warn / .risk</span></div>
+      <div class="gal-item"><div class="bp-tile"><b>98%</b><span>uptime</span></div><span class="gal-lbl">.bp-tile / .bp-metric</span></div>
+    </div>
+
+    <!-- ---------- PILLS, BADGES, INDICADORES ---------- -->
+    <div class="gal-h">Pills, badges e indicadores</div>
+    <div class="gal-row">
+      <div class="gal-item"><div class="bp-pills"><span class="bp-pill">Normal</span><span class="bp-pill cyan">Cian</span></div><span class="gal-lbl">.bp-pill / .bp-pill.cyan</span></div>
+      <div class="gal-item"><div class="bp-pills"><span class="bp-pill ok">OK</span><span class="bp-pill warn">Aviso</span><span class="bp-pill risk">Riesgo</span></div><span class="gal-lbl">.bp-pill.ok / .warn / .risk</span></div>
+      <div class="gal-item"><div class="bp-pills"><span class="bp-num">1</span><span class="bp-num cyan">2</span><span class="bp-num">3</span></div><span class="gal-lbl">.bp-num (paso numerado)</span></div>
+      <div class="gal-item"><div class="bp-maturity"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="gal-lbl">.bp-maturity (madurez)</span></div>
+    </div>
+
+    <!-- ---------- LÍNEAS, FLECHAS Y CONECTORES ---------- -->
+    <div class="gal-h">Líneas, flechas y conectores</div>
+    <div class="gal-row">
+      <div class="gal-item"><svg width="80" height="24" viewBox="0 0 80 24"><line class="bp-line" x1="2" y1="12" x2="70" y2="12"/><path class="bp-line" d="M64 7l8 5-8 5"/></svg><span class="gal-lbl">flecha sólida</span></div>
+      <div class="gal-item"><svg width="80" height="24" viewBox="0 0 80 24"><line class="bp-line bp-line--dash" x1="2" y1="12" x2="78" y2="12"/></svg><span class="gal-lbl">línea discontinua</span></div>
+      <div class="gal-item"><svg width="80" height="24" viewBox="0 0 80 24"><line class="bp-line bp-line--dash" x1="2" y1="12" x2="70" y2="12"/><path class="bp-line" d="M64 7l8 5-8 5"/></svg><span class="gal-lbl">flecha discontinua (opcional)</span></div>
+      <div class="gal-item"><svg width="80" height="24" viewBox="0 0 80 24"><line class="bp-line" x1="10" y1="12" x2="70" y2="12"/><path class="bp-line" d="M64 7l8 5-8 5M16 7l-8 5 8 5"/></svg><span class="gal-lbl">bidireccional</span></div>
+      <div class="gal-item"><svg width="80" height="24" viewBox="0 0 80 24"><line class="bp-line bp-line--soft" x1="2" y1="12" x2="78" y2="12"/></svg><span class="gal-lbl">relación secundaria (.bp-line--soft)</span></div>
+      <div class="gal-item"><div class="bp-conn"><span class="bp-pill cyan">usa</span></div><span class="gal-lbl">.bp-conn (conector con etiqueta)</span></div>
+      <div class="gal-item"><div class="bp-conn bp-conn--dash"><span class="bp-pill">async</span></div><span class="gal-lbl">.bp-conn--dash (etiquetado, discontinuo)</span></div>
+      <div class="gal-item"><svg width="90" height="56" viewBox="0 0 90 56"><path class="bp-line" d="M4 10h40v36h38"/><path class="bp-line" d="M76 41l8 5-8 5"/></svg><span class="gal-lbl">conector en codo (ortogonal)</span></div>
+      <div class="gal-item"><svg width="90" height="64" viewBox="0 0 90 64"><path class="bp-line" d="M4 32h26"/><path class="bp-line" d="M30 32c10 0 10-22 20-22h20M30 32c10 0 10 22 20 22h20M30 32h40"/></svg><span class="gal-lbl">ramificado (uno a varios)</span></div>
+      <div class="gal-item"><svg width="40" height="50" viewBox="0 0 40 50"><line class="bp-line" x1="20" y1="6" x2="20" y2="42"/><path class="bp-line" d="M14 36l6 8 6-8"/></svg><span class="gal-lbl">vertical (entre capas)</span></div>
+      <div class="gal-item"><svg width="80" height="24" viewBox="0 0 80 24"><line class="bp-flow-line" x1="2" y1="12" x2="78" y2="12" stroke="var(--bp-cyan)" stroke-width="2"/></svg><span class="gal-lbl">flujo animado (.bp-flow-line)</span></div>
+    </div>
+
+    <!-- ---------- ZONAS Y AGRUPACIONES ---------- -->
+    <div class="gal-h">Zonas y agrupaciones</div>
+    <div class="gal-row">
+      <div class="gal-item" style="min-width:260px"><div class="bp-zone"><span class="bp-zone-label">Zona interna</span><div class="bp-cards"><div class="bp-card"><div class="bp-card-title">Servicio A</div></div><div class="bp-card"><div class="bp-card-title">Servicio B</div></div></div></div><span class="gal-lbl">.bp-zone (agrupa cards)</span></div>
+      <div class="gal-item" style="min-width:260px"><div class="bp-zone bp-zone--dashed"><span class="bp-zone-label">Frontera de confianza</span><div class="bp-cards"><div class="bp-card bp-card--ghost"><div class="bp-card-title">Externo</div></div><div class="bp-card bp-card--ghost"><div class="bp-card-title">Terceros</div></div></div></div><span class="gal-lbl">.bp-zone--dashed (frontera lógica)</span></div>
+    </div>
+
+    <!-- ---------- PATRONES DE ESTRUCTURA ---------- -->
+    <div class="gal-h">Patrones de estructura</div>
+    <div class="gal-row">
+      <div class="gal-item wide"><div class="bp-flow"><div class="bp-step"><h4><span class="bp-num cyan">1</span> Entrada</h4><div class="bp-pills"><span class="bp-pill">Captura</span></div></div><svg class="bp-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h14M13 6l6 6-6 6"/></svg><div class="bp-step"><h4><span class="bp-num cyan">2</span> Proceso</h4></div><svg class="bp-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h14M13 6l6 6-6 6"/></svg><div class="bp-step"><h4><span class="bp-num cyan">3</span> Resultado</h4></div></div><span class="gal-lbl">.bp-flow / .bp-step (flujo I→D)</span></div>
+
+      <div class="gal-item wide"><div class="bp-split"><div class="bp-side before"><h3>Antes · silos</h3><div class="bp-pills"><span class="bp-pill">Manual</span><span class="bp-pill">Disperso</span></div></div><div class="bp-side after"><h3>Ahora · plataforma</h3><div class="bp-pills"><span class="bp-pill cyan">Integrado</span><span class="bp-pill cyan">Trazable</span></div></div></div><span class="gal-lbl">.bp-split (antes/después)</span></div>
+
+      <div class="gal-item" style="min-width:300px"><div class="bp-hub"><div class="bp-card"><div class="bp-card-title">CRM</div></div><div class="bp-card"><div class="bp-card-title">ERP</div></div><div class="bp-card"><div class="bp-card-title">Datos</div></div><div class="bp-card"><div class="bp-card-title">Canales</div></div><div class="bp-core">Plataforma</div><div class="bp-card"><div class="bp-card-title">APIs</div></div><div class="bp-card"><div class="bp-card-title">IA</div></div><div class="bp-card"><div class="bp-card-title">Soporte</div></div><div class="bp-card"><div class="bp-card-title">BI</div></div></div><span class="gal-lbl">.bp-hub / .bp-core (hub central)</span></div>
+
+      <div class="gal-item" style="min-width:300px"><div class="bp-capmap"><div class="bp-capgroup"><h5>Datos</h5><div class="bp-pills"><span class="bp-pill">Ingesta</span><span class="bp-pill">Calidad</span></div></div><div class="bp-capgroup"><h5>IA</h5><div class="bp-pills"><span class="bp-pill">RAG</span><span class="bp-pill">Agentes</span></div></div><div class="bp-capgroup"><h5>Seguridad</h5><div class="bp-pills"><span class="bp-pill">IAM</span><span class="bp-pill">SOC</span></div></div></div><span class="gal-lbl">.bp-capmap / .bp-capgroup (capacidades)</span></div>
+
+      <div class="gal-item" style="min-width:300px"><table class="bp-matrix"><tr><th></th><th>Bajo</th><th>Alto</th></tr><tr><th class="row">Impacto</th><td><span class="bp-pill cyan">Caso A</span></td><td><span class="bp-pill">Caso B</span></td></tr><tr><th class="row">Esfuerzo</th><td><span class="bp-pill">Caso C</span></td><td><span class="bp-pill warn">Caso D</span></td></tr></table><span class="gal-lbl">.bp-matrix (cruce 2D)</span></div>
+
+      <div class="gal-item wide"><div class="bp-road"><div class="bp-phase"><h5>Now</h5><div class="bp-pills"><span class="bp-pill">MVP</span></div></div><div class="bp-phase"><h5>Next</h5><div class="bp-pills"><span class="bp-pill">Escalado</span></div></div><div class="bp-phase"><h5>Later</h5><div class="bp-pills"><span class="bp-pill">Optimización</span></div></div></div><span class="gal-lbl">.bp-road / .bp-phase (roadmap)</span></div>
+
+      <div class="gal-item wide"><div class="bp-lanes"><div class="bp-lane"><div class="bp-lane-label">Cliente</div><div class="bp-flow"><div class="bp-step"><h4>Solicita</h4></div><svg class="bp-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h14M13 6l6 6-6 6"/></svg><div class="bp-step"><h4>Recibe</h4></div></div></div><div class="bp-lane"><div class="bp-lane-label">Sistema</div><div class="bp-flow"><div class="bp-step"><h4>Procesa</h4></div><svg class="bp-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h14M13 6l6 6-6 6"/></svg><div class="bp-step"><h4>Notifica</h4></div></div></div></div><span class="gal-lbl">.bp-lanes / .bp-lane (swimlane de proceso)</span></div>
+    </div>
+
+    <!-- ---------- NOTAS, DIVISORES ---------- -->
+    <div class="gal-h">Notas y divisores</div>
+    <div class="gal-row">
+      <div class="gal-item wide"><div class="bp-divider">Sección</div><span class="gal-lbl">.bp-divider</span></div>
+      <div class="gal-item" style="min-width:300px"><div class="bp-note">Nota o aclaración breve para la audiencia.</div><span class="gal-lbl">.bp-note</span></div>
+      <div class="gal-item" style="min-width:300px"><div class="bp-note warn">Riesgo o dependencia a vigilar.</div><span class="gal-lbl">.bp-note.warn</span></div>
+    </div>
+
+    <!-- ---------- ICONOS LINE-ART ---------- -->
+    <div class="gal-h">Iconos line-art (stroke = currentColor)</div>
+    <div class="gal-row" style="color:var(--bp-cyan-2)">
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><span class="gal-lbl">datos</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/></svg><span class="gal-lbl">capas</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg><span class="gal-lbl">seguridad</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg><span class="gal-lbl">observabilidad</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-4l-.3 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1L10.5 22h4l.3-2.6a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6c.06-.3.1-.6.1-1z"/></svg><span class="gal-lbl">orquestación</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 10a6 6 0 0 0-11.3-2A4.5 4.5 0 1 0 6 17h11a3.5 3.5 0 0 0 1-6.9z"/></svg><span class="gal-lbl">cloud</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 7L3 12l5 5M16 7l5 5-5 5"/></svg><span class="gal-lbl">api / código</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.7"/></svg><span class="gal-lbl">usuarios</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span class="gal-lbl">candado</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3"/></svg><span class="gal-lbl">gráfico</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 7.5L11 15M16.5 7.5L13 15M8 6h8"/></svg><span class="gal-lbl">red / nodos</span></div>
+      <div class="gal-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span class="gal-lbl">documento</span></div>
+    </div>
+  </div>
+
+<script>
+// ===== Opciones JS (solo pantalla; la impresión no se ve afectada) =====
+// Navegación entre diapositivas (.bp-stage): ← → / PageUp PageDown / toolbar.
+// "Presentar" = pantalla completa · "PDF" = imprimir (usa el @media print A4 apaisado).
+(function(){
+  var stages = Array.prototype.slice.call(document.querySelectorAll('.bp-stage'));
+  if (!stages.length) return;
+  var bar = document.createElement('div');
+  bar.className = 'bp-toolbar';
+  bar.innerHTML = '<button data-a="prev" title="Anterior">◀</button>' +
+                  '<span class="bp-count"></span>' +
+                  '<button data-a="next" title="Siguiente">▶</button>' +
+                  '<button data-a="full">Presentar</button>' +
+                  '<button data-a="print">PDF</button>';
+  document.body.appendChild(bar);
+  var i = 0, count = bar.querySelector('.bp-count');
+  function go(n){
+    i = Math.max(0, Math.min(stages.length - 1, n));
+    stages[i].scrollIntoView({ behavior:'smooth', block:'center' });
+    count.textContent = (i + 1) + ' / ' + stages.length;
+  }
+  bar.addEventListener('click', function(e){
+    var a = e.target && e.target.dataset ? e.target.dataset.a : null;
+    if (a === 'prev') go(i - 1);
+    else if (a === 'next') go(i + 1);
+    else if (a === 'print') window.print();
+    else if (a === 'full' && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') go(i + 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(i - 1);
+  });
+  count.textContent = '1 / ' + stages.length;
+})();
+</script>
+<!-- VERSION EXACTA + SRI. NO volver a 'mermaid@11' (rango flotante) manteniendo el integrity: el CDN
+     sirve la 11.x mas reciente, el hash fijo deja de coincidir en cuanto publican una nueva y el
+     navegador BLOQUEA el script -> mermaid undefined y salta el aviso "sin conexion" con internet.
+     Al subir de version hay que regenerar el hash:
+     curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.min.js" integrity="sha384-aBQXj4hK6Jm05i7aQAsUV3bLdSUrHX1BGYfMB0166TtWt/RRaw+h0Eelme9OCOvy" crossorigin="anonymous"></script>
+<script>(function(){
+  if (typeof mermaid === "undefined") return;
+  try {
+    mermaid.initialize({ startOnLoad:false, theme:"base", themeVariables:{
+      primaryColor:"#eef5fb", primaryTextColor:"#1f2933", primaryBorderColor:"#2f5d8a",
+      lineColor:"#5b6675", edgeLabelBackground:"#ffffff", clusterBkg:"#eef5fb", clusterBorder:"#2f5d8a",
+      fontFamily:"Inter, sans-serif", noteBkgColor:"#ffe89a", noteBorderColor:"#e08a2b", noteTextColor:"#1f2933",
+      actorBkg:"#eef5fb", actorTextColor:"#1f2933", actorBorder:"#2f5d8a", textColor:"#1f2933",
+      signalTextColor:"#1f2933", labelTextColor:"#1f2933", loopTextColor:"#1f2933",
+    }});
+    mermaid.run({ querySelector: ".bp-mermaid" }).catch(function(){});
+  } catch(e){}
+})();</script>
+</body>
+</html>
