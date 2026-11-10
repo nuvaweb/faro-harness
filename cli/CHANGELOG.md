@@ -3,6 +3,10 @@
 Una entrada por versión publicada, la más reciente arriba. Criterio SemVer: **major** rompe un flujo o el
 contrato de un comando · **minor** añade comportamiento · **patch** corrige sin cambiar el comportamiento.
 
+## 2.2.2 — 2026-11-10
+
+- **Ficha de npm completa** (#284): `homepage`, `bugs`, `keywords` y `author` en `package.json`, el `CHANGELOG` dentro del paquete y el README con los enlaces al repo público, la instalación global (`npm install -g faro-harness`, comando `faro`) y cómo añadir el plugin a mano.
+
 ## 2.2.1 — 2026-11-10
 
 - **Origen público en `nuvaweb/faro-harness`** (#282): el wizard instala el plugin desde el repo de la organización y `repository` apunta a él. El paquete npm sigue siendo `faro-harness`.

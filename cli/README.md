@@ -1,5 +1,7 @@
 # faro-harness
 
+[![npm](https://img.shields.io/npm/v/faro-harness)](https://www.npmjs.com/package/faro-harness) [![licencia MIT](https://img.shields.io/npm/l/faro-harness)](./LICENSE)
+
 Wizard de **FARO (Forge-Agnostic Repo Operations)**: deja un repositorio de GitHub o GitLab listo para trabajar con Claude Code, con gobierno git (`main` + `develop`), documentación, clasificación y el plugin `faro`. Funciona en Windows, macOS y Linux, en tu cuenta personal o en una organización o grupo tuyo.
 
 ```
@@ -8,6 +10,16 @@ npx faro-harness            # crear o traer un repo (aquí sí pide conectar con
 ```
 
 Requisitos: Node 20.12 o superior, git y, si quieres que lo abra al terminar, VS Code o Cursor.
+
+Si lo vas a usar a menudo, instálalo una vez y usa el comando `faro`:
+
+```
+npm install -g faro-harness
+faro instalar
+faro
+```
+
+Código, issues y el plugin: [github.com/nuvaweb/faro-harness](https://github.com/nuvaweb/faro-harness).
 
 ## Los cuatro modos
 
@@ -67,11 +79,24 @@ La primera vez instala el plugin; después lo pone al día (`update` hace lo mis
 
 FARO se gobierna con el plugin `faro` de Claude Code: skills `/faro:*`, agentes y hooks. El repo no lleva copia del motor. Crear y traer declaran el plugin en `.claude/settings.json`, que viaja con el clon, así que quien clone el repo recibe la oferta de instalarlo.
 
+Sin el wizard, el plugin se añade a mano dentro de Claude Code:
+
+```
+/plugin marketplace add nuvaweb/faro-harness
+/plugin install faro@faro-marketplace
+```
+
 ## Modo no interactivo
 
 ```
 npx faro-harness crear --nombre="Analisis de red" --domain=producto --naturaleza=worker --dir=. --yes
 ```
+
+## Enlaces
+
+- Repositorio y documentación del plugin: [nuvaweb/faro-harness](https://github.com/nuvaweb/faro-harness)
+- Errores y propuestas: [issues](https://github.com/nuvaweb/faro-harness/issues)
+- Cambios por versión: [CHANGELOG](./CHANGELOG.md)
 
 ## Licencia
 
