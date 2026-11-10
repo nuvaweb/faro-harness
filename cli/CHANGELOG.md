@@ -3,6 +3,13 @@
 Una entrada por versión publicada, la más reciente arriba. Criterio SemVer: **major** rompe un flujo o el
 contrato de un comando · **minor** añade comportamiento · **patch** corrige sin cambiar el comportamiento.
 
+## 2.2.3 — 2026-11-10
+
+- **Cambiar de origen ya no deja faro desinstalado** (#286): al pasar `faro-marketplace` a otra fuente (p. ej. de `CAS-IA/faro-plugin` a `nuvaweb/faro-harness`), `instalar` relee el estado tras retirar el marketplace viejo y **reinstala** faro en vez de intentar actualizarlo. El cambio de fuente se comprueba siempre, sin esperar a la ventana de refresco.
+- **`~/.claude/settings.json` alineado**: si declara `faro-marketplace` con la fuente vieja, se cambia a la nueva (solo esa entrada).
+- **La caché no se vacía**: si un plugin no figura instalado en ningún scope, sus versiones en caché no se borran.
+- **Resumen real al terminar**: `instalar` dice qué versión de faro y superpowers queda en la máquina (scope user, para todos los repos) y solo dice «✅ Plugin listo» si están los dos; si falta uno, lo nombra y da el comando.
+
 ## 2.2.2 — 2026-11-10
 
 - **Ficha de npm completa** (#284): `homepage`, `bugs`, `keywords` y `author` en `package.json`, el `CHANGELOG` dentro del paquete y el README con los enlaces al repo público, la instalación global (`npm install -g faro-harness`, comando `faro`) y cómo añadir el plugin a mano.

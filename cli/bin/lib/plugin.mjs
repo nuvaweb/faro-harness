@@ -425,6 +425,9 @@ function limpiarCacheAntigua({ homeDir = os.homedir(), aplicar = true } = {}) {
   for (const p of PLUGINS_INSTALL) {
     const [nombre, marketplace] = p.id.split('@');
     const enUso = versionesEnUso(instalados, p.id);
+    // Sin NINGUNA version registrada el plugin no esta instalado (p. ej. tras retirar su marketplace):
+    // su cache puede ser lo unico que sostiene una sesion abierta, y podarla deja la maquina sin plugin (#286).
+    if (!enUso.size) continue;
     const base = path.join(homeDir, '.claude', 'plugins', 'cache', marketplace, nombre);
     let versiones = [];
     try { versiones = fs.readdirSync(base, { withFileTypes: true }).filter((d) => d.isDirectory() && /^\d+\.\d+\.\d+/.test(d.name)).map((d) => d.name); }
@@ -478,6 +481,34 @@ function marcarRefresco() {
   try { const cfg = loadConfig() || {}; cfg.plugins_refresco = { ts: Date.now() }; saveConfig(cfg); } catch {}
 }
 
+// ~/.claude/settings.json puede declarar 'faro-marketplace' (extraKnownMarketplaces) con la fuente VIEJA:
+// al cambiar de origen, el registro de la maquina se rehace pero esa declaracion seguia apuntando al
+// anterior (#286). Se alinea SOLO si existe y difiere; el resto del fichero no se toca.
+function alinearSettingsUsuario({ homeDir = os.homedir(), perfil = null, override = '' } = {}) {
+  const f = path.join(homeDir, '.claude', 'settings.json');
+  let texto; try { texto = fs.readFileSync(f, 'utf8'); } catch { return { cambiado: false }; }
+  let s; try { s = JSON.parse(texto); } catch { return { cambiado: false }; }
+  const e = s && s.extraKnownMarketplaces && s.extraKnownMarketplaces['faro-marketplace'];
+  if (!e) return { cambiado: false };
+  const fuente = marketplaceDe(perfil || PERFILES.github, override).source;
+  if (JSON.stringify(e.source) === JSON.stringify(fuente)) return { cambiado: false };
+  s.extraKnownMarketplaces['faro-marketplace'] = { ...e, source: fuente };
+  fs.writeFileSync(f, JSON.stringify(s, null, 2) + (texto.endsWith('\n') ? '\n' : ''));
+  return { cambiado: true, fichero: f };
+}
+
+// Resumen FINAL de 'instalar', con el estado REAL de 'claude plugin list' tras todos los pasos: dice que
+// version queda de cada plugin y solo da el resultado por bueno si estan todos (#286: decia "listo" sin faro).
+function resumenInstalar(estado) {
+  const faltan = [], lineas = [];
+  for (const p of PLUGINS_INSTALL) {
+    const st = estado && estado.get(p.id);
+    if (st && st.enabled !== false) lineas.push(`${p.etiqueta} ${st.version || '(versión desconocida)'}${st.scope && st.scope !== 'user' ? ` (scope ${st.scope})` : ''}`);
+    else faltan.push(p.id);
+  }
+  return { listo: !!estado && !faltan.length, lineas, faltan };
+}
+
 function accionParaPlugin(st) {
   if (!st) return 'install';
   if (st.scope !== 'user') return 'install'; // mueve de scope (enable NO lo mueve)
@@ -490,7 +521,7 @@ async function instalarPluginsClaude({ silencioSiOk = true, destino = null, perf
   const mkFaro = fuenteMarketplaceUser(perfil, override);
   const MARKETPLACES_INSTALL = [{ nombre: 'faro-marketplace', fuente: mkFaro.fuente }, MARKETPLACE_OFICIAL];
   const cruda = listaPluginsCruda();
-  const estado = cruda === null ? null : parseListaPlugins(cruda);
+  let estado = cruda === null ? null : parseListaPlugins(cruda);
   const todas = cruda === null ? new Map() : parseListaPluginsTodas(cruda);
   const bin = claudeBin();
   if (estado === null) {
@@ -511,21 +542,27 @@ async function instalarPluginsClaude({ silencioSiOk = true, destino = null, perf
   // marketplaces son OBLIGATORIOS (sin ellos el ID <plugin>@<marketplace> no resuelve y el install
   // falla), asi que la ventana NUNCA puede saltarse una instalacion real: solo el refresco.
   const refrescar = forzar || tocaRefrescar();
-  if (refrescar || faltaAlgo) {
+  // El cambio de fuente se mira SIEMPRE (es leer un fichero): no puede esperar a la ventana de refresco.
+  const reg = marketplaceRegistrado();
+  const cambiaFuente = !!(reg && !mismaFuente(reg, mkFaro.fuente));
+  if (refrescar || faltaAlgo || cambiaFuente) {
     // En PARALELO: los marketplaces son independientes entre si. El REFRESCO del indice ('marketplace
     // update') es imprescindible — 'add' sobre un marketplace ya declarado NO lo actualiza, asi que sin
     // el 'plugin update' resuelve contra un indice rancio y responde "already at the latest version"
     // siendo falso. Fallar aqui no es motivo de alarma: solo significa que no habra refresco.
     // Si 'faro-marketplace' esta registrado con OTRA fuente (p. ej. el espejo de GitHub y ahora toca el
     // principal de GitLab), 'add' no lo cambia: se retira y se vuelve a declarar con la fuente buena.
-    const reg = marketplaceRegistrado();
-    if (reg && !mismaFuente(reg, mkFaro.fuente)) {
+    if (cambiaFuente) {
       if (await cmdPlugin(bin, ['plugin', 'marketplace', 'remove', 'faro-marketplace'])) say(`  ${C.d}Marketplace faro: ${reg} → ${mkFaro.fuente} (${mkFaro.origen === 'principal' ? 'el principal, en GitLab' : mkFaro.origen}).${C.x}`);
+      try { if (alinearSettingsUsuario({ perfil, override }).cambiado) say(`  ${C.d}~/.claude/settings.json: faro-marketplace apunta ya a ${mkFaro.fuente}.${C.x}`); } catch {}
     }
     await Promise.all(MARKETPLACES_INSTALL.map(async (mk) => {
       await cmdPlugin(bin, ['plugin', 'marketplace', 'add', mk.fuente, '--scope', 'user']);   // ya declarado (lo normal) o sin red
       if (refrescar) await cmdPlugin(bin, ['plugin', 'marketplace', 'update', mk.nombre]);
     }));
+    // Retirar el marketplace DESINSTALA sus plugins: el estado leido al principio ya no vale. Se relee
+    // para que faro pase de 'update' (que fallaria) a 'install' (#286).
+    if (cambiaFuente) { const c2 = listaPluginsCruda(); if (c2 !== null) estado = parseListaPlugins(c2); }
   }
   // Los REFRESCOS de plugins ya activos van en paralelo entre si (independientes). Las instalaciones
   // reales quedan en serie: son el camino raro (primera vez / cambio de scope) y ahi el usuario
@@ -584,7 +621,9 @@ async function instalarPluginsClaude({ silencioSiOk = true, destino = null, perf
     const limpieza = limpiarCacheAntigua({});
     if (limpieza.borrados.length) say(`  ${C.d}Caché: retiradas ${limpieza.borrados.length} versión(es) sin usar de ${[...new Set(limpieza.borrados.map((b) => b.plugin))].join(', ')} (${limpieza.borrados.map((b) => b.version).join(', ')}).${C.x}`);
   } catch {}
-  return { estado: fallos.length ? 'parcial' : 'ok', hechos, actualizados, sinRefrescar, fallos: fallos.map((f) => f.id) };
+  const final = (() => { const c = listaPluginsCruda(); return c === null ? null : parseListaPlugins(c); })();
+  const resumen = resumenInstalar(final);
+  return { estado: fallos.length || !resumen.listo ? 'parcial' : 'ok', hechos, actualizados, sinRefrescar, fallos: fallos.map((f) => f.id), resumen };
 }
 
 // Compatibilidad: el nombre viejo se mantiene (lo importan los 3 flujos) pero ahora INSTALA de verdad
@@ -598,6 +637,6 @@ export {
   asegurarCredencialesPlugins,
   PLANTILLAS_MARCA, plantillasLegadas, revisarPlantillasLegadas,
   claudeBin, necesitaShellWin, cmpVersion, parseListaPlugins, parseListaPluginsTodas, refrescosProject, listaPluginsCruda, estadoPluginsClaude, fuenteMarketplaceUser, marketplaceRegistrado,
-  versionesEnUso, limpiarCacheAntigua,
+  versionesEnUso, limpiarCacheAntigua, alinearSettingsUsuario, resumenInstalar,
   accionParaPlugin, instalarPluginsClaude, asegurarPluginSuperpowers,
 };

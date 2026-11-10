@@ -30,7 +30,15 @@ const catalogo = { naturalezas: NATURALEZAS, dominios: DOMINIOS };   // viaja co
 // INSTALAR: el plugin y superpowers en Claude Code, sin sesión (el plugin es público). La cuenta de la
 // forja se pide solo al crear o traer un repo, o cuando el plugin opere la forja.
 async function instalar() {
-  await actualizar();
+  const { resumen } = await actualizar();
+  // Que queda de verdad (#286): versiones reales y 'listo' solo si estan TODOS. Es por MAQUINA (scope
+  // user): sirve en todos los repos y no toca ninguno.
+  if (resumen && resumen.lineas.length) say(`  ${C.d}Instalado en esta máquina (scope user, para todos tus repos): ${resumen.lineas.join(' · ')}.${C.x}`);
+  if (resumen && !resumen.listo) {
+    warn(`Falta: ${resumen.faltan.join(', ')}. Instálalo con: claude plugin install <id> --scope user`);
+    p.outro(`${C.y}⚠ Plugin incompleto${C.x}`);
+    return;
+  }
   say(`  ${C.d}Abre Claude Code en cualquier repo y escribe /faro: para ver las skills. Para crear o traer un repo: npx faro-harness (solo entonces pide conectar con tu forja).${C.x}`);
   p.outro(`${C.g}✅ Plugin listo${C.x}`);
 }

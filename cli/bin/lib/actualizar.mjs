@@ -23,12 +23,12 @@ const avisoVersion = (instalada, publicada) => (publicada && cmpVersion(publicad
 async function actualizar({
   refrescar = instalarPluginsClaude, consultar = versionPublicada, instalada = instaladaAhora(), decir = say, avisar = warn,
 } = {}) {
-  let plugin;
-  try { plugin = (await refrescar({ silencioSiOk: false, forzar: true, override: overrideMarketplace() })).estado; }
+  let plugin, resumen = null;
+  try { const r = await refrescar({ silencioSiOk: false, forzar: true, override: overrideMarketplace() }); plugin = r.estado; resumen = r.resumen || null; }
   catch (e) { plugin = 'error'; avisar(`No pude refrescar el plugin faro: ${e.message}`); }
   const aviso = avisoVersion(instalada, await consultar());
   if (aviso) decir(aviso);
-  return { plugin, aviso };
+  return { plugin, aviso, resumen };
 }
 
 export { versionPublicada, avisoVersion, actualizar };

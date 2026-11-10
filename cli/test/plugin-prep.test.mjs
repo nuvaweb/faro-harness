@@ -170,7 +170,8 @@ test('limpiarCacheAntigua: aplicar:false solo REPORTA, no borra (modo dry)', () 
   const dir = path.join(d, '.claude', 'plugins', 'cache', 'faro-marketplace', 'faro', '0.8.5');
   fs.mkdirSync(dir, { recursive: true });
   fs.mkdirSync(path.join(d, '.claude', 'plugins'), { recursive: true });
-  fs.writeFileSync(path.join(d, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ plugins: {} }));
+  // faro instalado en OTRA version: la 0.8.5 es huerfana (sin version registrada no se poda nada, #286).
+  fs.writeFileSync(path.join(d, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ plugins: { 'faro@faro-marketplace': [{ scope: 'user', version: '1.5.1' }] } }));
   const r = limpiarCacheAntigua({ homeDir: d, aplicar: false });
   assert.equal(r.borrados.length, 1);
   assert.ok(fs.existsSync(dir), 'aplicar:false no borra de verdad');
