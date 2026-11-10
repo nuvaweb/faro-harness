@@ -16,7 +16,9 @@ import { RAIZ_ESQUELETO } from '../lib/esqueleto.mjs';
 import { archivarRepo } from '../lib/migrar.mjs';
 import { mostrarPermisos } from './preparar.mjs';
 import { asegurarMantenedor } from '../lib/alta.mjs';
-import { configurarRemotoSeamless, asegurarPluginSuperpowers, asegurarCredencialesPlugins, revisarPlantillasLegadas, overlayFaro, mergeGitignore, FARO_ROOTS, carpetasFaroQueFaltan, inventarioRamas, asegurarDevelopLocal, normalizarPrincipalLocal, cdSugerido, estamparIdentidad, escribirSettingsPlugin, migrarCopiaLegada, leerMetaRepo, escribirMetaRepo } from '../lib/repo.mjs';
+import { elegirValidacion } from './paso-validacion.mjs';
+import { consultaCi, generarCi } from '../lib/validacion.mjs';
+import { configurarRemotoSeamless, asegurarPluginSuperpowers, asegurarCredencialesPlugins, revisarPlantillasLegadas, overlayFaro, mergeGitignore, FARO_ROOTS, carpetasFaroQueFaltan, inventarioRamas, asegurarDevelopLocal, normalizarPrincipalLocal, cdSugerido, estamparIdentidad, escribirSettingsPlugin, migrarCopiaLegada, leerMetaRepo, escribirMetaRepo, aplicarExigirPipeline } from '../lib/repo.mjs';
 
 // ADOPTAR (fase 1, mecánica): reenfoca una carpeta EXISTENTE hacia el harness SIN tocar el stack.
 async function flujoAdoptar(auth, org, cfg, catalogo, esOwner, ctx) {
@@ -135,12 +137,16 @@ async function flujoAdoptar(auth, org, cfg, catalogo, esOwner, ctx) {
     } else org = donde;
   }
 
+  // Dónde se validan los PR/MR (#289): recomendación según el plan del destino.
+  const val = await elegirValidacion({ alta, s, cuenta: { org, personal: ctx.destino.personal }, publico: false });
+
   say('');
   caja([
     `${C.d}Adoptar${C.x}     ${destino}`,
     `${C.d}Repo${C.x}        ${C.g}${org}/${repoName}${C.x}`,
     `${C.d}Área${C.x}         ${domain}`,
     `${C.d}Tipo de repo${C.x} ${nat.etiqueta}`,
+    `${C.d}Validación${C.x}   ${val.validacion}`,
     inv ? `${C.d}Rama fuente${C.x}  ${inv.ramaActual}  ${C.d}→ develop${C.x}` : null,
     remoteViejo ? `${C.d}Remoto viejo${C.x} ${remoteViejo}` : `${C.d}Sin remoto${C.x} previo`,
   ].filter(Boolean), { titulo: 'Adopción', color: C.g });
@@ -188,7 +194,7 @@ async function flujoAdoptar(auth, org, cfg, catalogo, esOwner, ctx) {
 
   // Metadato v2 (nuestra clasificación gana; el harness lo LEE), con MERGE sobre lo previo: conserva
   // alias y claves extra y borra el nombre legado.
-  escribirMetaRepo(destino, { ...(metaPrevia || {}), domain, teams: (metaPrevia && metaPrevia.teams) || [], tags: (metaPrevia && metaPrevia.tags) || [] });
+  escribirMetaRepo(destino, { ...(metaPrevia || {}), domain, teams: (metaPrevia && metaPrevia.teams) || [], tags: (metaPrevia && metaPrevia.tags) || [], validacion: val.validacion });
   estamparIdentidad(destino, auth, perfil);   // identidad del LOGIN al git config local -> telemetria coherente
   // Modelo PLUGIN: retira la copia legada del harness (la existente O la que acaba de traer el overlay
   // del template) y declara la distribucion del plugin en settings — todo entra en el commit de adopcion.
@@ -198,6 +204,12 @@ async function flujoAdoptar(auth, org, cfg, catalogo, esOwner, ctx) {
   // la del plugin y se queda congelada, asi que se retira aqui — antes del commit, para que la
   // adopcion deje el repo coherente de una vez (no en una pasada posterior de `faro check`).
   await revisarPlantillasLegadas(destino);
+
+  // CI de la forja (#289): el motor lo escribe con los gates del repo; no pisa uno existente.
+  const ci = consultaCi(val.validacion) ? generarCi(destino, { forja: perfil.forja }) : null;
+  if (ci && ci.estado === 'creado') ok(`CI de la forja generado (${ci.ruta}) con los gates del repo.`);
+  else if (ci && ci.estado === 'existe') ok(`El repo ya tiene CI (${ci.ruta}): se usa el existente, no lo toco.`);
+  else if (ci) say(`  ${C.d}No he generado CI (${ci.estado === 'sin-motor' ? 'no encuentro el plugin FARO instalado' : 'aún no hay gates lint/test/build'}): dentro del repo, \`harness.js ci\`. Mientras, FARO valida en local.${C.x}`);
 
   paso(`Subir a ${forjaTexto} (historial completo + capa FARO)`);
   run('git', ['-C', destino, 'add', '-A'], { stdio: 'ignore' });
@@ -255,6 +267,7 @@ async function flujoAdoptar(auth, org, cfg, catalogo, esOwner, ctx) {
   const pr = await alta.proteger(s, rutaRepo(), principal);
   if (pr.ok) ok(`Rama '${principal}' protegida.`);
   else say(`  ${C.d}'${principal}' no queda protegida en la forja (HTTP ${pr.status}: falta plan o permiso); el harness la protege en local.${C.x}`);
+  if (ci) await aplicarExigirPipeline({ ci, meta: val, perfil, auth, ruta: rutaRepo(), alta, subido: true });
 
   // plugin superpowers: adoptar lo aplica. (Specs spec-driven = motor nativo del harness, sin instalar nada.)
   /* specs nativas del harness: nada que instalar */

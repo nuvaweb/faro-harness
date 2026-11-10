@@ -189,5 +189,30 @@ module.exports = function (g) {
     return { ok: true, numero, url, sha: (m.body && (m.body.merge_commit_sha || m.body.sha)) || null };
   }
 
-  return { cmdRenombrar, cmdProteger, cmdExigirPipeline, cmdReglasPush, cmdBloquearMr, cmdPrVer, cmdPrAprobar, cmdPrMergear, integrarPorPeticion };
+  // Estado del CI de un MR (#289): head_pipeline del MR; si fallo, los jobs fallidos y su failure_reason
+  // (ci_quota_exceeded = sin minutos, no un fallo del codigo). La normalizacion es dominio puro.
+  async function estadoCi(iid) {
+    const mr = await api(`projects/${pid()}/merge_requests/${iid}`);
+    if (mr.sinToken) return { ok: false, sinToken: true };
+    if (!mr.ok || !mr.body) return { ok: false, msg: `No pude leer la peticion !${iid} (HTTP ${mr.status}).` };
+    const pipeline = mr.body.head_pipeline || null;
+    return { ok: true, sha: mr.body.sha || (pipeline && pipeline.sha) || null, ...(await normalizarPipeline(pipeline)) };
+  }
+  async function normalizarPipeline(pipeline) {
+    let jobsFallidos = [];
+    if (pipeline && pipeline.status === 'failed') {
+      const j = await api(`projects/${pid()}/pipelines/${pipeline.id}/jobs?scope[]=failed&per_page=100`);
+      jobsFallidos = j.ok && Array.isArray(j.body) ? j.body : [];
+    }
+    return require('./estado-ci.js').normalizarGitlab({ pipeline, jobsFallidos });
+  }
+  // Lo mismo para un commit concreto (p. ej. la punta de develop al publicar): su ultimo pipeline.
+  async function estadoCiCommit(sha) {
+    const r = await api(`projects/${pid()}/pipelines?sha=${encodeURIComponent(sha)}&order_by=id&sort=desc&per_page=1`);
+    if (r.sinToken) return { ok: false, sinToken: true };
+    if (!r.ok) return { ok: false, msg: `No pude leer los pipelines de ${sha} (HTTP ${r.status}).` };
+    return { ok: true, sha, ...(await normalizarPipeline((Array.isArray(r.body) && r.body[0]) || null)) };
+  }
+
+  return { cmdRenombrar, cmdProteger, cmdExigirPipeline, cmdReglasPush, cmdBloquearMr, cmdPrVer, cmdPrAprobar, cmdPrMergear, integrarPorPeticion, estadoCi, estadoCiCommit };
 };

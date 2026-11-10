@@ -4044,15 +4044,36 @@ async function cmdConsolidar() {
   if (sel.noEncontradas.length) console.log(`⚠ No encuentro entre las ramas sin integrar: ${sel.noEncontradas.join(', ')}.`);
   if (sel.sinConsultar) { console.log(`No pude consultar los PRs abiertos, y sin ellos no integro a ciegas. Nombra lo que quieres integrar: harness.js consolidar <PR|issue|rama>. Ramas sin integrar: ${sinIntegrar.join(', ')}`); return; }
   if (sel.sinPr.length) console.log(`ⓘ Sin PR abierto a develop, NO se integran: ${sel.sinPr.join(', ')} (nómbralas para integrarlas).`);
-  const unmerged = sel.ramas;
+  let unmerged = sel.ramas;
   if (!unmerged.length) { console.log('Nada que consolidar con lo pedido.'); return; }
-  console.log(`Consolidar a 'develop' (${unmerged.length} rama[s]): ${unmerged.join(', ')}`);
+  // CI DE LA FORJA (#289): con .faro.json > validacion = ci|ambos se lee el CI del PR/MR de cada rama.
+  // Rojo o en curso no entra; verde (modo ci) no repite la suite; sin CI o sin minutos, suite completa local.
+  const eci = require('./lib/estado-ci.js');
+  let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')); } catch { meta = null; }
+  const modoV = eci.modoValidacion(meta);
+  const estadosCi = [];
+  for (const rama of unmerged) {
+    if (!eci.consultaCi(modoV) || !gh || !gh.estadoCi) { estadosCi.push({ rama, estado: null, fallidos: [] }); continue; }
+    let lista = prs && prs.get(rama);
+    if (!lista && gh.prsDeRama) { try { lista = await gh.prsDeRama(rama); } catch { lista = null; } }
+    const abierto = (lista || []).find((p) => p && (p.state === 'open' || p.state === 'opened'));
+    const e = abierto ? await gh.estadoCi(abierto.number) : null;
+    estadosCi.push({ rama, estado: e && e.ok ? e.estado : 'sin-ci', fallidos: (e && e.fallidos) || [] });
+  }
   // GATE: validar el estado del ciclo ANTES de integrar. Si falla, NO se integra nada. Los gates, solo de
-  // lo que tocan las ramas (#226): en un monorepo, sus apps; `consolidar --todas` pide la bateria completa.
+  // lo que tocan las ramas que entran (#226): en un monorepo, sus apps; `consolidar --todas` pide la bateria completa.
   const ap = require('./lib/apps.js');
-  const tocados = [...new Set(unmerged.flatMap((r) => (git('diff', '--name-only', `develop...${r}`) || '').split(/\r?\n/).filter(Boolean)))];
   const monorepo = ap.esMonorepo(ROOT);
-  const argsV = require('./lib/consolidar.js').argsValidate({ monorepo, apps: monorepo ? ap.appsAfectadas(ROOT, tocados).apps.map((a) => a.id) : [], todas: argv.includes('--todas') });
+  const argsLocal = (ramas) => {
+    const tocados = [...new Set(ramas.flatMap((r) => (git('diff', '--name-only', `develop...${r}`) || '').split(/\r?\n/).filter(Boolean)))];
+    return require('./lib/consolidar.js').argsValidate({ monorepo, apps: monorepo ? ap.appsAfectadas(ROOT, tocados).apps.map((a) => a.id) : [], todas: argv.includes('--todas') });
+  };
+  const dCi = eci.decidirConsolidar({ modo: modoV, ramas: estadosCi, argsLocal });
+  for (const a of dCi.avisos) console.log(a);
+  if (!dCi.args) { console.log('Nada que consolidar ahora: el CI de lo pedido está en rojo o en curso.'); return; }
+  unmerged = dCi.integrar;
+  console.log(`Consolidar a 'develop' (${unmerged.length} rama[s]): ${unmerged.join(', ')}`);
+  const argsV = argv.includes('--todas') ? argsLocal(unmerged) : dCi.args;
   console.log(`Validacion: harness.js ${argsV.join(' ')}`);
   const v = require('child_process').spawnSync(process.execPath, [__filename, ...argsV], { windowsHide: true, cwd: ROOT, stdio: 'inherit' });
   if (v.status !== 0) { console.log('\nCONSOLIDACION CANCELADA: la validacion falla. Arregla el ciclo (tasks/specs/estados) antes de integrar.'); return; }
@@ -4779,6 +4800,21 @@ async function cmdPublicar() {
   }
   const cur = git('rev-parse', '--abbrev-ref', 'HEAD') || 'develop';
   console.log(`Aprobar develop -> ${main} (${flow.aheadOfMain} commit(s)) como ${ri.perm}.`);
+
+  // CI DE LA FORJA (#289): con validacion = ci|ambos, el CI de develop en rojo bloquea ANTES de tocar nada.
+  // La suite local completa del paso 3 se mantiene: lleva el commit de archivado que el CI no ha visto.
+  {
+    const eci = require('./lib/estado-ci.js');
+    let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')); } catch { meta = null; }
+    const modoV = eci.modoValidacion(meta);
+    if (eci.consultaCi(modoV) && gh.estadoCiCommit) {
+      const sha = git('rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop');
+      const e = sha ? await gh.estadoCiCommit(sha) : null;
+      const dp = eci.decidirPublicar({ modo: modoV, estado: e && e.ok ? e.estado : 'sin-ci', fallidos: (e && e.fallidos) || [] });
+      if (dp.aviso) console.log(dp.aviso);
+      if (dp.bloquear) { console.log(`\nAPROBACION CANCELADA: arregla el CI de develop y reintenta. No he tocado '${main}'.`); return; }
+    }
+  }
 
   // Debemos operar sobre develop (el archivado y su commit se hacen ANTES del merge, sobre develop).
   // Issue #2: develop puede no existir en LOCAL (repo clonado tras trabajar en feature/*, o recien

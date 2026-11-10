@@ -63,7 +63,7 @@ function appsDesdeFlags(nat, plantillaKey) {
 
 // Metadato de clasificación del repo (.faro.json). `plantilla` = clave del catálogo, solo en app única:
 // en un monorepo cada app se registra en monorepo.apps.<id>.
-function payloadMeta({ domain = null, teams = [], tags = [], naturaleza = null, plantilla = null } = {}) {
+function payloadMeta({ domain = null, teams = [], tags = [], naturaleza = null, plantilla = null, validacion = null } = {}) {
   const out = { domain: domain || null, teams: teams || [], tags: tags || [] };
   if (naturaleza) out.naturaleza = naturaleza;
   if (plantilla) out.plantilla = plantilla;

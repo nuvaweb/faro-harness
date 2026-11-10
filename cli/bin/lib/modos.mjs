@@ -52,6 +52,7 @@ Opciones:
   --plantilla=<id>        Plantilla de stack (worker: tanstack-ui).
   --monorepo              Monorepo pnpm: cada app en apps/<id>.
   --nombre=<texto>        Nombre en lenguaje normal (se convierte en un slug sin prefijo).
+  --validacion=<modo>     Dónde se validan los PR/MR: ci | local | ambos (sin flag, se recomienda según el plan).
   --dir=<ruta>            Carpeta donde clonar, o la carpeta a traer.
   --perfil=<id>           Perfil: github | gitlab | los de ~/.faro.json.
   --forja=github|gitlab   Acota el perfil cuando no hay remoto que leer.

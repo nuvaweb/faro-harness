@@ -64,5 +64,35 @@ module.exports = function (g) {
     return require('./apps-forja.js').asegurarEtiquetaGithub(ghApi, R.org, R.repo, id, descripcion);
   }
 
-  return { leerIssue, leerComentarios, editarCuerpoIssue, pedirRevision, adjuntosDeIssue, asegurarEtiquetaApp };
+  // Estado del CI de un PR (#289): head SHA -> check-runs + estado combinado; de los fallidos se leen las
+  // anotaciones para separar "sin minutos" de un fallo del codigo. La normalizacion es dominio puro.
+  async function estadoCi(numero) {
+    const R = ghRepo();
+    if (!R) return sinRepo;
+    const base = `repos/${R.org}/${R.repo}`;
+    const pr = await ghApi(`${base}/pulls/${numero}`);
+    if (pr.sinToken) return { ok: false, sinToken: true };
+    if (!pr.ok || !pr.body || !pr.body.head) return { ok: false, msg: `No pude leer el PR #${numero} (HTTP ${pr.status}).` };
+    return estadoCiCommit(pr.body.head.sha);
+  }
+
+  // Lo mismo para un commit concreto (p. ej. la punta de develop al publicar).
+  async function estadoCiCommit(sha) {
+    const R = ghRepo();
+    if (!R) return sinRepo;
+    const base = `repos/${R.org}/${R.repo}`;
+    const [cr, st] = await Promise.all([ghApi(`${base}/commits/${sha}/check-runs?per_page=100`), ghApi(`${base}/commits/${sha}/status`)]);
+    if (cr.sinToken) return { ok: false, sinToken: true };
+    const checkRuns = cr.ok && cr.body && Array.isArray(cr.body.check_runs) ? cr.body.check_runs : [];
+    const statuses = st.ok && st.body && Array.isArray(st.body.statuses) ? st.body.statuses : [];
+    const ci = require('./estado-ci.js');
+    const anotaciones = {};
+    await Promise.all(ci.fallidosGithub(checkRuns).slice(0, 10).map(async (c) => {
+      const a = await ghApi(`${base}/check-runs/${c.id}/annotations`);
+      anotaciones[c.id] = a.ok && Array.isArray(a.body) ? a.body : [];
+    }));
+    return { ok: true, sha, ...ci.normalizarGithub({ checkRuns, statuses, anotaciones }) };
+  }
+
+  return { leerIssue, leerComentarios, editarCuerpoIssue, pedirRevision, adjuntosDeIssue, asegurarEtiquetaApp, estadoCi, estadoCiCommit };
 };

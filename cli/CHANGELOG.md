@@ -3,6 +3,17 @@
 Una entrada por versión publicada, la más reciente arriba. Criterio SemVer: **major** rompe un flujo o el
 contrato de un comando · **minor** añade comportamiento · **patch** corrige sin cambiar el comportamiento.
 
+## 2.3.0 — 2026-11-10
+
+- **¿Dónde se validan los PR/MR?** (#289): `crear` y `adoptar` preguntan si se validan con el CI de la forja, en local o con los dos.
+  - Recomienda según el destino: CI si el repo es público o el plan es de pago; local si es privado en un plan gratuito, porque ahí el CI sería solo informativo.
+  - Explica qué cuestan los minutos y qué pasa si se agotan.
+  - La elección queda en `.faro.json > validacion`. Para no preguntar: `--validacion=ci|local|ambos`; con `--yes` se toma la recomendada.
+- **CI generado por el motor**: con `ci` o `ambos`, el wizard pide al plugin instalado (`harness.js ci`) el CI con los gates del repo.
+  - No sobrescribe uno existente.
+  - En un repo sin código todavía no genera nada y dice cómo hacerlo después.
+- **«El pipeline debe pasar»**: en GitLab se activa solo, y únicamente cuando el CI ya está subido. En GitHub el wizard dice cómo exigirlo, porque requiere protección de rama, que en un repo privado exige plan de pago.
+
 ## 2.2.3 — 2026-11-10
 
 - **Cambiar de origen ya no deja faro desinstalado** (#286): al pasar `faro-marketplace` a otra fuente (p. ej. de `CAS-IA/faro-plugin` a `nuvaweb/faro-harness`), `instalar` relee el estado tras retirar el marketplace viejo y **reinstala** faro en vez de intentar actualizarlo. El cambio de fuente se comprueba siempre, sin esperar a la ventana de refresco.

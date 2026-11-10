@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## 1.6.0 — 2026-11-10
+
+### Añadido
+- Validación de PR/MR delegada en el CI de la forja (#289). `.faro.json > validacion` elige dónde se valida: `ci`, `local` o `ambos`. Sin la clave, todo sigue como hasta ahora (`local`).
+  - Puerto `estadoCi` / `estadoCiCommit` en el contrato de forja, con adaptadores de GitHub (check-runs y estados) y GitLab (pipeline del MR o del commit). El estado sale normalizado: `verde`, `rojo`, `pendiente`, `sin-ci` o `sin-cuota`. Un fallo por minutos o crédito agotados no cuenta como fallo del código.
+  - `consolidar` consulta el CI de cada PR/MR antes de integrarlo:
+    - en `verde` con `ci`, no repite la suite en local;
+    - en `rojo` o `pendiente`, deja fuera esa rama y sigue con las demás;
+    - en `sin-ci` o `sin-cuota`, avisa en una línea y valida en local la suite completa.
+  - `publicar` mantiene la suite local completa y cancela, antes de archivar ni tocar `main`, si el CI de `develop` está en rojo.
+  - `faro-schema.json` declara la clave `validacion`.
+
 ## 1.5.1 — 2026-11-10
 
 ### Cambiado

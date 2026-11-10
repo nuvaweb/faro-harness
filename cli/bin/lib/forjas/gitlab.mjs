@@ -197,6 +197,15 @@ const alta = {
   ramaPorDefecto: (s, ruta, rama, o) => ramaPorDefecto(s.host, s.token, ruta, rama, o),
   estamparTopics: (s, ruta, lista, o) => estamparTopics(s.host, s.token, ruta, lista, o),
   proteger: (s, ruta, rama, o) => proteger(s.host, s.token, ruta, rama, o),
+  // Plan del destino (#289): el del grupo o el del usuario (namespace). Sin campo 'plan' (instancia
+  // propia sin licencia) o 'free'/'default' -> gratuito.
+  async plan(s, { org }, o = {}) {
+    const r = await api(s.host, s.token, `namespaces/${pid(org)}`, o);
+    const nombre = (r.ok && r.body && r.body.plan) || null;
+    return { nombre, dePago: !!nombre && !['free', 'default'].includes(String(nombre).toLowerCase()) };
+  },
+  // «El pipeline debe pasar» (todos los planes). Solo se llama si el repo ya tiene CI.
+  exigirPipeline: (s, ruta, o = {}) => api(s.host, s.token, `projects/${pid(ruta)}`, { ...o, method: 'PUT', body: { only_allow_merge_if_pipeline_succeeds: true } }),
 };
 
 const FORJA_GITLAB = {

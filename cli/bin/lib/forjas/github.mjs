@@ -497,6 +497,13 @@ const alta = {
   ramaPorDefecto: (s, ruta, rama, o) => pedir(s, `/repos/${ruta}`, conCuerpo('PATCH', { default_branch: rama }), o),
   estamparTopics: (s, ruta, topics, o) => pedir(s, `/repos/${ruta}/topics`, conCuerpo('PUT', { names: [...new Set(topics.filter(Boolean))] }), o),
   // Sin plan de pago GitHub responde 403 en privados: el flujo lo cuenta y el harness protege en local.
+  // Plan del destino (#289): org -> /orgs/{org}; cuenta personal -> /user. null si no se puede leer.
+  async plan(s, { org, personal }, o) {
+    const r = await pedir(s, personal ? '/user' : `/orgs/${org}`, {}, o);
+    const nombre = (r.ok && r.body && r.body.plan && r.body.plan.name) || null;
+    return { nombre, dePago: esPlanDePago(nombre) };
+  },
+  // Sin plan de pago GitHub responde 403 en privados: el flujo lo cuenta y el harness protege en local.
   proteger: (s, ruta, rama, o) => pedir(s, `/repos/${ruta}/branches/${rama}/protection`, conCuerpo('PUT', {
     required_pull_request_reviews: { required_approving_review_count: 1 }, enforce_admins: false, required_status_checks: null, restrictions: null,
   }), o),

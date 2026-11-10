@@ -9,6 +9,7 @@ import { altaDesdeEsqueleto, asegurarMantenedor, identidadDe, urlGitDe } from '.
 import { elegirDestino, finalizarLocal, asegurarPluginSuperpowers, asegurarCredencialesPlugins } from '../lib/repo.mjs';
 import { overrideMarketplace } from '../lib/gitcred.mjs';
 import { mostrarPermisos } from './preparar.mjs';
+import { elegirValidacion } from './paso-validacion.mjs';
 import { plantillasMonorepo, appsDesdeFlags, validarIdApp, conPlantillasPublicas } from '../lib/monorepo.mjs';
 
 // ---------- flujo CREAR (repo nuevo desde el esqueleto) ----------
@@ -143,6 +144,9 @@ async function flujoCrear(auth, org, cfg, catalogoEntrada, esOwner, ctx) {
   if (mant.aplicado && !mant.ok) say(`  ${C.d}No pude fijarte como Maintainer explícito (HTTP ${mant.status}); GitLab suele darlo al creador igualmente.${C.x}`);
   if (!cuenta.personal) say(`  ${C.d}Es privado: quizá solo tú lo veas hasta que des acceso a tu equipo desde la forja.${C.x}`);
 
+  // Dónde se validan los PR/MR (#289): el repo nace privado; la recomendación sale del plan.
+  const val = await elegirValidacion({ alta, s, cuenta, publico: false });
+
   // Paso 6 · Local.
   paso('Dejarlo listo en local');
   // plugin superpowers: crear lo aplica. (Specs spec-driven = motor nativo del harness, sin instalar nada.)
@@ -161,6 +165,7 @@ async function flujoCrear(auth, org, cfg, catalogoEntrada, esOwner, ctx) {
     template: 'esqueleto', domain, tags, teams: [], naturaleza,
     plantilla: plantillaUsada, plantillaKey: plantillaUsada ? plantilla : null,
     monorepo: monorepo ? { apps } : null,
+    validacion: val.validacion, dePago: val.dePago, publico: val.publico,
   }, ctx);
   await asegurarPlugins();
 

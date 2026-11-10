@@ -12,6 +12,7 @@ import { usuarioHttp, overrideMarketplace, noreplyDe } from './gitcred.mjs';
 import { PERFILES } from './perfil.mjs';
 import { payloadMeta, fusionarMeta, instanciarMonorepo, clonadorPublico } from './monorepo.mjs';
 import { personalizarPlantilla } from './plantilla.mjs';
+import { consultaCi, generarCi, exigirPipeline } from './validacion.mjs';
 
 // Prerrequisitos.
 function tieneCmd(bins) { for (const b of bins) { try { execFileSync(b, ['--version'], { stdio: 'ignore', timeout: 8000 }); return true; } catch {} } return false; }
@@ -291,6 +292,7 @@ async function finalizarLocal(auth, org, repoName, baseDir, destino, meta, ctx =
         const payload = payloadMeta({
           domain: meta.domain, teams: meta.teams, tags: meta.tags, naturaleza: meta.naturaleza,
           plantilla: meta.monorepo ? null : meta.plantillaKey,
+          validacion: meta.validacion || null,
         });
         // El template puede traer ya un .faro.json (p. ej. solo teams): se COMPLETA, no se deja como
         // estaba — si no, el repo nacía sin domain ni naturaleza.
@@ -345,7 +347,18 @@ async function finalizarLocal(auth, org, repoName, baseDir, destino, meta, ctx =
         caja(['Créalas después en Claude Code, dentro del repo: /faro:code'], { titulo: 'Crear las apps después', color: C.y });
       }
     }
-    if (nuevoMeta || migro || cambioSettings || quitoPlantillas || instancio.length || appsHechas.length) {
+    // CI de la forja (#289): si se eligio ci o ambos, el motor del plugin escribe el CI con los gates del
+    // repo, ANTES del commit comun. No pisa uno existente; sin gates (repo documental) no hay CI todavia.
+    let ci = null;
+    if (meta && consultaCi(meta.validacion)) {
+      ci = generarCi(destino, { forja: perfil.forja });
+      if (ci.estado === 'creado') ok(`CI de la forja generado (${ci.ruta}) con los gates del repo.`);
+      else if (ci.estado === 'existe') ok(`El repo ya tiene CI (${ci.ruta}): se usa el existente, no lo toco.`);
+      else if (ci.estado === 'sin-motor') warn('No encuentro el plugin FARO instalado para generar el CI: dentro del repo, `harness.js ci`.');
+      else say(`  ${C.d}Aún no hay gates (lint/test/build) que correr: el CI se genera con \`harness.js ci\` cuando el repo tenga código. Mientras, FARO valida en local.${C.x}`);
+    }
+    let subido = false;
+    if (nuevoMeta || migro || cambioSettings || quitoPlantillas || instancio.length || appsHechas.length || (ci && ci.estado === 'creado')) {
       try {
         const msg = appsHechas.length
           ? `chore: monorepo ${repoName} con apps/${appsHechas.join(', apps/')} + metadato .faro.json + plugin faro declarado`
@@ -356,8 +369,10 @@ async function finalizarLocal(auth, org, repoName, baseDir, destino, meta, ctx =
         run('git', ['-C', destino, 'commit', '-m', msg], { stdio: 'ignore' });
         run('git', ['-c', 'credential.helper=', '-C', destino, 'push', `https://${usuario}:${auth.token}@${host}/${org}/${repoName}.git`, 'HEAD'], { stdio: 'ignore', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
         ok(`Clasificación v2 + plugin faro declarado${instancio.length ? ' + plantilla instanciada' : ''}${appsHechas.length ? ' + apps del monorepo' : ''} (settings del repo).`);
+        subido = true;
       } catch { warn('No pude subir el commit de clasificación/plugins (no bloquea) — queda en local.'); }
     }
+    if (ci) await aplicarExigirPipeline({ ci, meta, perfil, auth, ruta: `${org}/${repoName}`, alta: ctx && ctx.forja && ctx.forja.alta, subido: subido || ci.estado === 'existe' });
   }
   // Item 8/13: abrir en el editor correcto o dar la ruta+comando.
   if (NO_OPEN) { ok(`Listo. Abre la carpeta: ${destino}`); return; }
@@ -374,6 +389,16 @@ async function finalizarLocal(auth, org, repoName, baseDir, destino, meta, ctx =
     if (dep) say(`  ${dep}`);
     say(`  ${C.d}(el editor ya se abrió en la carpeta)${C.x}`);
   }
+}
+
+// «El pipeline debe pasar» (#289), solo con el CI ya subido: sin él toda fusión quedaría bloqueada.
+async function aplicarExigirPipeline({ ci, meta, perfil, auth, ruta, alta, subido }) {
+  const d = exigirPipeline({ forja: perfil.forja, ci: subido ? ci.estado : null, dePago: !!meta.dePago, publico: !!meta.publico });
+  if (d.accion === 'api' && alta && alta.exigirPipeline) {
+    const r = await alta.exigirPipeline({ host: perfil.host, token: auth.token }, ruta);
+    if (r && r.ok) ok('«El pipeline debe pasar» activado: un MR con el CI en rojo no se puede fusionar.');
+    else warn('No pude activar «el pipeline debe pasar» (hace falta Maintainer): dentro del repo, `harness.js exigir-pipeline`.');
+  } else if (d.aviso) say(`  ${C.d}${d.aviso}${C.x}`);
 }
 
 // Dónde clonar (compartido por crear y abrir).
@@ -493,7 +518,7 @@ export {
   personalizarPlantilla,
   tieneCmd, cuentaSsh, cuentaSshGithub, parseSshLogin, editorBin, checkPrerrequisitos, asegurarGitIdentidad,
   configurarRemotoSeamless, estamparIdentidad,
-  finalizarLocal, elegirDestino, overlayFaro, FARO_ROOTS, FARO_TREE, carpetasFaroQueFaltan, mergeGitignore,
+  finalizarLocal, aplicarExigirPipeline, elegirDestino, overlayFaro, FARO_ROOTS, FARO_TREE, carpetasFaroQueFaltan, mergeGitignore,
   cdSugerido, comandoDependencias, inventarioRamas, asegurarDevelopLocal, normalizarPrincipalLocal,
   diagnosticarEstructura, diagnosticarRamasLocal,
 };

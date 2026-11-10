@@ -5,7 +5,7 @@
 
 const OPERACIONES = Object.freeze([
   // Peticiones de integracion
-  'crearPr', 'integrarPorPeticion', 'prAbiertoDe', 'prsDeRama', 'pedirRevision', 'cmdPr', 'cmdPrVer', 'cmdPrAprobar', 'cmdPrMergear',
+  'crearPr', 'integrarPorPeticion', 'prAbiertoDe', 'prsDeRama', 'pedirRevision', 'cmdPr', 'cmdPrVer', 'cmdPrAprobar', 'cmdPrMergear', 'estadoCi', 'estadoCiCommit',
   // Tareas: lectura y escritura
   'leerIssue', 'leerComentarios', 'adjuntosDeIssue', 'issueEstado', 'comentarIssue', 'cerrarIssue', 'editarCuerpoIssue', 'hechosTareas',
   'cmdAsignarTarea', 'cmdDescartarTarea', 'cmdMisTareas', 'cmdMoverTarea', 'cmdCerrarTarea', 'cmdAmpliarTarea',
