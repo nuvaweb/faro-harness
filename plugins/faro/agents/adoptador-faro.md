@@ -48,8 +48,12 @@ Si no existe, es que la fase 1 no se corrió: dilo y para (o guía a lanzar `far
 ## Procedimiento
 
 1. **Inventaría.** Recorre el repo y entiende QUÉ es y para qué: stack/naturaleza, `CLAUDE.md` o
-   `CLAUDE.md.faro`, `gestion/` propio, specs/rfc/openspec, ADRs sueltos, `documentos/`, README,
-   `ESTADO.md`. Anota lo que ya hay y su propósito.
+   `CLAUDE.md.faro`, una `gestion/` propia, specs/rfc/openspec, ADRs sueltos, `documentos/` o `docs/`, README,
+   un `ESTADO.md`. Anota lo que ya hay y su propósito. **Todo lo de FARO acaba bajo `faro/`** (#293); en la
+   raíz solo quedan `CLAUDE.md`, `.claude/`, `README.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, el CI, `src/` y `scripts/`.
+   Si el repo ya era FARO con el layout antiguo (`gestion/`, `ESTADO.md`, `.faro.json` en la raíz), **empieza por
+   `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" migrar-layout --dry-run`** y, con el OK, `migrar-layout`: mueve
+   con `git mv` y arregla las referencias; no lo hagas a mano.
 2. **Contrasta** con `manifest.structure` para la naturaleza: qué requeridos/carpetas faltan.
 3. **Reenfoca** aplicando `manifest.remap` (mueve/funde, NUNCA borra el contenido del proyecto):
    - `CLAUDE.md` (o `CLAUDE.md.faro` que dejó la fase 1) → **RECONSTRUYE** el CLAUDE.md real
@@ -57,14 +61,14 @@ Si no existe, es que la fase 1 no se corrió: dilo y para (o guía a lanzar `far
      una vez usado. No dejes temporales.
    - `README.md` (o `README.md.faro`) → **RECONSTRÚYELO** con el propósito REAL + capa FARO, y
      elimina el `.faro`.
-   - **`gestion/cambios/`** (los specs los **gestiona el motor NATIVO del harness** (specs.js); las skills **superpowers** solo AYUDAN a
+   - **`faro/gestion/cambios/`** (los specs los **gestiona el motor NATIVO del harness** (specs.js); las skills **superpowers** solo AYUDAN a
      redactarlos — no confundir). Asegúrate de la estructura: `changes/`,
      `changes/archive/`, `specs/` (el harness la crea en cada sesión; si falta, créala). **Detecta specs
-     / RFCs / proposals estén donde estén** (raíz, `documentos/`, `spec/`, `specs/`, `rfcs/`, `.md` sueltos) y
-     **muévelos**: propuestas **activas** → `gestion/cambios/changes/<slug>/`, **completadas/ARCHIVADAS** →
-     `gestion/cambios/changes/archive/`, specs de capacidad **vigentes** → `gestion/cambios/specs/`. **Valida** con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" specs validar`
+     / RFCs / proposals estén donde estén** (raíz, `documentos/`, `docs/`, `spec/`, `specs/`, `rfcs/`, `.md` sueltos) y
+     **muévelos**: propuestas **activas** → `faro/gestion/cambios/changes/<slug>/`, **completadas/ARCHIVADAS** →
+     `faro/gestion/cambios/changes/archive/`, specs de capacidad **vigentes** → `faro/gestion/cambios/specs/`. **Valida** con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" specs validar`
      (motor nativo del harness: requisitos normativos + escenarios; NADA que instalar).
-   - ADRs/decisiones sueltas → `gestion/decisions/<fecha>-<slug>.md`.
+   - ADRs/decisiones sueltas → `faro/gestion/decisions/<fecha>-<slug>.md`.
    - **Decisiones tomadas y NUNCA escritas (lo normal en un repo con historia).** Mover los ADR que
      existen no basta: en un repo adoptado las decisiones estructurales **se tomaron** —el código las
      demuestra— pero no están registradas, así que no se pueden citar. Diagnostícalo con
@@ -75,12 +79,12 @@ Si no existe, es que la fase 1 no se corrió: dilo y para (o guía a lanzar `far
      funcional. **Escribe SUS respuestas, nunca las deduzcas del código**: un ADR inventado hace que
      el triaje cite como decisión algo que nadie decidió. Sin este paso, `/faro:triaje` solo podrá
      responder «falta decidir» a todo lo que llegue.
-   - docs sueltos → `documentos/` + **frontmatter FARO** (doc_id vía `docref`, type, concepto, domain, status).
+   - docs sueltos → `faro/documentos/` + **frontmatter FARO** (doc_id vía `docref`, type, concepto, domain, status).
      Un doc ya "controlado" en otro formato: mapéalo, no lo dupliques. Los **entregables** finales
-     (HTML/PDF) van a `documentos/entregables/<doc_id>-v<version>.<ext>`.
-   - `gestion/` propio → **FUNDE** con el layout FARO (`decisions/`, `reporting/informes/`…); no dobles carpetas.
+     (HTML/PDF) van a `faro/documentos/entregables/<doc_id>-v<version>.<ext>`.
+   - una `gestion/` propia en la raíz → **FUNDE** en `faro/gestion/` con el layout FARO (`decisions/`, `reporting/informes/`…); no dobles carpetas.
 4. **Metadatos v2 (RESPETA la elección del usuario).** La fase 1 (CLI `faro adoptar`) YA escribió
-   `.faro.json` con `domain`/`concept` **que ELIGIÓ el usuario** (la `entity` es opcional: se gestiona por MCP). Esa es la
+   `faro/config.json` con `domain`/`concept` **que ELIGIÓ el usuario** (la `entity` es opcional: se gestiona por MCP). Esa es la
    fuente de verdad: **NO la re-derives ni la sobreescribas.** Solo **rellena lo que FALTE** (campo
    vacío/ausente), leyendo el propósito. Si crees que el `domain` ya puesto es incorrecto,
    **NO lo cambies en silencio**: PREGÚNTALO (AskUserQuestion) explicando por qué, y solo cámbialo si el
@@ -106,13 +110,13 @@ inventario del paso 1 (stack, estructura y propósito REAL), **reconstruye**:
   clasificación entidad/domain/concepto, ramas `main`+`develop`, cómo trabajar con Claude Code). Toma lo
   ÚTIL del README que hubiera (propósito, instrucciones reales de uso), pero **no arrastres texto
   genérico ni de plantilla**. Si no hay README, créalo.
-- **ESTADO.md** — la **fuente de verdad del ESTADO**: **fases, estados y tareas** (checkbox) con la fase
+- **faro/ESTADO.md** — la **fuente de verdad del ESTADO**: **fases, estados y tareas** (checkbox) con la fase
   actual (nombre canónico; sustituye al viejo `INICIATIVA.md`, que ya NO se usa). *Qué ES* el proyecto lo
-  declara **CLAUDE.md**, no aquí — ESTADO.md es solo el faseo/progreso. Estructura CLARA pero **flexible y
+  declara **CLAUDE.md**, no aquí — faro/ESTADO.md es solo el faseo/progreso. Estructura CLARA pero **flexible y
   adaptada a CUALQUIER tipo** de proyecto/método/app/tecnología/proceso — refleja el faseo REAL, no
   impongas un método ajeno. Si ya tenía roadmap/board/hitos, mapéalos aquí. No dejes la plantilla vacía.
   *(La planificación —proyecto, épicas— NO va aquí: si la lleva un planificador externo, FARO la lee de la forja con `harness.js planificacion`.)*
-- **`gestion/risks.md`** (ahí lo lee el harness) — al recorrer el proyecto **detecta los riesgos**
+- **`faro/gestion/risks.md`** (ahí lo lee el harness) — al recorrer el proyecto **detecta los riesgos**
   (deuda, secretos, dependencias frágiles, single points of failure) y regístralos **ACCIONABLES**: cada
   uno con su **impacto** y una **mitigación/acción concreta** (qué hacer y quién), con estado
   (abierto/mitigado) — no solo el enunciado. Sigue el formato que valida el harness
@@ -124,13 +128,13 @@ entienda QUÉ es, CÓMO se opera bajo FARO y EN QUÉ estado está — no un text
 ## Monorepo
 
 Si el repo es un **monorepo** (un `pnpm-workspace.yaml` o `workspaces` en `package.json`, con varias
-apps en `apps/*`), la gestión FARO es **única y vive en la raíz**: un solo `ESTADO.md`, un solo RAID,
+apps en `apps/*`), la gestión FARO es **única y vive en la raíz**: un solo `faro/ESTADO.md`, un solo RAID,
 un solo registro de requisitos y una sola carpeta de documentos para todo el repo. **No** adoptes
-cada carpeta por separado ni crees un `ESTADO.md` por app.
+cada carpeta por separado ni crees un `faro/ESTADO.md` por app.
 
 1. Mira qué apps hay y qué se deduce de cada una: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps`
    (ruta, paquete y versión, worker, front, contrato `ARCHITECTURE.md`, changelog y tests).
-2. **Declara las apps** en `.faro.json` (la clave `monorepo` es la que activa el modo). Solo lo que el
+2. **Declara las apps** en `faro/config.json` (la clave `monorepo` es la que activa el modo). Solo lo que el
    disco no dice; lo técnico lo deduce el harness:
    ```json
    "monorepo": {

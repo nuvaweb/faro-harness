@@ -20,7 +20,7 @@ el repo ya define la org): **`<CLAVE>-<TIPO>-<NNN>`**  ·  ej. `ONB-FUN-001`.
 - `<CLAVE>` = clave corta del PROYECTO (4-10 caracteres, empieza por letra, MAYUSCULAS; contrato
   `CLAVE_RE`). Es UNA POR REPO: si dos repos la comparten, ambos emiten los MISMOS `doc_id` y
   colisionan al juntar la documentacion (decision 0.4.30). Se declara UNA vez en `clave:`
-  (o `key:`) del frontmatter de `ESTADO.md`; si no se declara, el harness la DERIVA (siglas de las
+  (o `key:`) del frontmatter de `faro/ESTADO.md`; si no se declara, el harness la DERIVA (siglas de las
   palabras significativas del nombre, o sus 6 primeras letras si es una sola palabra) — pero
   declararla explicitamente evita ambiguedad y es lo recomendado desde el arranque del trabajo.
 - `<TIPO>` = codigo de tipo (ver tabla).
@@ -31,7 +31,7 @@ el repo ya define la org): **`<CLAVE>-<TIPO>-<NNN>`**  ·  ej. `ONB-FUN-001`.
 
 > **Fuente única de verdad de esta tabla: `.claude/faro-schema.json`** (enum `tipos_documento`). Lo leen el harness (valida) y el agente. Añadir un tipo = una entrada allí. Cada tipo con plantilla sigue un **estándar de industria**.
 
-> Las instrucciones de cada tipo las provee el PLUGIN (contrato `faro-schema.json`), agrupadas por FAMILIA: `harness.js tipo` da el catálogo y `harness.js tipo <TIPO>` las secciones, el criterio, los diagramas que aportan y el frontmatter exacto. Ya no hay esqueletos por tipo en el repo — ver `documentos/plantillas/LEEME.md`.
+> Las instrucciones de cada tipo las provee el PLUGIN (contrato `faro-schema.json`), agrupadas por FAMILIA: `harness.js tipo` da el catálogo y `harness.js tipo <TIPO>` las secciones, el criterio, los diagramas que aportan y el frontmatter exacto. Ya no hay esqueletos por tipo en el repo — ver `faro/documentos/plantillas/LEEME.md`.
 
 | Ámbito | Codigo | Tipo | Estándar | Plantilla |
 |---|---|---|---|---|
@@ -72,71 +72,71 @@ el repo ya define la org): **`<CLAVE>-<TIPO>-<NNN>`**  ·  ej. `ONB-FUN-001`.
 | gestion | INF | Informe | — | — |
 | — | DOC | Documento generico | — | — |
 
-> *ADR **ES un documento controlado**: vive en `documentos/decisiones/` con doc_id (`ADR-NNN`) y versionado, como cualquier otro documento de esta tabla. Su ciclo de vida (propuesta→aceptada→sustituida) mapea a `draft→approved→obsolete`. (Nota: puede existir una carpeta legada `gestion/decisions/` con ADRs datados sin doc_id; la doctrina nueva es el ADR controlado en `documentos/decisiones/`.)
+> *ADR **ES un documento controlado**: vive en `faro/documentos/decisiones/` con doc_id (`ADR-NNN`) y versionado, como cualquier otro documento de esta tabla. Su ciclo de vida (propuesta→aceptada→sustituida) mapea a `draft→approved→obsolete`. (Nota: puede existir una carpeta legada `faro/gestion/decisions/` con ADRs datados sin doc_id; la doctrina nueva es el ADR controlado en `faro/documentos/decisiones/`.)
 
 > **PRL (press release suelto) se fusionó en PRF**: el PR-FAQ ya contiene el press release en su primera sección. Si mañana necesitáis anuncios públicos como documento controlado independiente, se reañade PRL en una línea.
-> **Nota spec-driven**: los cambios spec-driven (`gestion/cambios/changes/<cambio>/proposal.md`, `tasks.md`) NO son documentos de esta tabla — siguen la convención spec-driven de FARO (`/faro:cambio`), no llevan doc_id ni plantilla de aquí.
-> **Nota reporting**: los informes de fase (INF) y las presentaciones a dirección son **reporting de gestión** — viven en `gestion/reporting/` con nombre datado (`AAAA-MM-DD-…`), no como documento controlado de esta tabla.
+> **Nota spec-driven**: los cambios spec-driven (`faro/gestion/cambios/changes/<cambio>/proposal.md`, `tasks.md`) NO son documentos de esta tabla — siguen la convención spec-driven de FARO (`/faro:cambio`), no llevan doc_id ni plantilla de aquí.
+> **Nota reporting**: los informes de fase (INF) y las presentaciones a dirección son **reporting de gestión** — viven en `faro/gestion/reporting/` con nombre datado (`AAAA-MM-DD-…`), no como documento controlado de esta tabla.
 
 Un mismo trabajo (p. ej. un servicio de la plataforma Core) puede tener VARIOS documentos
 viviendo juntos en su repo: brief (BRF), spec de diseño (DIS), press release (PRL),
-tecnico-funcional (FUN)... Todos en `documentos/`, generables con el agente redactor-documento
+tecnico-funcional (FUN)... Todos en `faro/documentos/`, generables con el agente redactor-documento
 (`/faro:documento`) ; se aprueban con el merge a main.
 
 ## Ubicacion y nombre de archivo (ESTANDAR)
 
 - **Nombre de archivo** = `<doc_id>-<slug>.md` (ej. `QRA-BRF-001-brief.md`): el ID viaja en el nombre y en la cabecera.
-- **Ubicacion del MD vivo** — dentro de `documentos/`, por TEMA (el control lo da la cabecera, la carpeta organiza):
-  - `documentos/funcional/` → DEFINICION del trabajo: brief (BRF), PR-FAQ (PRF), funcional(es) (FUN), historias de usuario (HU)
-  - `documentos/analisis/` → analisis (ANA tecnico) e investigacion (INV)
-  - `documentos/arquitectura/` · `documentos/diseno/` → arquitectura (ARQ) · spec de diseño (DIS)
-  - `documentos/decisiones/` → ADR (decision auditable = documento controlado, doc_id `ADR-NNN`, versionado)
-  - `documentos/integraciones/<sistema>/` → analisis de integracion (ANA subtipo integracion) + sus anexos
-  - `documentos/operaciones/` → runbooks (RUN), guias (GUI), procedimientos (PRO), SLA y flujos de automatizacion (MAN); el export tecnico (JSON n8n...) va en `flujos/` raiz, 1:1 con su documento
-  - `documentos/<tema>/` → libre para lo demas
-  - PROHIBIDO: documento controlado (con doc_id) en la RAIZ de `documentos/` — siempre en subcarpeta tematica; ni dentro de `documentos/plantillas/` (solo estructuras) o sin cabecera
-- **Entregables HTML generados** → `documentos/entregables/<doc_id>-<slug-titulo>-v<version>.html` (destino automatico de `docgen` si no se indica salida). El **código** diferencia (dos guías = `GUI-001`, `GUI-002`), el **título** lo hace legible, la **versión** es histórico. Se COMMITEAN al entregar: el historial git es la trazabilidad de entregas. El MD es siempre la fuente; el HTML se regenera, nunca se edita.
+- **Ubicacion del MD vivo** — dentro de `faro/documentos/`, por TEMA (el control lo da la cabecera, la carpeta organiza):
+  - `faro/documentos/funcional/` → DEFINICION del trabajo: brief (BRF), PR-FAQ (PRF), funcional(es) (FUN), historias de usuario (HU)
+  - `faro/documentos/analisis/` → analisis (ANA tecnico) e investigacion (INV)
+  - `faro/documentos/arquitectura/` · `faro/documentos/diseno/` → arquitectura (ARQ) · spec de diseño (DIS)
+  - `faro/documentos/decisiones/` → ADR (decision auditable = documento controlado, doc_id `ADR-NNN`, versionado)
+  - `faro/documentos/integraciones/<sistema>/` → analisis de integracion (ANA subtipo integracion) + sus anexos
+  - `faro/documentos/operaciones/` → runbooks (RUN), guias (GUI), procedimientos (PRO), SLA y flujos de automatizacion (MAN); el export tecnico (JSON n8n...) va en `faro/flujos/` raiz, 1:1 con su documento
+  - `faro/documentos/<tema>/` → libre para lo demas
+  - PROHIBIDO: documento controlado (con doc_id) en la RAIZ de `faro/documentos/` — siempre en subcarpeta tematica; ni dentro de `faro/documentos/plantillas/` (solo estructuras) o sin cabecera
+- **Entregables HTML generados** → `faro/documentos/entregables/<doc_id>-<slug-titulo>-v<version>.html` (destino automatico de `docgen` si no se indica salida). El **código** diferencia (dos guías = `GUI-001`, `GUI-002`), el **título** lo hace legible, la **versión** es histórico. Se COMMITEAN al entregar: el historial git es la trazabilidad de entregas. El MD es siempre la fuente; el HTML se regenera, nunca se edita.
 
 ## Dónde va cada cosa (regla de rol)
 
-`documentos/` es **SOLO prosa controlada** (documentación con `doc_id`). El método técnico — notebooks Jupyter, scripts de validación, datos de trabajo — **NUNCA** vive dentro de `documentos/`: va en la **capa técnica** del repo, y el documento lo **REFERENCIA por ruta**. Este reparto está alineado con la industria (**Cookiecutter Data Science**): la prosa y el código/notebooks son capas separadas.
+`faro/documentos/` es **SOLO prosa controlada** (documentación con `doc_id`). El método técnico — notebooks Jupyter, scripts de validación, datos de trabajo — **NUNCA** vive dentro de `faro/documentos/`: va en la **capa técnica** del repo, y el documento lo **REFERENCIA por ruta**. Este reparto está alineado con la industria (**Cookiecutter Data Science**): la prosa y el código/notebooks son capas separadas.
 
 Antes de colocar un artefacto, decide su **ROL**:
 
 | Rol | Qué es | Dónde va |
 |---|---|---|
-| **Teoría / hipótesis** (pensar) | exploración, brainstorm, idea a validar | fase 0 del cambio → `gestion/cambios/changes/<cambio>/` (decanta en `proposal.md`) |
-| **Validación / práctica con valor** (demostrar) | el MÉTODO (notebook/script) + la CONCLUSIÓN | el método en `notebooks/` (o `scripts/` si reutilizable); la CONCLUSIÓN en un **ANA** de `documentos/analisis/` que lo referencia; la evidencia en `fuentes/` o junto al notebook |
-| **Tanteo desechable** | probar algo de usar y tirar | `borrador/` (gitignored, no se commitea) |
-| **Material recibido** | brutos, diccionarios, evidencia de partida | `fuentes/` |
+| **Teoría / hipótesis** (pensar) | exploración, brainstorm, idea a validar | fase 0 del cambio → `faro/gestion/cambios/changes/<cambio>/` (decanta en `proposal.md`) |
+| **Validación / práctica con valor** (demostrar) | el MÉTODO (notebook/script) + la CONCLUSIÓN | el método en `faro/notebooks/` (o `scripts/` si reutilizable); la CONCLUSIÓN en un **ANA** de `faro/documentos/analisis/` que lo referencia; la evidencia en `faro/fuentes/` o junto al notebook |
+| **Tanteo desechable** | probar algo de usar y tirar | `faro/borrador/` (gitignored, no se commitea) |
+| **Material recibido** | brutos, diccionarios, evidencia de partida | `faro/fuentes/` |
 
-**Regla resumen:** `documentos/` = **solo prosa**; el método técnico (jupyter, tests, datos de trabajo) va en la **capa técnica** (`notebooks/` · `scripts/`; en worker/app también `src/` + `test/`) y el documento lo referencia; **nunca un notebook dentro de `documentos/`**.
+**Regla resumen:** `faro/documentos/` = **solo prosa**; el método técnico (jupyter, tests, datos de trabajo) va en la **capa técnica** (`faro/notebooks/` · `scripts/`; en worker/app también `src/` + `test/`) y el documento lo referencia; **nunca un notebook dentro de `faro/documentos/`**.
 
-**El notebook y su documento ANA:** una validación técnica se ejecuta en un notebook (`notebooks/<slug>.ipynb`) — reproducible, en la capa técnica; el hallazgo/conclusión se redacta en un **ANA** (`documentos/analisis/<doc_id>-<slug>.md`) que **cita el notebook por ruta** en su sección de Anexos y responde por él. El notebook es el método; el ANA es el conocimiento controlado (con `doc_id`, versionado, publicable). Nunca al revés (el ANA no contiene el notebook: lo referencia).
+**El notebook y su documento ANA:** una validación técnica se ejecuta en un notebook (`faro/notebooks/<slug>.ipynb`) — reproducible, en la capa técnica; el hallazgo/conclusión se redacta en un **ANA** (`faro/documentos/analisis/<doc_id>-<slug>.md`) que **cita el notebook por ruta** en su sección de Anexos y responde por él. El notebook es el método; el ANA es el conocimiento controlado (con `doc_id`, versionado, publicable). Nunca al revés (el ANA no contiene el notebook: lo referencia).
 
 **Mapping a la industria** (Cookiecutter Data Science):
 
 | FARO | Industria | Qué |
 |---|---|---|
-| `documentos/` | `docs/` | prosa controlada (`doc_id`) |
-| `notebooks/` | `notebooks/` | Jupyter, validaciones, análisis técnico reproducible |
+| `faro/documentos/` | `docs/` | prosa controlada (`doc_id`) |
+| `faro/notebooks/` | `faro/notebooks/` | Jupyter, validaciones, análisis técnico reproducible |
 | `scripts/` | `src/` | código reutilizable/compartido |
-| `fuentes/` | `references/` + `data/raw/` | material de partida, diccionarios, evidencia |
-| `gestion/reporting/` | `reports/` | informes/presentaciones generados, datados |
-| `borrador/` | scratch (gitignored) | tanteo desechable |
+| `faro/fuentes/` | `references/` + `data/raw/` | material de partida, diccionarios, evidencia |
+| `faro/gestion/reporting/` | `reports/` | informes/presentaciones generados, datados |
+| `faro/borrador/` | scratch (gitignored) | tanteo desechable |
 
 ## Anexos tecnicos (ESTANDAR — schemas, workflows JSON, OpenAPI, exports…)
 
 Todo artefacto NO-markdown (DBML/SQL de esquema, JSON de n8n, YAML OpenAPI, CSV/XLSX de ejemplo, payloads) es un **ANEXO de un documento controlado — nunca huerfano**: siempre existe UN documento .md con doc_id que lo explica, lo referencia por ruta y responde por el (su "documento propietario").
 
 - **Ubicacion segun su naturaleza**:
-  - Se IMPORTA o EJECUTA en un sistema (workflow n8n, migracion SQL aplicable) → carpeta tecnica raiz: `flujos/` (1:1 con su documento MAN en `documentos/operaciones/`).
-  - Es CONTRATO, MODELO o REFERENCIA (schema DBML, OpenAPI, payload de ejemplo) → junto a su documento propietario, en la misma carpeta tematica de `documentos/` (ej. `documentos/integraciones/postgress/modelo-schema.dbml`).
-  - Es MATERIAL DE PARTIDA o evidencia (exports, actas, datos brutos) → `fuentes/`.
+  - Se IMPORTA o EJECUTA en un sistema (workflow n8n, migracion SQL aplicable) → carpeta tecnica raiz: `faro/flujos/` (1:1 con su documento MAN en `faro/documentos/operaciones/`).
+  - Es CONTRATO, MODELO o REFERENCIA (schema DBML, OpenAPI, payload de ejemplo) → junto a su documento propietario, en la misma carpeta tematica de `faro/documentos/` (ej. `faro/documentos/integraciones/postgress/modelo-schema.dbml`).
+  - Es MATERIAL DE PARTIDA o evidencia (exports, actas, datos brutos) → `faro/fuentes/`.
 - **Versionado**: git versiona el anexo; cuando el anexo cambia de forma relevante, el documento propietario SUBE su version y lo refleja en su Control de versiones. Un cambio ESTRUCTURAL (p. ej. el schema de datos) es un cambio spec-driven (proposal) y, si es decision de arquitectura, ADR.
 - **Seccion "Anexos"**: el documento propietario lista sus anexos con ruta y proposito.
 
-Y la receta de FLEXIBILIDAD para "mañana mas cosas": tipo de documento nuevo → una entrada en `faro-schema.json` del plugin diciendo su FAMILIA (hereda de ella la guia; no hay que escribir un esqueleto); tema nuevo → subcarpeta `documentos/<tema>/`; artefacto tecnico nuevo → regla de anexos de arriba; tipo de trabajo o plataforma nueva → una linea en el harness (`PLATAFORMAS`/`TIPOS`) + catalogo del CLI. Nada mas requiere tocar codigo: el control es siempre por cabecera.
+Y la receta de FLEXIBILIDAD para "mañana mas cosas": tipo de documento nuevo → una entrada en `faro-schema.json` del plugin diciendo su FAMILIA (hereda de ella la guia; no hay que escribir un esqueleto); tema nuevo → subcarpeta `faro/documentos/<tema>/`; artefacto tecnico nuevo → regla de anexos de arriba; tipo de trabajo o plataforma nueva → una linea en el harness (`PLATAFORMAS`/`TIPOS`) + catalogo del CLI. Nada mas requiere tocar codigo: el control es siempre por cabecera.
 
 ## Sistema de versionado (ESTANDAR)
 
@@ -147,16 +147,16 @@ Y la receta de FLEXIBILIDAD para "mañana mas cosas": tipo de documento nuevo �
 
 ## Reporting (versionado por FECHA)
 
-El versionado SemVer de arriba es del **documento VIVO** (`documentos/`). El **reporting de gestión** (informes de fase, presentaciones a dirección, one-pagers — todo lo de `gestion/reporting/`) NO usa ese esquema: va **SIEMPRE versionado por FECHA, nunca sin fecha**, como snapshot datado.
+El versionado SemVer de arriba es del **documento VIVO** (`faro/documentos/`). El **reporting de gestión** (informes de fase, presentaciones a dirección, one-pagers — todo lo de `faro/gestion/reporting/`) NO usa ese esquema: va **SIEMPRE versionado por FECHA, nunca sin fecha**, como snapshot datado.
 
-- **Nombre**: `<tema>-AAAA-MM-DD.md` (+ su `.html` hermano), en `gestion/reporting/{informes,presentaciones}/<tema>/`. El `<tema>` es el nombre libre de lo que se confecciona (un funcional, un proyecto, una integración, lo que se pida); la fecha data el snapshot.
+- **Nombre**: `<tema>-AAAA-MM-DD.md` (+ su `.html` hermano), en `faro/gestion/reporting/{informes,presentaciones}/<tema>/`. El `<tema>` es el nombre libre de lo que se confecciona (un funcional, un proyecto, una integración, lo que se pida); la fecha data el snapshot.
 - **Misma fecha → ACTUALIZA** ese mismo fichero (si se re-pide/re-genera ese día): NO crea otro.
 - **Fecha nueva → snapshot nuevo**: los datados conviven, nada se sobreescribe entre días.
-- El **informe de CIERRE DE FASE** obligatorio mantiene su plano datado: `gestion/reporting/informes/AAAA-MM-DD-fase-<N>-informe.md`.
+- El **informe de CIERRE DE FASE** obligatorio mantiene su plano datado: `faro/gestion/reporting/informes/AAAA-MM-DD-fase-<N>-informe.md`.
 
 **Contraste (importante):**
 
-| | Documento VIVO (`documentos/`) | Reporting (`gestion/reporting/`) |
+| | Documento VIVO (`faro/documentos/`) | Reporting (`faro/gestion/reporting/`) |
 |---|---|---|
 | Qué es | conocimiento controlado que perdura | snapshot puntual de estado/negocio |
 | Identidad | `doc_id` (`CLAVE-TIPO-NNN`) | `<tema>` + fecha |
@@ -170,8 +170,8 @@ El versionado SemVer de arriba es del **documento VIVO** (`documentos/`). El **r
 node .claude/hooks/harness.js docref <TIPO>
 ```
 
-`<CLAVE>` sale de `clave:`/`key:` en ESTADO.md (o se deriva del nombre/repo si no está declarada) y
-`<NNN>` es el siguiente correlativo (escanea `documentos/` y `gestion/`). Ej.: `docref FUN` -> `ONB-FUN-001`.
+`<CLAVE>` sale de `clave:`/`key:` en faro/ESTADO.md (o se deriva del nombre/repo si no está declarada) y
+`<NNN>` es el siguiente correlativo (escanea `faro/documentos/` y `faro/gestion/`). Ej.: `docref FUN` -> `ONB-FUN-001`.
 
 ## Cabecera estandar de datos (frontmatter del MD)
 
@@ -195,7 +195,7 @@ Todo documento controlado lleva la cabecera estandar — es el contrato de datos
 |---|---|
 | `subtitle` | Subtitulo/descripcion corta |
 | `tipo` | Codigo de tipo documental (BRF, FUN, DIS…) |
-| `dominio` | **Subárea** de la taxonomía jerárquica (valores en inglés — hoja: `data`, `support`, `marketing`…; áreas: `product`/`commercial`/`operations`/`corporate`). ORTOGONAL al tipo. El harness deriva `domain_area` (área padre) para roll-up. Un repo puede fijar `dominio` en ESTADO.md como default que los docs heredan |
+| `dominio` | **Subárea** de la taxonomía jerárquica (valores en inglés — hoja: `data`, `support`, `marketing`…; áreas: `product`/`commercial`/`operations`/`corporate`). ORTOGONAL al tipo. El harness deriva `domain_area` (área padre) para roll-up. Un repo puede fijar `dominio` en faro/ESTADO.md como default que los docs heredan |
 | `componente` | Servicio/componente concreto al que refiere (permite documentar N servicios en un repo y filtrar por servicio) |
 | `trabajo` | Nombre del trabajo/iniciativa al que pertenece |
 | `fase` | Fase del faseo a la que corresponde (N o `transversal`) |

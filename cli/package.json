@@ -1,6 +1,6 @@
 {
   "name": "faro-harness",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Wizard de FARO (Forge-Agnostic Repo Operations): crea, trae o migra un repo de GitHub o GitLab con el harness para Claude Code: esqueleto, clasificación, main y develop, y plugin.",
   "keywords": [
     "faro",

@@ -3,6 +3,17 @@
 Una entrada por versión publicada, la más reciente arriba. Criterio SemVer: **major** rompe un flujo o el
 contrato de un comando · **minor** añade comportamiento · **patch** corrige sin cambiar el comportamiento.
 
+## 3.0.0 — 2026-11-10
+
+- **Todo lo de FARO en `faro/`** (#293, rompe el layout): el esqueleto de `crear` nace con `faro/{gestion,fuentes,documentos,flujos,borrador,notebooks}/`, `faro/ESTADO.md` y `faro/config.json` (antes `.faro.json`).
+  - En la raíz quedan `CLAUDE.md`, `README.md`, `.claude/` y `scripts/`.
+  - Necesita el plugin 2.0.0.
+- **Repos con el layout antiguo**: el wizard los sigue leyendo y escribiendo en la raíz, sin abrir `faro/` a medias.
+  - `faro check` (también desde «Ponerlo al día» y `traer`) avisa del layout antiguo.
+  - Para migrar, indica `harness.js migrar-layout --dry-run` y luego `migrar-layout`.
+- `~/.faro.json`, las credenciales, no cambia.
+- **Repo a medio migrar** (#295): si ya hay `faro/` pero la configuración sigue en `.faro.json`, el wizard la lee ahí en vez de darla por vacía.
+
 ## 2.3.0 — 2026-11-10
 
 - **¿Dónde se validan los PR/MR?** (#289): `crear` y `adoptar` preguntan si se validan con el CI de la forja, en local o con los dos.

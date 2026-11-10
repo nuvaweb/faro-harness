@@ -63,7 +63,7 @@ function cli(cmd, root, argv) {
   if (!primero) return err('uso: harness.js tarea <id> [--campo a.b.c] [--json] | tarea validar [<id>] | tarea set <id> <campo> <valor> | tarea migrar [--dry-run] [--confirmo] [--incluir-cerradas] | tarea sync <N>|--todas [--comprobar]');
   if (!tareas.esIdValido(primero)) return err(`id de tarea no valido '${String(primero).slice(0, 40)}': usa un numero (7) o L-<n>`);
   const r = tareas.leer(root, primero);
-  if (!r) return err(`no hay registro legible para la tarea ${primero} (${tareas.DIR_REL}/${primero}.json)`);
+  if (!r) return err(`no hay registro legible para la tarea ${primero} (${tareas.dirRel(root)}/${primero}.json)`);
   const i = resto.indexOf('--campo');
   if (i >= 0) {
     if (!resto[i + 1]) return err('--campo necesita un valor, p. ej. fechas.objetivo');

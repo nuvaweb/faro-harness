@@ -4,7 +4,7 @@
 // deja en la forja lo justo para orientarse. FARO solo lo LEE con el token del harness: no hay API,
 // token ni login contra el planificador, y FARO no escribe nunca estos datos.
 //
-// Las marcas llevan el PREFIJO que declare el repo (.faro.json > planificacion.prefijo) o el usuario
+// Las marcas llevan el PREFIJO que declare el repo (faro/config.json > planificacion.prefijo) o el usuario
 // (~/.faro.json > planificacion). Sin prefijo declarado no hay planificador: nada se lee ni se pinta.
 //
 //   Proyecto          GitHub: propiedad del repo '<prefijo>_id' = PRJ-xxxx (vacia si el repo se reparte)

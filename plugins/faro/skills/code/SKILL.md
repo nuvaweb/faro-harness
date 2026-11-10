@@ -9,22 +9,22 @@ Actúa como **arquitecto de software inicializando el código de un Proyecto FAR
 
 Lee TODO lo que exista y extrae decisiones ya tomadas — no preguntes lo que ya está escrito:
 
-- `ESTADO.md` — qué es el trabajo, fase actual, tareas que piden código.
-- El **funcional** (frontmatter `funcional:` o `documentos/funcional/`) — QUÉ debe hacer el sistema.
-- `documentos/` **técnicos y decisiones (ADR)** — restricciones de stack ya decididas.
-- `gestion/cambios/` — specs/deltas que describan capacidades a construir.
+- `faro/ESTADO.md` — qué es el trabajo, fase actual, tareas que piden código.
+- El **funcional** (frontmatter `funcional:` o `faro/documentos/funcional/`) — QUÉ debe hacer el sistema.
+- `faro/documentos/` **técnicos y decisiones (ADR)** — restricciones de stack ya decididas.
+- `faro/gestion/cambios/` — specs/deltas que describan capacidades a construir.
 - Lo ya presente en el repo (¿hay `package.json`, `wrangler.toml`, `requirements.txt` sueltos?).
 
 Resume al usuario en 3-4 líneas qué entendiste que se va a construir, y confírmalo.
 
 ## 0b · ¿MONOREPO? El código nuevo es una APP, no la raíz
 
-Si `.faro.json` declara `monorepo` (lo ves con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps`), la raíz es de la gestión FARO y del workspace: **no** crees `src/`, `tests/` ni `ARCHITECTURE.md` en ella. Lo que se construye es una app nueva en `apps/<nueva>` (o un paquete compartido en `packages/<nombre>` si no se despliega). Todo lo de los pasos 2-3b se aplica **dentro de esa carpeta**:
+Si `faro/config.json` declara `monorepo` (lo ves con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps`), la raíz es de la gestión FARO y del workspace: **no** crees `src/`, `tests/` ni `ARCHITECTURE.md` en ella. Lo que se construye es una app nueva en `apps/<nueva>` (o un paquete compartido en `packages/<nombre>` si no se despliega). Todo lo de los pasos 2-3b se aplica **dentro de esa carpeta**:
 
-- **¿Hay una plantilla de stack de la organización que encaje** (p. ej. `TANSTACK-WORKER-UI` para un front en Worker)? Entonces NO scaffoldees a mano: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" app nueva <nueva> --plantilla <REPO> --rol "<una frase>"` muestra el plan (dry-run) y, con `--confirmo`, deja `apps/<nueva>` con la plantilla sin su historial, normalizada al workspace (workspace, lock y `gestion/` de la plantilla fuera; `allowBuilds`, `packageManager` y `.node-version` a la raíz; Workers `<repo>-<nueva>-dev|prod`) y **registrada** (`.faro.json`, `CLAUDE.md`, etiqueta `app:<nueva>`). No commitea: revisa y commitea tú. Luego `pnpm install` en la raíz.
+- **¿Hay una plantilla de stack de la organización que encaje** (p. ej. `TANSTACK-WORKER-UI` para un front en Worker)? Entonces NO scaffoldees a mano: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" app nueva <nueva> --plantilla <REPO> --rol "<una frase>"` muestra el plan (dry-run) y, con `--confirmo`, deja `apps/<nueva>` con la plantilla sin su historial, normalizada al workspace (workspace, lock y `faro/gestion/` de la plantilla fuera; `allowBuilds`, `packageManager` y `.node-version` a la raíz; Workers `<repo>-<nueva>-dev|prod`) y **registrada** (`faro/config.json`, `CLAUDE.md`, etiqueta `app:<nueva>`). No commitea: revisa y commitea tú. Luego `pnpm install` en la raíz.
 - **Sin plantilla, scaffold con pnpm**, el gestor del workspace (nunca npm dentro de un monorepo pnpm): `pnpm create cloudflare@latest apps/<nueva> --no-deploy` para un worker, `pnpm create vite@latest apps/<nueva>` para un front; comprueba antes la sintaxis vigente (paso 2). Después, `pnpm install` en la raíz para que el workspace la enlace.
 - **`apps/<nueva>/ARCHITECTURE.md`** (su contrato), un **`apps/<nueva>/CLAUDE.md`** propio (comandos y patrones de ESA app; Claude Code lo carga solo al trabajar en la carpeta) y sus tests en `apps/<nueva>/tests/` o colocados en `src/**/*.test.ts`, según la convención del stack.
-- **Regístrala con el harness, nunca editando `.faro.json` a mano**: si no vino de `app nueva`, `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" monorepo init --app <nueva> --rol "<una frase>" [--funcional <doc_id>] [--equipo <team>]` (dry-run; luego `--confirmo`) la declara en `.faro.json > monorepo.apps`, le crea su `CLAUDE.md` y la etiqueta `app:<nueva>`. Sin registro, `validate` avisa de una app sin declarar.
+- **Regístrala con el harness, nunca editando `faro/config.json` a mano**: si no vino de `app nueva`, `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" monorepo init --app <nueva> --rol "<una frase>" [--funcional <doc_id>] [--equipo <team>]` (dry-run; luego `--confirmo`) la declara en `faro/config.json > monorepo.apps`, le crea su `CLAUDE.md` y la etiqueta `app:<nueva>`. Sin registro, `validate` avisa de una app sin declarar.
 - Comprueba con `harness.js apps` que sale con su rol y sus rasgos (worker, contrato, tests).
 
 ## 1 · PREGUNTA solo lo que falta (AskUserQuestion, con opciones)
@@ -50,7 +50,7 @@ una pantalla) **antes de escribir código**:
 - **Nivel de NEGOCIO** (el sistema hace lo que pide el funcional) — **este es el crítico, no lo trates
   como secundario**: por cada requisito/criterio de aceptación del funcional o de la spec, define CÓMO
   se demuestra con evidencia ejecutable, adaptando el medio al caso:
-  - **Notebook** (`notebooks/<slug>.ipynb`, estándar Cookiecutter Data Science ya usado en FARO) cuando
+  - **Notebook** (`faro/notebooks/<slug>.ipynb`, estándar Cookiecutter Data Science ya usado en FARO) cuando
     el requisito es sobre DATOS, un cálculo, un modelo, una comparativa, un pipeline — algo que se
     demuestra mejor viendo la entrada/salida REAL ejecutada que leyendo un `assert`. Es la elección por
     defecto para requisitos de negocio no triviales: corre, se ve, queda como evidencia citable.
@@ -95,7 +95,7 @@ tests/                ← espejo de src/, con un test real del primer caso de us
   justo cuando más prisa hay. El harness ya sabe cuál es el remoto: `harness.js infra` avisa si falta
   **diciendo qué URL poner**, y también si apunta a otro repo (peor que faltar: nadie duda de un dato
   que está escrito).
-- `.gitignore`: MERGE — añade lo del stack (node_modules, dist, .env*, cachés) SIN tocar las reglas FARO; **no toques** `documentos/ gestion/ fuentes/ flujos/ borrador/`.
+- `.gitignore`: MERGE — añade lo del stack (node_modules, dist, .env*, cachés) SIN tocar las reglas FARO; **no toques** `faro/documentos/ faro/gestion/ faro/fuentes/ faro/flujos/ faro/borrador/`.
 - **CI de verdad, no solo gates locales (obligatorio al scaffoldear)**: en cuanto los scripts de
   lint/test/build existan, ejecuta `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" ci`. Genera el fichero de la
   forja del repo (`.gitlab-ci.yml` en GitLab, `.github/workflows/ci.yml` en GitHub) que corre **esos
@@ -150,8 +150,8 @@ Añade también el **contexto para agentes** (estándar `AGENTS.md` de industria
 - Los **gates de código del harness despiertan solos** al detectar código — ejecuta `node <harness> validate --gates` (el `validate` a secas no los corre: es rápido a propósito) y deja los gates en verde (tests + lint pasando).
 - **Comprueba que el esqueleto nace hexagonal**: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" hexagonal` debe salir conforme. Si no, corrige el import antes de entregar: un esqueleto que ya rompe las capas enseña el patrón equivocado a todo lo que venga después.
 - **Comprueba la salud estructural del esqueleto que acabas de crear**: `node <harness> codigo`. Da tres señales objetivas — ficheros por encima del umbral de atomicidad, ciclos de dependencia y módulos que nadie importa. Un esqueleto recién scaffoldeado debería salir limpio en las tres; si ya nace con un ciclo, la frontera entre módulos está mal puesta y es el momento barato de arreglarlo. Los ciclos son un defecto; el tamaño es solo una señal para mirar ese fichero.
-- Registra la decisión de stack como **ADR de gestión** en `gestion/decisions/<AAAA-MM-DD>-<slug>.md` (fecha, autor, estado, contexto/decisión/consecuencias) y actualiza `ESTADO.md` (tarea de fase correspondiente).
-- **Cuadra con el RAID** (`gestion/risks.md`): si la inicialización introduce riesgos técnicos reales — dependencia crítica de terceros, límite del plan/plataforma, deuda aceptada a propósito, dato sensible que ahora circula por código — regístralos como filas del RAID **con dueño**, y avísalo al usuario en llano. El agente `gestor-riesgos` los seguirá; no los dejes en tu cabeza.
+- Registra la decisión de stack como **ADR de gestión** en `faro/gestion/decisions/<AAAA-MM-DD>-<slug>.md` (fecha, autor, estado, contexto/decisión/consecuencias) y actualiza `faro/ESTADO.md` (tarea de fase correspondiente).
+- **Cuadra con el RAID** (`faro/gestion/risks.md`): si la inicialización introduce riesgos técnicos reales — dependencia crítica de terceros, límite del plan/plataforma, deuda aceptada a propósito, dato sensible que ahora circula por código — regístralos como filas del RAID **con dueño**, y avísalo al usuario en llano. El agente `gestor-riesgos` los seguirá; no los dejes en tu cabeza.
 
 ## 5 · ENTREGA
 

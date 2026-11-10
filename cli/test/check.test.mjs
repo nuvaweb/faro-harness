@@ -15,13 +15,28 @@ test('diagnosticarEstructura: carpeta vacía → git error y capa FARO en aviso'
   assert.equal(get(r, 'faro-roots').estado, 'aviso');
   // Modelo PLUGIN: '.claude' ya NO se exige (el motor vive en el plugin); la taxonomia vigente si.
   assert.ok(!get(r, 'faro-roots').faltan.includes('.claude'));
-  assert.ok(get(r, 'faro-roots').faltan.includes('documentos'));
-  assert.ok(get(r, 'faro-roots').faltan.includes('gestion'));
+  // #293: un repo sin nada de FARO nace con el layout nuevo → las areas se esperan bajo faro/.
+  assert.ok(get(r, 'faro-roots').faltan.includes('faro/documentos'));
+  assert.ok(get(r, 'faro-roots').faltan.includes('faro/gestion'));
+  assert.ok(!get(r, 'faro-roots').faltan.includes('gestion'));
   // Sin copia local de comandos → ok (los provee el plugin como /faro:*).
   assert.equal(get(r, 'comandos').estado, 'ok');
   assert.equal(get(r, 'mcp').estado, 'ok');   // el MCP lo provee el plugin
   assert.equal(get(r, 'clasificacion').estado, 'aviso');
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('diagnosticarEstructura (#293): FARO en la raíz → aviso de layout con el comando de migración; bajo faro/ → ok', () => {
+  const viejo = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-lay-'));
+  fs.mkdirSync(path.join(viejo, 'gestion'));
+  const r = diagnosticarEstructura(viejo);
+  assert.equal(get(r, 'layout').estado, 'aviso');
+  assert.match(get(r, 'layout').detalle, /migrar-layout/);
+  assert.ok(get(r, 'faro-roots').faltan.includes('documentos'), 'en un repo legado se esperan las áreas en la raíz, sin abrir faro/ a medias');
+  const nuevo = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-lay2-'));
+  fs.mkdirSync(path.join(nuevo, 'faro', 'gestion'), { recursive: true });
+  assert.equal(get(diagnosticarEstructura(nuevo), 'layout').estado, 'ok');
+  for (const d of [viejo, nuevo]) fs.rmSync(d, { recursive: true, force: true });
 });
 
 test('diagnosticarEstructura: copia legada de comandos → aviso de migracion', () => {

@@ -158,6 +158,9 @@ const SCRIPTS = PATHS.dir('scripts');     // utilidades del repo ('scripts')
 const REPORTING = PATHS.dir('reporting');            // 'gestion/reporting' (fuente unica: paths.js)
 const INFORMES = PATHS.dir('informes');              // 'gestion/reporting/informes'
 const PRESENTACIONES = PATHS.dir('presentaciones');  // 'gestion/reporting/presentaciones'
+// Configuracion del repo (#293): faro/config.json o, sin migrar, .faro.json. NO es ~/.faro.json (credenciales).
+const CONFIG_FILE = PATHS.CONFIG;
+const LAYOUT_LEGADO = 'FARO en la raíz (layout antiguo): pásalo a faro/ con `harness.js migrar-layout --dry-run` y, si el plan cuadra, `harness.js migrar-layout`.';
 
 // --- MODO PLUGIN --- El motor corre desde la cache del plugin de Claude Code (no desde ROOT/.claude).
 // 1) Reescritura de auto-referencias EN UN SOLO PUNTO: toda guia impresa 'node .claude/hooks/X.js'
@@ -196,8 +199,8 @@ if (LEGACY_COPY) {
 // Archivo de ESTADO del trabajo (fuente de verdad del faseo). Nombre canonico: ESTADO.md —
 // universal para cualquier tipo (funcionalidad de plataforma, proyecto, iniciativa).
 // Compatibilidad: si el repo solo tiene el legado INICIATIVA.md, se usa ese. Manda el que exista.
-const ESTADO_FILE = (fs.existsSync(path.join(process.env.CLAUDE_PROJECT_DIR || process.cwd(), 'INICIATIVA.md')) &&
-  !fs.existsSync(path.join(process.env.CLAUDE_PROJECT_DIR || process.cwd(), 'ESTADO.md'))) ? 'INICIATIVA.md' : 'ESTADO.md';
+// #293: la ruta la resuelve el mapa unico (faro/ESTADO.md, o en la raiz si el repo no se ha migrado).
+const ESTADO_FILE = PATHS.ESTADO;
 // Estados de fase/entidad (los escribe el AGENTE, no el humano). CONTRATO UNICO:
 // enums.estado_fase de faro-schema.json (aqui solo el fallback si el schema no existe); se carga mas abajo.
 let VALID_STATES = ['draft', 'backlog', 'pending', 'in_progress', 'testing', 'done'];
@@ -248,12 +251,12 @@ const isProtected = (b) => PROTECTED_BRANCHES.includes(b);
 // Ramas SIN ESCRITURA DIRECTA (bloqueo duro de commit/Write/Edit para TODOS, tambien owner/admin/maintainer):
 // main, master Y develop. develop deja de ser zona de trabajo: solo recibe merge/PR (via /faro:consolidar).
 // El trabajo va SIEMPRE en una rama <tipo>/<slug>. Modo template exento.
-// EXTENSIBLE por repo (determinista, versionado): .faro.json "ramas_protegidas": ["demo","pre"] —
+// EXTENSIBLE por repo (determinista, versionado): faro/config.json "ramas_protegidas": ["demo","pre"] —
 // cualquier rama de entorno que el equipo anada manana recibe el MISMO trato que develop (solo
 // merges/aprobacion; commit directo bloqueado). main/master/develop protegidas SIEMPRE.
 const EXTRA_NO_WRITE = (() => {
   try {
-    const j = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8'));
+    const j = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8'));
     return Array.isArray(j.ramas_protegidas) ? j.ramas_protegidas.map(String).filter(Boolean) : [];
   } catch { return []; }
 })();
@@ -287,11 +290,11 @@ const NO_INSTANCIA = IS_TEMPLATE || IS_ENGINE;
 // tarea" — en CADA prompt. El agente obedecia, creaba el fichero estando en develop, y entonces el
 // gate de Stop bloqueaba el turno exigiendo commitearlo... donde el propio motor prohibe commitear.
 //
-// La marca es EXPLICITA y versionada: .faro.json (lo escribe 'faro adoptar'/'iniciar') o un
+// La marca es EXPLICITA y versionada: faro/config.json (lo escribe 'faro adoptar'/'iniciar') o un
 // ESTADO.md ya existente. Deliberadamente NO cuenta tener el plugin instalado: eso dice que el
 // USUARIO usa FARO, no que ESTE repo quiera ser gobernado por el. Adoptar es una decision con
 // consecuencias (estructura, faseo, ciclo de ramas), no un efecto secundario de abrir una sesion.
-const REPO_ADOPTADO = fs.existsSync(path.join(ROOT, '.faro.json')) || fs.existsSync(path.join(ROOT, 'ESTADO.md'));
+const REPO_ADOPTADO = fs.existsSync(path.join(ROOT, CONFIG_FILE)) || fs.existsSync(path.join(ROOT, ESTADO_FILE));
 
 // Pero "sin ESTADO.md" no basta para eximir: un repo RECIEN CREADO por el CLI de FARO tampoco lo
 // tiene todavia, y ahi el onboarding SI es la tarea — es un repo vacio esperando que lo definan.
@@ -314,16 +317,16 @@ const TIENE_TRABAJO_PROPIO = (() => {
 // /faro:adoptar. Uno vacio recien creado por el CLI si recibe el onboarding: para eso se creo.
 const SIN_ADOPTAR = !NO_INSTANCIA && !REPO_ADOPTADO && TIENE_TRABAJO_PROPIO;
 // Tipologia de la instancia. MODELO ACTIVO: la clasificacion se lee del METADATO
-// (.faro.json / frontmatter de ESTADO.md) validado contra faro-schema.json -> ver clasificacion().
+// (faro/config.json / frontmatter de ESTADO.md) validado contra faro-schema.json -> ver clasificacion().
 // o frontmatter 'tipo:'. El harness inyecta en sesion lo que implica cada uno.
-// PLATAFORMAS: DECLARABLES por cada organizacion en .faro.json > "plataformas":
+// PLATAFORMAS: DECLARABLES por cada organizacion en faro/config.json > "plataformas":
 //   { "<id>": { "nombre": "<Nombre>", "pack": ["BRF", ...] } }
 // Cada una aporta el tipo <id>-func (funcionalidad acotada de esa plataforma) con su PACK documental
 // recomendado (codigos de faro-schema.json, consultables con `harness.js tipo`). El motor no trae
 // ninguna de serie: sin declaracion solo existen los tipos genericos (proyecto, iniciativa).
 function plataformasDeclaradas() {
   try {
-    const p = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')).plataformas;
+    const p = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')).plataformas;
     if (!p || typeof p !== 'object' || Array.isArray(p)) return {};
     const out = {};
     for (const [id, d] of Object.entries(p)) {
@@ -362,7 +365,7 @@ const NAMING_RULES = [
   [`/${REPORTING}/informes/`, /^\d{4}-\d{2}-\d{2}-(fase-\d+|semanal)-informe\.md$/, `${REPORTING}/informes/AAAA-MM-DD-fase-<N>-informe.md (o AAAA-MM-DD-semanal-informe.md)`],
 ];
 // Rutas consideradas "documentales" a efectos de recordatorio de commit (stop-check).
-const DOC_PATHS = new RegExp(`^(ESTADO\\.md|README\\.md|CLAUDE\\.md|${SP}\\/|${DOCS}\\/|${FLOWS}\\/|${SRC}\\/|superpowers\\/|docs\\/|flow\\/|resources\\/)`);
+const DOC_PATHS = new RegExp(`^(ESTADO\\.md|faro\\/ESTADO\\.md|README\\.md|CLAUDE\\.md|${SP}\\/|${DOCS}\\/|${FLOWS}\\/|${SRC}\\/|superpowers\\/|docs\\/|flow\\/|resources\\/)`);
 
 // ---------- lib/: dominios extraidos (harness.js = DESPACHADOR; la logica vive en lib/<dominio>.js) ----------
 // CTX compartido: consts + referencias a funciones. Las funciones aun no definidas a esta altura
@@ -719,7 +722,7 @@ function docPlacementIssues(d) {
   const canon = DOC_CANON_THEME[docTypeCode(d)] || '<tema>';
   const expName = `${d.id}-${docSlug(d.fm.title)}.md`;
   if (!sub) {
-    issues.push(`en la RAIZ de documentos/ — un documento controlado va SIEMPRE en subcarpeta tematica. Muevelo: git mv "documentos/${inside}" "documentos/${canon}/${expName}"`);
+    issues.push(`en la RAIZ de ${DOCS}/ — un documento controlado va SIEMPRE en subcarpeta tematica. Muevelo: git mv "${DOCS}/${inside}" "${DOCS}/${canon}/${expName}"`);
   }
   if (!base.toUpperCase().startsWith(String(d.id).toUpperCase() + '-')) {
     issues.push(`el nombre '${base}' no empieza por el doc_id — el ID viaja en el nombre: renombralo a '${expName}'`);
@@ -780,16 +783,16 @@ function adrIssues() {
     if (inc) (inc.bloquea ? bloqueantes : issues).push(inc.aviso);
     byName.set(slug, fm);
     const st = String(fm.status || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    if (!fm.status) issues.push(`gestion/decisions/${f}: falta 'status:' (${ADR_STATUS.join(' | ')})`);
-    else if (!ADR_STATUS.includes(st)) issues.push(`gestion/decisions/${f}: status '${fm.status}' invalido (usa ${ADR_STATUS.join(' | ')})`);
-    if (!fm.deciders) issues.push(`gestion/decisions/${f}: falta 'deciders:' (quien decide, '@usuario')`);
-    else if (!String(fm.deciders).includes('@')) issues.push(`gestion/decisions/${f}: 'deciders:' deberia llevar '@usuario' (git user), no texto libre`);
-    if (st === 'sustituida' && !fm['superseded-by']) issues.push(`gestion/decisions/${f}: status 'sustituida' SIN 'superseded-by' — el linaje se rompe (¿por cual decision se sustituyo?)`);
+    if (!fm.status) issues.push(`${SP}/decisions/${f}: falta 'status:' (${ADR_STATUS.join(' | ')})`);
+    else if (!ADR_STATUS.includes(st)) issues.push(`${SP}/decisions/${f}: status '${fm.status}' invalido (usa ${ADR_STATUS.join(' | ')})`);
+    if (!fm.deciders) issues.push(`${SP}/decisions/${f}: falta 'deciders:' (quien decide, '@usuario')`);
+    else if (!String(fm.deciders).includes('@')) issues.push(`${SP}/decisions/${f}: 'deciders:' deberia llevar '@usuario' (git user), no texto libre`);
+    if (st === 'sustituida' && !fm['superseded-by']) issues.push(`${SP}/decisions/${f}: status 'sustituida' SIN 'superseded-by' — el linaje se rompe (¿por cual decision se sustituyo?)`);
   }
   // Coherencia cruzada: si A dice supersedes:B, B deberia decir superseded-by:A (y viceversa).
   for (const [slug, fm] of byName) {
     if (fm.supersedes && byName.has(fm.supersedes) && byName.get(fm.supersedes)['superseded-by'] !== slug) {
-      issues.push(`gestion/decisions/${slug}.md dice supersedes:${fm.supersedes}, pero ese ADR no tiene superseded-by:${slug} — enlaza el linaje en ambos sentidos.`);
+      issues.push(`${SP}/decisions/${slug}.md dice supersedes:${fm.supersedes}, pero ese ADR no tiene superseded-by:${slug} — enlaza el linaje en ambos sentidos.`);
     }
   }
   // Sigue devolviendo el ARRAY de avisos (quien ya la llamaba no se entera), con los bloqueantes
@@ -981,7 +984,7 @@ function docsFuncionales() {
 // cosa. Por eso esto dice explicitamente que NO es una tarea pendiente.
 function ofertaAdopcionDirective() {
   return [
-    `Este repo todavia NO usa FARO: no tiene ${ESTADO_FILE} ni .faro.json, y tiene trabajo propio previo.`,
+    `Este repo todavia NO usa FARO: no tiene ${ESTADO_FILE} ni ${CONFIG_FILE}, y tiene trabajo propio previo.`,
     'NO es una tarea pendiente y NO hay que arreglarlo: es un repo normal que aun no ha adoptado el harness.',
     'NO crees ' + ESTADO_FILE + ', ni carpetas de gestion, ni inicies ningun onboarding por tu cuenta.',
     'Atiende lo que el usuario venga a hacer, sin mas.',
@@ -993,7 +996,7 @@ function ofertaAdopcionDirective() {
 
 function onboardingDirective() {
   const funcionales = docsFuncionales();
-  // El onboarding ADAPTA la entrevista al TIPO declarado (metadato .faro.json / frontmatter),
+  // El onboarding ADAPTA la entrevista al TIPO declarado (metadato faro/config.json / frontmatter),
   // si existe y el catalogo lo conoce; si no, entrevista generica.
   const t = tipoInfo();
   const faseoQ = '(b) en cuantas fases se ejecutara y como se llama cada una, ';
@@ -1153,13 +1156,13 @@ function superpowersDetected() {
 // ---------- subcomandos ----------
 
 // Planificador externo (#218, #277): CABLEADO del dominio lib/planificacion.js. Aqui (y solo aqui)
-// se resuelve la configuracion: .faro.json del repo > planificacion, o la del usuario (~/.faro.json).
+// se resuelve la configuracion: faro/config.json del repo > planificacion, o la del usuario (~/.faro.json).
 // El dominio la recibe ya resuelta; sin ella no hay planificador y nada se lee ni se pinta.
 let _planificacion;
 function planificacion() {
   if (_planificacion !== undefined) return _planificacion;
   let cfg = null;
-  try { cfg = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')).planificacion || null; } catch {}
+  try { cfg = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')).planificacion || null; } catch {}
   if (!cfg) { try { cfg = require('./lib/credenciales.js')().leerCfg().planificacion || null; } catch {} }
   return (_planificacion = require('./lib/planificacion.js').crear(cfg));
 }
@@ -1422,6 +1425,8 @@ function indiceSesion({ cabecera, comunicacion, resumen, funcionalL, estadoBloqu
   const dig = digestionLines();
   // ORDEN = prioridad dentro de los avisos: si el presupuesto obliga a recortar, se va lo del final.
   const avisos = [
+    // #293: repo con el layout antiguo (gestion/, ESTADO.md, .faro.json en la raiz). Se lee igual; se avisa de migrar.
+    ...(PATHS.legado && REPO_ADOPTADO && !NO_INSTANCIA ? [LAYOUT_LEGADO] : []),
     ...requisitosLines({ agregado: true }),
     ...covResumen,
     ...cov.filter((l) => /^Cambios aprobados SIN plan/.test(l)),
@@ -1440,7 +1445,7 @@ function indiceSesion({ cabecera, comunicacion, resumen, funcionalL, estadoBloqu
     ...una(ghResumenLines(), 450),
     ...resumenAgregadoLines(),
     // Navegacion (#157): solo si hay registros o documentos controlados a los que ir.
-    ...(fs.existsSync(path.join(ROOT, 'gestion', 'tareas')) || docsControlados().length ? [require('./lib/navegacion.js').lineaNavegacion()] : []),
+    ...(fs.existsSync(path.join(ROOT, SP, 'tareas')) || docsControlados().length ? [require('./lib/navegacion.js').lineaNavegacion()] : []),
     ...(!NO_INSTANCIA && ini ? una(tareasLegacySinMigrar(ini.fases), 450) : []),
     ...una(plugin, 500),
     ...(!superpowersDetected() ? ['ATENCION: plugin superpowers NO detectado — el flujo brainstorm->spec->plan pierde sus skills. Indica al usuario: claude plugin install superpowers@claude-plugins-official (requiere reiniciar la sesion).'] : []),
@@ -1964,7 +1969,8 @@ function cmdPreDoc() {
     }
     // Cambios spec-driven: proposal.md (la spec) exige frontmatter de ciclo de vida y partir del
     // funcional; tasks.md (el plan) exige su proposal APROBADA. Es el gate spec->plan del estandar.
-    const chM = norm.match(new RegExp(`/${SPEC_BASE}/changes/([^/]+)/(proposal|tasks)\\.md$`));
+    // #293: lectura dual — el gate reconoce el cambio en faro/gestion/cambios y en gestion/cambios (sin migrar).
+    const chM = norm.match(new RegExp(`/(?:${PATHS.BASE}/)?gestion/cambios/changes/([^/]+)/(proposal|tasks)\\.md$`));
     if (chM && chM[1] !== 'archive') {
       const slug = chM[1];
       if (chM[2] === 'proposal') {
@@ -2252,7 +2258,8 @@ function cmdPreBash() {
         return !!(s.enabledPlugins && Object.keys(s.enabledPlugins).some((k) => /^faro@/.test(k) && s.enabledPlugins[k] === true));
       } catch { return false; }
     })();
-    const esFaro = fs.existsSync(path.join(root, 'ESTADO.md')) || fs.existsSync(path.join(root, '.faro.json')) ||
+    const Pr = require('./lib/paths.js')(root);
+    const esFaro = fs.existsSync(path.join(root, Pr.ESTADO)) || fs.existsSync(path.join(root, Pr.CONFIG)) ||
       declaraFaro || /^template-/i.test(path.basename(root));
     if (!esFaro) return;
     const targetIsTemplate = /^template-/i.test(path.basename(root));
@@ -2353,7 +2360,7 @@ function cmdDocCheck() {
       return; // faseo correcto y sin replanificacion -> silencio
     }
     // Proposal de cambio spec-driven: valida el frontmatter de ciclo de vida tras escribir.
-    const chM = String(fp || '').replace(/\\/g, '/').match(new RegExp(`/${SPEC_BASE}/changes/([^/]+)/proposal\\.md$`));
+    const chM = String(fp || '').replace(/\\/g, '/').match(new RegExp(`/(?:${PATHS.BASE}/)?gestion/cambios/changes/([^/]+)/proposal\\.md$`)); // #293: lectura dual
     if (chM && chM[1] !== 'archive') {
       const spec = listSpecs().find((s) => s.name === chM[1]);
       const issues = spec ? specIssues(spec) : [];
@@ -2453,7 +2460,7 @@ function cmdStopCheck() {
       // creaba el fichero, exigia commitearlo y prohibia hacerlo donde estabas. Callejon sin salida.
       // isNoWrite, NO isProtected: 'protegida' son solo main/master (las principales, para detectar
       // cual es la de aprobacion). La que importa aqui es 'sin escritura directa', que incluye
-      // develop y las ramas de entorno que el repo declare en .faro.json — que son exactamente
+      // develop y las ramas de entorno que el repo declare en faro/config.json — que son exactamente
       // aquellas donde el motor va a rechazar el commit que este mensaje esta pidiendo.
       const rama = ramaActual();
       const salida = isNoWrite(rama)
@@ -2660,7 +2667,7 @@ function cmdValidate() {
   gestorAntiguoLines().forEach((w) => flowWarns.push(`[gestor] ${w.replace(/^ⓘ /, '')}`));
   // Registros estructurados de tareas (#149): solo si el repo los tiene (gestion/tareas/); sin ellos,
   // ni se carga el modulo. En fases cerradas solo cuentan los errores de estructura.
-  if (fs.existsSync(path.join(ROOT, 'gestion', 'tareas'))) {
+  if (fs.existsSync(path.join(ROOT, SP, 'tareas'))) {
     require('./lib/tareas-json.js').avisos(ROOT).forEach((w) => flowWarns.push(`[tareas-json] ${w}`));
     const _res = require('./lib/resumen-json.js').aviso(ROOT);
     if (_res) flowWarns.push(`[tareas-json] ${_res}`);
@@ -2702,7 +2709,7 @@ function cmdValidate() {
       _ria.avisos.forEach((w) => flowWarns.push(`[ria] ${w}`));
     } catch { /* el aviso es opcional */ }
     // MONOREPO (#129): apps sin declarar, declaradas inexistentes, sin CLAUDE.md propio, o una
-    // declaracion que incumple el contrato. Avisa: el workspace evoluciona antes que .faro.json.
+    // declaracion que incumple el contrato. Avisa: el workspace evoluciona antes que faro/config.json.
     require('./lib/apps.js').avisos(ROOT, { schema: faroSchema() }).forEach((w) => flowWarns.push(`[monorepo] ${w}`));
     require('./lib/tdd.js').validarConfig(ROOT, { schema: faroSchema() }).forEach((w) => flowWarns.push(`[tdd] ${w}`));
     // TESTS POR DOMINIO (#178): config mal formada, codigo sin dominio y dominios cuyo test depende de otro.
@@ -2789,10 +2796,10 @@ function cmdApps() {
     return;
   }
   if (!declarado && !lista.length) {
-    process.stdout.write('Este repo no es un monorepo: sin "monorepo" en .faro.json ni workspace (pnpm-workspace.yaml / workspaces de package.json).\n');
+    process.stdout.write(`Este repo no es un monorepo: sin "monorepo" en ${CONFIG_FILE} ni workspace (pnpm-workspace.yaml / workspaces de package.json).\n`);
     return;
   }
-  const out = [`APPS — ${declarado ? 'monorepo declarado en .faro.json' : 'monorepo SIN declarar en .faro.json'}${ws.fuente ? ` · workspace: ${ws.fuente}` : ''}`];
+  const out = [`APPS — ${declarado ? `monorepo declarado en ${CONFIG_FILE}` : `monorepo SIN declarar en ${CONFIG_FILE}`}${ws.fuente ? ` · workspace: ${ws.fuente}` : ''}`];
   for (const a of lista) {
     const quien = a.paquete ? ` · ${a.paquete}${a.version ? `@${a.version}` : ''}` : '';
     const ras = ap.rasgosTexto(a);
@@ -2800,11 +2807,11 @@ function cmdApps() {
     const donde = a.existe ? a.ruta : 'NO EXISTE en el workspace';
     out.push(`- ${a.id} (${donde}) — ${rol}${quien}${ras ? ` · ${ras}` : ''}${a.equipo ? ` · equipo ${a.equipo}` : ''}`);
   }
-  if (!declarado) out.push('', 'Para activar el modo monorepo, declara las apps en .faro.json > "monorepo": { "apps": { "<app>": { "rol": "<una frase>", "funcional": "<doc_id>", "equipo": "<team>" } }, "tag": "{app}@{version}" }.');
+  if (!declarado) out.push('', `Para activar el modo monorepo, declara las apps en ${CONFIG_FILE} > "monorepo": { "apps": { "<app>": { "rol": "<una frase>", "funcional": "<doc_id>", "equipo": "<team>" } }, "tag": "{app}@{version}" }.`);
   process.stdout.write(out.join('\n') + '\n');
 }
 
-// harness.js codeowners [--comprobar] (#134): .github/CODEOWNERS por app (equipo de .faro.json =
+// harness.js codeowners [--comprobar] (#134): .github/CODEOWNERS por app (equipo de faro/config.json =
 // team de la org) y .github/labeler.yml (actions/labeler v7: app:<id> si el PR toca apps/<id>/**).
 // Bloque marcado e idempotente: lo manual no se toca. Ver lib/apps-forja.js.
 function cmdCodeowners() {
@@ -2977,7 +2984,7 @@ function cmdTipo() {
   out.push(`${t.codigo} · ${t.nombre}${t.ambito ? ` (ambito ${t.ambito})` : ''}`);
   if (t.estandar) out.push(`Estandar de industria: ${t.estandar}`);
   if (t.subtipos) out.push(`Subtipos: ${t.subtipos.join(' · ')} — elige UNO con el usuario, no asumas.`);
-  const carpeta = t.carpeta || `documentos/<tema>/`;
+  const carpeta = PATHS.ruta(t.carpeta || `documentos/<tema>/`);   // #293: segun el layout
   out.push(`Carpeta: ${carpeta}`);
 
   // HERENCIA: la guia sale de la FAMILIA (como funciona / que debe hacer / por que asi...), y el
@@ -3046,15 +3053,16 @@ function cmdPlantilla() {
   // Los esqueletos .md por tipo se retiraron del template (0.7.x): la guia la da el CONTRATO por
   // FAMILIA, que no envejece en cada repo. Si el repo conserva una plantilla propia se sigue usando;
   // si no, se redirige a 'tipo', que es donde esta ahora la estructura y el criterio.
-  const local = def.plantilla ? path.join(ROOT, def.plantilla) : null;
-  if (!def.plantilla || (local && !/<subtipo>/.test(def.plantilla) && !fs.existsSync(local))) {
+  const plantilla = def.plantilla ? PATHS.ruta(def.plantilla) : null;   // #293: documentos/ o faro/documentos/
+  const local = plantilla ? path.join(ROOT, plantilla) : null;
+  if (!def.plantilla || (local && !/<subtipo>/.test(plantilla) && !fs.existsSync(local))) {
     process.stdout.write(`${tipo} (${def.nombre}) no usa esqueleto: la estructura y el criterio los da el contrato.\n  node .claude/hooks/harness.js tipo ${tipo}\n${def.familia ? `  familia: ${def.familia}\n` : ''}`);
     return;
   }
-  if (/<subtipo>/.test(def.plantilla)) {
+  if (/<subtipo>/.test(plantilla)) {
     // Solo se listan las que EXISTEN en el repo (personalizadas). Marcar como [FALTA] las que ya
     // no se distribuyen mandaba a crear ficheros que el modelo por familias hizo innecesarios.
-    const subs = (def.subtipos || []).map((x) => def.plantilla.replace('<subtipo>', x)).filter((r) => fs.existsSync(path.join(ROOT, r)));
+    const subs = (def.subtipos || []).map((x) => plantilla.replace('<subtipo>', x)).filter((r) => fs.existsSync(path.join(ROOT, r)));
     if (!subs.length) {
       process.stdout.write(`${def.codigo} (${def.nombre}) no usa esqueleto: la estructura y el criterio los da el contrato.\n  node .claude/hooks/harness.js tipo ${def.codigo}\n${def.familia ? `  familia: ${def.familia}\n` : ''}${def.subtipos ? `  subtipos: ${def.subtipos.join(' · ')} — elige UNO con el usuario\n` : ''}`);
       return;
@@ -3062,8 +3070,8 @@ function cmdPlantilla() {
     process.stdout.write(`${def.codigo} (${def.nombre}) · plantillas propias de este repo:\n${subs.map((r) => '  ' + r).join('\n')}\n`);
     return;
   }
-  const falta = !fs.existsSync(path.join(ROOT, def.plantilla)) ? '  [FALTA EL FICHERO]' : '';
-  process.stdout.write(`${def.plantilla}${falta}\n`);
+  const falta = !fs.existsSync(path.join(ROOT, plantilla)) ? '  [FALTA EL FICHERO]' : '';
+  process.stdout.write(`${plantilla}${falta}\n`);
 }
 
 // Identidad CANONICA por EMAIL (estable; el nombre es fragil: mismo autor con dos nombres
@@ -3331,7 +3339,7 @@ async function cmdPlanificacion() {
   const pl = planificacion();
   if (!pl) {
     console.log('planificacion: no hay planificador declarado. Si una herramienta organiza el trabajo y deja marcas en la forja');
-    console.log('(su marca de épica en la descripción de los milestones), decláralo en .faro.json o en ~/.faro.json:');
+    console.log(`(su marca de épica en la descripción de los milestones), decláralo en ${CONFIG_FILE} o en ~/.faro.json:`);
     console.log('  "planificacion": { "prefijo": "<prefijo>", "nombre": "<Nombre>" }');
     return;
   }
@@ -3968,7 +3976,7 @@ async function cmdCerrarFase() {
   }
 
   const siguiente = (ini.fases.find((f) => f.num > num && !isDone(f.estado)) || {}).num ?? null;
-  const plan = cl.planCerrarFase({ fase, informe: fase ? informeExists(num) : false, desajustes, siguiente });
+  const plan = cl.planCerrarFase({ fase, informe: fase ? informeExists(num) : false, desajustes, siguiente, dirInformes: PATHS.dir('informes') });
   if (!plan.ok) {
     console.log(`NO se puede cerrar la Fase ${num} todavia:`);
     for (const f of plan.faltan) console.log(`  - ${f}`);
@@ -4046,10 +4054,10 @@ async function cmdConsolidar() {
   if (sel.sinPr.length) console.log(`ⓘ Sin PR abierto a develop, NO se integran: ${sel.sinPr.join(', ')} (nómbralas para integrarlas).`);
   let unmerged = sel.ramas;
   if (!unmerged.length) { console.log('Nada que consolidar con lo pedido.'); return; }
-  // CI DE LA FORJA (#289): con .faro.json > validacion = ci|ambos se lee el CI del PR/MR de cada rama.
+  // CI DE LA FORJA (#289): con faro/config.json > validacion = ci|ambos se lee el CI del PR/MR de cada rama.
   // Rojo o en curso no entra; verde (modo ci) no repite la suite; sin CI o sin minutos, suite completa local.
   const eci = require('./lib/estado-ci.js');
-  let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')); } catch { meta = null; }
+  let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { meta = null; }
   const modoV = eci.modoValidacion(meta);
   const estadosCi = [];
   for (const rama of unmerged) {
@@ -4805,7 +4813,7 @@ async function cmdPublicar() {
   // La suite local completa del paso 3 se mantiene: lleva el commit de archivado que el CI no ha visto.
   {
     const eci = require('./lib/estado-ci.js');
-    let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')); } catch { meta = null; }
+    let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { meta = null; }
     const modoV = eci.modoValidacion(meta);
     if (eci.consultaCi(modoV) && gh.estadoCiCommit) {
       const sha = git('rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop');
@@ -5142,6 +5150,7 @@ else if (cmd === 'vigilar') cmdVigilar();
 else if (cmd === 'procesos') process.exitCode = require('./lib/procesos.js').cli(process.argv.slice(3), { root: ROOT });
 // worktrees de agentes (#251): lista, --limpiar (borra solo limpios e integrados), --ignorar, --al-terminar (hook SubagentStop).
 else if (cmd === 'worktrees') process.exitCode = require('./lib/worktrees.js').cli(process.argv.slice(3), { root: ROOT });
+else if (cmd === 'migrar-layout') process.exitCode = require('./lib/migrar-layout.js').cli(process.argv.slice(3), { root: ROOT });
 // triaje: JUZGA lo que llega de fuera contra lo escrito. Sin argumento, diagnostica cuanto criterio
 // hay para juzgar (lo primero que mirar en un repo que adopta FARO).
 else if (cmd === 'triaje') cmdTriaje();

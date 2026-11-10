@@ -36,7 +36,7 @@ Tu **comportamiento** manda, se ejecute donde se ejecute. Es tu obligación:
 |---|---|
 | Nombre del repo en GitHub | ID numérico del repo (inmutable) |
 | `name` del concepto (el viejo pasa a **alias**) | `slug` del concepto (la identidad) |
-| `.faro.json` (name/repo), description, topic | El historial git, los doc_id |
+| `faro/config.json` (name/repo), description, topic | El historial git, los doc_id |
 
 ## Procedimiento
 
@@ -54,9 +54,9 @@ Tu **comportamiento** manda, se ejecute donde se ejecute. Es tu obligación:
      Después: `git remote set-url origin <url-nueva>`.
    - **Concepto (en el metadato del repo):** `name` = nuevo · añade el viejo a `aliases` (no se pierde
      la búsqueda por el nombre antiguo) · el **`slug` NO se toca** (es el ancla).
-   - **Metadato:** actualiza `.faro.json` (name), la **description** del repo, y estampa
+   - **Metadato:** actualiza `faro/config.json` (name), la **description** del repo, y estampa
      el topic `antes-<slug-viejo>` (trazabilidad).
-   - **Referencias:** busca el nombre viejo en `documentos/`/`README`/`ESTADO.md` y actualízalo **con
+   - **Referencias:** busca el nombre viejo en `faro/documentos/`/`README`/`faro/ESTADO.md` y actualízalo **con
      criterio** (títulos y prosa; NO toques el stack ni URLs que dependan de redirección).
 4. **Valida.** `git fetch` (confirma que la redirección resuelve) + `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js"
    status`. Confirma que la clasificación y el grafo siguen coherentes (el `concepto` no se movió).
@@ -65,7 +65,7 @@ Tu **comportamiento** manda, se ejecute donde se ejecute. Es tu obligación:
 
 DETECTA el impacto y **CONSULTA (AskUserQuestion)**; el renombrado toca varias cosas y las decide el usuario.
 
-1. **Impacto del nombre** → busca el nombre viejo en `documentos/`/`README`/`ESTADO.md`/metadatos y PRESENTA
+1. **Impacto del nombre** → busca el nombre viejo en `faro/documentos/`/`README`/`faro/ESTADO.md`/metadatos y PRESENTA
    la lista; que el usuario marque qué actualizar (títulos/prosa sí; URLs con redirección, no).
 2. **¿Solo `name`, o también el término de fondo?** → por defecto cambias solo `name` (y el viejo a
    `alias`). Si el usuario quiere cambiar la IDENTIDAD (slug), CONSÚLTALO: es raro y hay que valorar impacto.

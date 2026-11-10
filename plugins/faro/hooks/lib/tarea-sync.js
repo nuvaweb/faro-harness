@@ -108,7 +108,7 @@ async function sincronizar(root, ids, { gh = null, ahora = new Date(), comprobar
   const resultados = [];
   for (const id of lista) {
     const registro = tareas.leer(root, id);
-    if (!registro || typeof registro !== 'object' || Array.isArray(registro)) { resultados.push({ id, accion: 'omitir', cambios: [], avisos: [], motivo: `no hay registro legible (${tareas.DIR_REL}/${id}.json)` }); continue; }
+    if (!registro || typeof registro !== 'object' || Array.isArray(registro)) { resultados.push({ id, accion: 'omitir', cambios: [], avisos: [], motivo: `no hay registro legible (${tareas.dirRel(root)}/${id}.json)` }); continue; }
     const issue = issues.get(id);
     if (!issue) { resultados.push({ id, accion: 'omitir', cambios: [], avisos: [], motivo: 'el issue no existe en la forja' }); continue; }
     const malo = tareas.validarEstructura(registro);

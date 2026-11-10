@@ -1,4 +1,4 @@
-# gestion/cambios/
+# faro/gestion/cambios/
 
 Flujo SPEC-DRIVEN NATIVO para dirigir el trabajo por cambios.
 

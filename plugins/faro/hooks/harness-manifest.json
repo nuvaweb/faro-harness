@@ -1,24 +1,49 @@
 {
-  "version": "1.1",
+  "version": "2.0",
   "naturaleza": "doc",
-  "_nota": "Contrato de adopción: qué es del harness, qué estructura debe existir, cómo re-mapear lo existente y cómo validar. Lo lee el agente 'adoptador-faro' (fase 2). La fase 1 (CLI 'faro adoptar') solo toca 'owned'. Taxonomía: documentos/ fuentes/ gestion/{cambios,reporting} notebooks/ flujos/ borrador/.",
+  "_nota": "Contrato de adopción: qué es del harness, qué estructura debe existir, cómo re-mapear lo existente y cómo validar. Lo lee el agente adoptador-faro. LAYOUT (#293): todo lo de FARO cuelga de faro/ — faro/{gestion,fuentes,documentos,flujos,borrador,notebooks}/, faro/ESTADO.md y faro/config.json (antes .faro.json). En la raíz quedan CLAUDE.md, .claude/, README.md, CHANGELOG.md, ARCHITECTURE.md, el CI, src/ y scripts/. Un repo con el layout antiguo (gestion/, ESTADO.md, .faro.json en la raíz) se migra con harness.js migrar-layout; el motor lo sigue leyendo mientras tanto. En el remap, las rutas se escriben en el layout nuevo.",
   "owned": [
     "CLAUDE.md",
     ".claude/**",
-    ".faro.json",
-    "ESTADO.md",
-    "gestion/decisions/**",
-    "gestion/reporting/**",
-    "documentos/plantillas/**",
-    "gestion/risks.md",
-    "gestion/kpis.md"
+    "faro/config.json",
+    "faro/ESTADO.md",
+    "faro/gestion/decisions/**",
+    "faro/gestion/reporting/**",
+    "faro/documentos/plantillas/**",
+    "faro/gestion/risks.md",
+    "faro/gestion/kpis.md"
   ],
   "structure": {
-    "requeridos": ["CLAUDE.md", ".claude/", ".faro.json", "ESTADO.md", "gestion/risks.md"],
+    "requeridos": [
+      "CLAUDE.md",
+      ".claude/",
+      "faro/config.json",
+      "faro/ESTADO.md",
+      "faro/gestion/risks.md"
+    ],
     "carpetas": [
-      "documentos", "documentos/funcional", "documentos/analisis", "documentos/arquitectura", "documentos/diseno", "documentos/integraciones", "documentos/operaciones", "documentos/plantillas", "documentos/entregables",
-      "gestion", "gestion/cambios/specs", "gestion/cambios/changes", "gestion/cambios/changes/archive", "gestion/reporting/informes", "gestion/reporting/presentaciones", "gestion/decisions",
-      "fuentes", "flujos", "notebooks", "borrador", "scripts"
+      "faro",
+      "faro/documentos",
+      "faro/documentos/funcional",
+      "faro/documentos/analisis",
+      "faro/documentos/arquitectura",
+      "faro/documentos/diseno",
+      "faro/documentos/integraciones",
+      "faro/documentos/operaciones",
+      "faro/documentos/plantillas",
+      "faro/documentos/entregables",
+      "faro/gestion",
+      "faro/gestion/cambios/specs",
+      "faro/gestion/cambios/changes",
+      "faro/gestion/cambios/changes/archive",
+      "faro/gestion/reporting/informes",
+      "faro/gestion/reporting/presentaciones",
+      "faro/gestion/decisions",
+      "faro/fuentes",
+      "faro/flujos",
+      "faro/notebooks",
+      "faro/borrador",
+      "scripts"
     ],
     "no_tocar": []
   },
@@ -28,31 +53,76 @@
       "vital": true,
       "nativo": true,
       "motor": "hooks/lib/specs.js (viaja con el plugin; en sesion la ruta real la publica self-hint)",
-      "flujo": "/faro:explorar -> /faro:cambio -> /faro:aplicar -> /faro:archivar sobre gestion/cambios/{specs,changes}",
+      "flujo": "/faro:explorar -> /faro:cambio -> /faro:aplicar -> /faro:archivar sobre faro/gestion/cambios/{specs,changes}",
       "validate": "node .claude/hooks/harness.js validate"
     },
     "plugin_superpowers": {
       "vital": true,
       "marketplace": "claude-plugins-official (marketplace oficial de Anthropic)",
       "install": "claude plugin install superpowers@claude-plugins-official (o /plugin -> Marketplace -> superpowers)",
-      "outputs": "brainstorming/planes -> gestion/cambios/changes/<cambio>/ (NO docs/superpowers)"
+      "outputs": "brainstorming/planes -> faro/gestion/cambios/changes/<cambio>/ (NO docs/superpowers)"
     }
   },
   "remap": [
-    { "detecta": "ADR / decisión (adr-*, decisions/*, *.decision.md, documentos/decisiones/*)", "a": "ADR = artefacto de GESTION (decision del trabajo, no entregable): gestion/decisions/<AAAA-MM-DD>-<slug>.md, estandar MADR/Nygard (status: propuesta|aceptada|rechazada|sustituida; deciders '@usuario'). Legado a migrar: documentos/decisiones/" },
-    { "detecta": "specs / RFCs / proposals sueltos (raiz, docs/, spec/, specs/, rfcs/)", "a": "gestion/cambios/ (NATIVO, NO openspec): ACTIVOS -> changes/<slug>/{proposal.md,tasks.md}, COMPLETADOS -> changes/archive/, VIGENTES -> specs/; validar con node .claude/hooks/harness.js validate" },
-    { "detecta": "informe de fase / presentacion a direccion", "a": "gestion/reporting/{informes,presentaciones}/<tema>/<tema>-AAAA-MM-DD.<ext>. REPORTING SIEMPRE datado: misma fecha ACTUALIZA el snapshot, fecha nueva = snapshot nuevo" },
-    { "detecta": "entregable final (HTML/PDF) de un documento", "a": "documentos/entregables/<doc_id>-<slug>-v<version>.<ext> (render publicado del documento; se regenera, no se edita)" },
-    { "detecta": "notebook Jupyter / validacion tecnica (.ipynb)", "a": "notebooks/<slug>.ipynb (CAPA TECNICA, estandar Cookiecutter Data Science). La conclusion se redacta en un ANA de documentos/analisis/ que CITA el notebook por ruta. NUNCA un notebook dentro de documentos/" },
-    { "detecta": "material recibido / evidencia (.docx, .xlsx, exports, datos brutos que sustentan KPIs/analisis)", "a": "fuentes/ (material de partida; SE VERSIONA). No es scratch" },
-    { "detecta": "workflow ejecutable (n8n JSON, migracion SQL aplicable)", "a": "flujos/ (export tecnico ejecutable; anexo de su documento MAN en documentos/operaciones)" },
-    { "detecta": "scratch desechable / tanteo / temporal", "a": "borrador/ (gitignored, NO se versiona). Lo que tenga valor (evidencia, validacion) NO va aqui" },
-    { "detecta": "ESTADO.md / risks.md (estado y riesgos)", "a": "ESTADO.md = fuente de verdad del ESTADO (fases/estados/tareas, FLEXIBLE a cualquier metodo); el 'que ES' -> CLAUDE.md; riesgos INHERENTES AL PROYECTO -> gestion/risks.md (NUNCA bugs del framework/harness). INICIATIVA.md ya NO se usa (canonico: ESTADO.md)" },
-    { "detecta": "doc suelto (documentos/ o raiz)", "a": "documentos/<tema>/<doc_id>-<slug>.md (SIEMPRE en subcarpeta tematica, NUNCA en la raiz de documentos/) con frontmatter FARO (doc_id, type, domain, status, version, date, classification, author)" },
-    { "detecta": "CLAUDE.md propio", "a": "FUNDIR + RECONSTRUIR: un CLAUDE.md que describa el proyecto REAL (stack/estructura/proposito) + convenciones FARO; no dejar plantilla generica" },
-    { "detecta": "README.md del proyecto", "a": "RECONSTRUIR: README que refleje el proyecto REAL + capa FARO (harness, clasificacion, ramas main+develop, trabajar con Claude Code); toma lo util del que hubiera, sin arrastrar texto de plantilla; si no hay, crearlo" },
-    { "detecta": "gestion/ (o superpowers/ legado) propio", "a": "FUNDIR con el layout FARO (no duplicar carpetas)" }
+    {
+      "detecta": "ADR / decisión (adr-*, decisions/*, *.decision.md, documentos/decisiones/*)",
+      "a": "ADR = artefacto de GESTION (decision del trabajo, no entregable): faro/gestion/decisions/<AAAA-MM-DD>-<slug>.md, estandar MADR/Nygard (status: propuesta|aceptada|rechazada|sustituida; deciders '@usuario'). Legado a migrar: faro/documentos/decisiones/"
+    },
+    {
+      "detecta": "specs / RFCs / proposals sueltos (raiz, docs/, spec/, specs/, rfcs/)",
+      "a": "faro/gestion/cambios/ (NATIVO, NO openspec): ACTIVOS -> changes/<slug>/{proposal.md,tasks.md}, COMPLETADOS -> changes/archive/, VIGENTES -> specs/; validar con node .claude/hooks/harness.js validate"
+    },
+    {
+      "detecta": "informe de fase / presentacion a direccion",
+      "a": "faro/gestion/reporting/{informes,presentaciones}/<tema>/<tema>-AAAA-MM-DD.<ext>. REPORTING SIEMPRE datado: misma fecha ACTUALIZA el snapshot, fecha nueva = snapshot nuevo"
+    },
+    {
+      "detecta": "entregable final (HTML/PDF) de un documento",
+      "a": "faro/documentos/entregables/<doc_id>-<slug>-v<version>.<ext> (render publicado del documento; se regenera, no se edita)"
+    },
+    {
+      "detecta": "notebook Jupyter / validacion tecnica (.ipynb)",
+      "a": "faro/notebooks/<slug>.ipynb (CAPA TECNICA, estandar Cookiecutter Data Science). La conclusion se redacta en un ANA de faro/documentos/analisis/ que CITA el notebook por ruta. NUNCA un notebook dentro de faro/documentos/"
+    },
+    {
+      "detecta": "material recibido / evidencia (.docx, .xlsx, exports, datos brutos que sustentan KPIs/analisis)",
+      "a": "faro/fuentes/ (material de partida; SE VERSIONA). No es scratch"
+    },
+    {
+      "detecta": "workflow ejecutable (n8n JSON, migracion SQL aplicable)",
+      "a": "faro/flujos/ (export tecnico ejecutable; anexo de su documento MAN en faro/documentos/operaciones)"
+    },
+    {
+      "detecta": "scratch desechable / tanteo / temporal",
+      "a": "faro/borrador/ (gitignored, NO se versiona). Lo que tenga valor (evidencia, validacion) NO va aqui"
+    },
+    {
+      "detecta": "ESTADO.md / risks.md (estado y riesgos)",
+      "a": "faro/ESTADO.md = fuente de verdad del ESTADO (fases/estados/tareas, FLEXIBLE a cualquier metodo); el 'que ES' -> CLAUDE.md; riesgos INHERENTES AL PROYECTO -> faro/gestion/risks.md (NUNCA bugs del framework/harness). INICIATIVA.md ya NO se usa (canonico: faro/ESTADO.md)"
+    },
+    {
+      "detecta": "doc suelto (documentos/ o raiz)",
+      "a": "faro/documentos/<tema>/<doc_id>-<slug>.md (SIEMPRE en subcarpeta tematica, NUNCA en la raiz de faro/documentos/) con frontmatter FARO (doc_id, type, domain, status, version, date, classification, author)"
+    },
+    {
+      "detecta": "CLAUDE.md propio",
+      "a": "FUNDIR + RECONSTRUIR: un CLAUDE.md que describa el proyecto REAL (stack/estructura/proposito) + convenciones FARO; no dejar plantilla generica"
+    },
+    {
+      "detecta": "README.md del proyecto",
+      "a": "RECONSTRUIR: README que refleje el proyecto REAL + capa FARO (harness, clasificacion, ramas main+develop, trabajar con Claude Code); toma lo util del que hubiera, sin arrastrar texto de plantilla; si no hay, crearlo"
+    },
+    {
+      "detecta": "gestion/ (o superpowers/ legado) propio",
+      "a": "FUNDIR con el layout FARO (no duplicar carpetas)"
+    }
   ],
-  "metadata_requerida": ["entidad", "domain", "concepto"],
-  "validate": ["node .claude/hooks/harness.js validate"]
+  "metadata_requerida": [
+    "entidad",
+    "domain",
+    "concepto"
+  ],
+  "validate": [
+    "node .claude/hooks/harness.js validate"
+  ]
 }

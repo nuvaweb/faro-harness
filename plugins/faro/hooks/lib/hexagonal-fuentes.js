@@ -9,7 +9,7 @@
 const generados = require('./generados.js');
 const LENG = require('./hexagonal-lenguajes.js');
 
-const SALTAR = new Set(['node_modules', 'dist', 'build', 'coverage', 'vendor', '.git', 'gestion', 'documentos', 'fuentes', 'flujos', 'borrador']);
+const SALTAR = new Set(['node_modules', 'dist', 'build', 'coverage', 'vendor', '.git', 'faro', 'gestion', 'documentos', 'fuentes', 'flujos', 'borrador']);
 
 module.exports = function ({ fs, path, ROOT }) {
   // base: '' (raiz) o 'apps/<x>'. Devuelve { arquitectura: texto|null, ficheros: [{ rel, lenguaje, imports, es }] }.

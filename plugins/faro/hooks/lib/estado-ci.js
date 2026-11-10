@@ -48,7 +48,7 @@ function normalizarGitlab({ pipeline = null, jobsFallidos = [] } = {}) {
   return { estado: 'rojo', fallidos: nombres };
 }
 
-// ---- Decision del ciclo (#289): .faro.json > validacion = ci | local | ambos (sin clave: local) ----
+// ---- Decision del ciclo (#289): faro/config.json > validacion = ci | local | ambos (sin clave: local) ----
 const MODOS = new Set(['ci', 'local', 'ambos']);
 const modoValidacion = (meta) => (meta && MODOS.has(meta.validacion) ? meta.validacion : 'local');
 const consultaCi = (modo) => modo === 'ci' || modo === 'ambos';

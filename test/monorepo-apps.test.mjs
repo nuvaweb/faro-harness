@@ -251,7 +251,7 @@ test('validate en un workspace SIN la clave monorepo sugiere declararlo (una sol
   const { out } = harness(monorepo(), 'validate');
   const lineas = out.split('\n').filter((l) => l.includes('[monorepo]'));
   assert.strictEqual(lineas.length, 1, out);
-  assert.match(lineas[0], /\.faro\.json/);
+  assert.match(lineas[0], /faro\/config\.json/);
 });
 
 // ---------- code.js: modo y textos ----------

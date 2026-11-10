@@ -11,7 +11,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const PLAN_FILE = 'gestion/monorepo-plan.json';
+const PLAN_FILE = 'gestion/monorepo-plan.json';   // relativa al layout antiguo; la real, planFile(root) (#293)
+const planFile = (root) => `${require('./paths.js')(root).dir('gestion')}/monorepo-plan.json`;
 const PLAN_VERSION = 1;
 const ID_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const SEGMENTO_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$/;       // org o repo de GitHub (no empieza por '-' ni '.')
@@ -119,6 +120,7 @@ function validarPlan(plan, { org } = {}) {
 
 /** Lee el plan del repo. -> null si no existe; {plan, errores}. Un JSON roto NO lanza: devuelve errores. */
 function leerPlan(root, { org } = {}) {
+  const PLAN_FILE = planFile(root);
   const abs = path.join(root, PLAN_FILE);
   let txt;
   try { const st = fs.lstatSync(abs); if (st.isSymbolicLink() || !st.isFile() || st.size > 1048576) return { plan: null, errores: [`${PLAN_FILE}: no es un fichero regular (enlaces simbólicos no permitidos).`] }; txt = fs.readFileSync(abs, 'utf8'); } catch { return null; }
@@ -130,7 +132,7 @@ function leerPlan(root, { org } = {}) {
 
 /** Escribe el plan (atomico: temporal + rename). */
 function escribirPlan(root, plan) {
-  const abs = path.join(root, PLAN_FILE);
+  const abs = path.join(root, planFile(root));
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   const tmp = `${abs}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(plan, null, 2) + '\n');
@@ -144,4 +146,4 @@ function respuesta(plan, id) {
   return d ? d.respuesta : null;
 }
 
-module.exports = { validarLinea, validarEquipo, PLAN_FILE, PLAN_VERSION, ID_RE, MODOS, validarId, rutaDeApp, validarRama, parseFuente, validarPlan, leerPlan, escribirPlan, respuesta };
+module.exports = { validarLinea, validarEquipo, PLAN_FILE, planFile, PLAN_VERSION, ID_RE, MODOS, validarId, rutaDeApp, validarRama, parseFuente, validarPlan, leerPlan, escribirPlan, respuesta };

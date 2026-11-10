@@ -7,6 +7,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { run, ok, warn, fail, say, caja, spinner, elige, pregunta, confirma, C, YES, NO_OPEN, DRY, argVal, saveConfig, loadConfig } from './core.mjs';
 import { REPO_META, leerMetaRepo, escribirMetaRepo } from './meta.mjs';
+import { rutaFaro, detectarLayout } from './layout.mjs';
 import { migrarCopiaLegada, escribirSettingsPlugin, revisarPlantillasLegadas } from './plugin.mjs';
 import { usuarioHttp, overrideMarketplace, noreplyDe } from './gitcred.mjs';
 import { PERFILES } from './perfil.mjs';
@@ -112,8 +113,11 @@ function diagnosticarEstructura(destino) {
   // Modelo PLUGIN: '.claude' del template ya NO se exige (el motor vive en el plugin y el settings
   // del repo lo escribe escribirSettingsPlugin) — exigirlo reintroducia la copia legada que la
   // migracion retira. El resto del andamio documental si se comprueba.
-  const faltanRoots = FARO_ROOTS.filter((r) => r !== '.claude' && !has(r));
+  const faltanRoots = faroRoots(destino).filter((r) => r !== '.claude' && !has(r));
   out.push({ id: 'faro-roots', etiqueta: 'Capa FARO', estado: faltanRoots.length ? 'aviso' : 'ok', detalle: faltanRoots.length ? `faltan: ${faltanRoots.join(', ')}` : 'completa', faltan: faltanRoots });
+  // #293: FARO en la raiz es el layout antiguo; el motor lo sigue leyendo, pero se migra a faro/ con el plugin.
+  const legado = detectarLayout(destino) === 'legado';
+  out.push({ id: 'layout', etiqueta: 'Layout FARO', estado: legado ? 'aviso' : 'ok', detalle: legado ? 'FARO en la raíz (layout antiguo): en Claude Code, `harness.js migrar-layout --dry-run` enseña el paso a faro/ y `harness.js migrar-layout` lo hace' : 'todo bajo faro/' });
   // Los comandos /faro:* los provee el PLUGIN: si el repo aun lleva la copia local, es LEGADO a migrar.
   const cmdsLegado = has(path.join('.claude', 'commands', 'faro'));
   out.push({ id: 'comandos', etiqueta: 'Comandos faro', estado: cmdsLegado ? 'aviso' : 'ok', detalle: cmdsLegado ? 'copia legada en .claude/commands/faro — el plugin los provee (/faro:*); migra con check/adoptar' : 'los provee el plugin (/faro:*)' });
@@ -361,10 +365,10 @@ async function finalizarLocal(auth, org, repoName, baseDir, destino, meta, ctx =
     if (nuevoMeta || migro || cambioSettings || quitoPlantillas || instancio.length || appsHechas.length || (ci && ci.estado === 'creado')) {
       try {
         const msg = appsHechas.length
-          ? `chore: monorepo ${repoName} con apps/${appsHechas.join(', apps/')} + metadato .faro.json + plugin faro declarado`
+          ? `chore: monorepo ${repoName} con apps/${appsHechas.join(', apps/')} + metadato FARO + plugin faro declarado`
           : instancio.length
-          ? `chore: metadato .faro.json + plugin faro declarado + plantilla ${meta.plantilla.repo} instanciada para ${repoName}`
-          : 'chore: metadato .faro.json + plugin faro declarado (sin copia legada)';
+          ? `chore: metadato FARO + plugin faro declarado + plantilla ${meta.plantilla.repo} instanciada para ${repoName}`
+          : 'chore: metadato FARO + plugin faro declarado (sin copia legada)';
         run('git', ['-C', destino, 'add', '-A'], { stdio: 'ignore' });
         run('git', ['-C', destino, 'commit', '-m', msg], { stdio: 'ignore' });
         run('git', ['-c', 'credential.helper=', '-C', destino, 'push', `https://${usuario}:${auth.token}@${host}/${org}/${repoName}.git`, 'HEAD'], { stdio: 'ignore', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
@@ -435,6 +439,9 @@ const OVERLAY_EXCLUIR = new Set([
   'borrador/out-doc.html',
   'borrador/out-pres.html',
   'borrador/test-full.md',
+  'faro/borrador/out-doc.html',
+  'faro/borrador/out-pres.html',
+  'faro/borrador/test-full.md',
 ]);
 // Copia src->dst; nunca pisa un fichero existente. Colisión: sidecar *.faro SOLO si está en la
 // lista blanca; el resto se deja intacto. `rel` es la ruta relativa acumulada desde la raíz del
@@ -452,17 +459,19 @@ function overlayFaro(src, dst, rel = '') {
   }
   fs.mkdirSync(path.dirname(dst), { recursive: true }); fs.copyFileSync(src, dst);
 }
-// Roots del andamio FARO que trae el adoptar (NO el stack). risks.md viaja dentro de superpowers/.
-// TAXONOMIA VIGENTE (espejo de paths.js del harness y del template adelgazado 8f86404):
-// documentos/ gestion/ fuentes/ flujos/ borrador/ + scripts/ notebooks/. Quedan FUERA a proposito:
-// .metrics (runtime), formativo.md y .gitlab-ci.yml (contenido editorial del template, no andamio).
-// ESTADO.md lo crea el agente en fase 2 (no esta en el template). risks.md vive en gestion/.
-const FARO_ROOTS = ['.claude', 'CLAUDE.md', 'documentos', 'gestion', 'fuentes', 'flujos', 'borrador', 'scripts', 'notebooks'];
+// Roots del andamio FARO que trae el adoptar (NO el stack). TAXONOMIA VIGENTE (#293, espejo de paths.js
+// del harness): todo lo de FARO cuelga de faro/ —{documentos,gestion,fuentes,flujos,borrador,notebooks}/—;
+// scripts/ es del producto y sigue en la raiz. ESTADO.md (faro/ESTADO.md) lo crea el agente en fase 2.
+// Un repo sin migrar se diagnostica con SU layout (todo en la raiz): faroRoots(destino).
+const FARO_ROOTS_LOGICOS = ['.claude', 'CLAUDE.md', 'documentos', 'gestion', 'fuentes', 'flujos', 'borrador', 'scripts', 'notebooks'];
+const faroRoots = (destino) => FARO_ROOTS_LOGICOS.map((r) => rutaFaro(destino, r));
+// Layout nuevo (lo que nace hoy): referencia para tests y mensajes.
+const FARO_ROOTS = ['.claude', 'CLAUDE.md', ...FARO_ROOTS_LOGICOS.slice(2).map((r) => (r === 'scripts' ? r : `faro/${r}`))];
 // ARBOL FARO completo (espejo de REF_DIRS en el harness, plugin >= 0.8.5). El andamio es estructura
 // vacia: no hay nada que copiar de ningun template, se CREA. El harness lo mantiene en cada sesion;
 // esto solo lo adelanta desde el CLI para que el repo quede coherente sin esperar a abrir Claude Code.
 // Si cambia la taxonomia, la fuente de verdad es paths.js/REF_DIRS del plugin — mantener en sintonia.
-const FARO_TREE = [
+const FARO_TREE_LOGICO = [
   'documentos', 'documentos/plantillas/html',
   'gestion', 'gestion/brainstorming', 'gestion/decisions',
   'gestion/cambios/specs', 'gestion/cambios/changes/archive',
@@ -472,8 +481,12 @@ const FARO_TREE = [
 ];
 // Carpetas del arbol que faltan (o, con soloVacias, las que existen pero no tienen contenido: ahi va
 // el .gitkeep para que git las versione — sin el, el equipo no las recibe al clonar).
+// #293: el arbol se resuelve con el layout del repo — un repo sin migrar recibe sus carpetas en la raiz
+// (crear faro/gestion en el le cambiaria el layout a medias); uno nuevo o migrado, bajo faro/.
+const faroTree = (destino) => FARO_TREE_LOGICO.map((d) => rutaFaro(destino, d));
+const FARO_TREE = FARO_TREE_LOGICO.map((d) => (d === 'scripts' ? d : `faro/${d}`));
 function carpetasFaroQueFaltan(destino, { soloVacias = false } = {}) {
-  return FARO_TREE.filter((d) => {
+  return faroTree(destino).filter((d) => {
     const p = path.join(destino, d);
     const existe = fs.existsSync(p);
     if (!soloVacias) return !existe;
@@ -481,7 +494,7 @@ function carpetasFaroQueFaltan(destino, { soloVacias = false } = {}) {
     try { return fs.readdirSync(p).length === 0; } catch { return false; }
   });
 }
-// .gitignore: MERGE (no pisa el del stack) — añade solo las líneas FARO que falten (superpowers/metrics/, .env…).
+// .gitignore: MERGE (no pisa el del stack) — añade solo las líneas FARO que falten (faro/borrador/, .env…).
 function mergeGitignore(src, dst) {
   let tmpl = ''; try { tmpl = fs.readFileSync(src, 'utf8'); } catch { return; }
   let cur = ''; try { cur = fs.readFileSync(dst, 'utf8'); } catch {}
@@ -518,7 +531,7 @@ export {
   personalizarPlantilla,
   tieneCmd, cuentaSsh, cuentaSshGithub, parseSshLogin, editorBin, checkPrerrequisitos, asegurarGitIdentidad,
   configurarRemotoSeamless, estamparIdentidad,
-  finalizarLocal, aplicarExigirPipeline, elegirDestino, overlayFaro, FARO_ROOTS, FARO_TREE, carpetasFaroQueFaltan, mergeGitignore,
+  finalizarLocal, aplicarExigirPipeline, elegirDestino, overlayFaro, FARO_ROOTS, FARO_TREE, faroRoots, faroTree, carpetasFaroQueFaltan, mergeGitignore,
   cdSugerido, comandoDependencias, inventarioRamas, asegurarDevelopLocal, normalizarPrincipalLocal,
   diagnosticarEstructura, diagnosticarRamasLocal,
 };

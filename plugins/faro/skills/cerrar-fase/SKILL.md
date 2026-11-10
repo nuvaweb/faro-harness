@@ -28,11 +28,11 @@ independientes: se puede cerrar una fase sin publicar, y publicar sin cerrar nin
    entonces se cierra sin ese dato y conviene decirlo en llano ("no he podido comprobar producción").
 
 4. **Enséñaselo al usuario en llano** y **pregunta con AskUserQuestion** antes de confirmar: se
-   escribe en `ESTADO.md` (la fuente de verdad del faseo) y se crea un tag. Di qué fase se cierra, a
+   escribe en `faro/ESTADO.md` (la fuente de verdad del faseo) y se crea un tag. Di qué fase se cierra, a
    qué fase pasa `fase_actual` y que se cerrará su hito.
 
 5. **Si confirma** → `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" cerrar-fase <N> --confirmo`.
-   Hace, en este orden: escribe `ESTADO.md` (fase a `done`, `fase_actual` a la siguiente fase abierta),
+   Hace, en este orden: escribe `faro/ESTADO.md` (fase a `done`, `fase_actual` a la siguiente fase abierta),
    sincroniza los hitos (el de esta fase se cierra; si le quedan tareas abiertas dentro, la forja
    **avisa y NO lo cierra**) y crea el tag `fase-N`. El tag hay que **subirlo**: `git push origin fase-N`.
 

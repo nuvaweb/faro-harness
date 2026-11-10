@@ -7,7 +7,7 @@ vive en el plugin `faro`** (`faro-schema.json`) y se actualiza solo con `autoUpd
 
 Cada repo se quedaba con la copia del día en que nació. Mejorar una plantilla obligaba
 a re-aplicar la capa FARO repo por repo, y `faro check` ni lo detectaba (solo comprueba
-que exista la carpeta `documentos/`, nunca su contenido). Resultado: repos con plantillas
+que exista la carpeta `faro/documentos/`, nunca su contenido). Resultado: repos con plantillas
 de hace meses sin que nadie lo supiera.
 
 Y el dato: de 36 tipos declarados solo 18 se habían usado, y tres de los usados
@@ -44,7 +44,7 @@ Los artefactos de reporting: `/faro:onepager` (decisión, dirección) · `/faro:
 
 ## Si necesitas personalizar algo en ESTE repo
 
-- **Una plantilla HTML**: cópiala a `documentos/plantillas/html/<nombre>.html`. El harness
+- **Una plantilla HTML**: cópiala a `faro/documentos/plantillas/html/<nombre>.html`. El harness
   usa la del repo si existe, si no la del plugin.
 - **El contrato** (tipos, familias, cabecera): crea `.claude/faro-schema.json` con tu
   override — tiene prioridad sobre el del plugin.

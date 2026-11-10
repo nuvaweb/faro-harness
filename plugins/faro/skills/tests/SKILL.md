@@ -34,7 +34,7 @@ Nunca en silencio. Con el OK explícito del usuario:
 
 `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" tests-dominios --aplicar --confirmo --claude-md`
 
-Escribe `.faro.json > tests.dominios` (sin pisar lo ya declarado ni inventar: lo dudoso queda en `pendiente`) y un bloque delimitado `<!-- faro:tests -->` en el `CLAUDE.md` del repo con la regla nueva. Si el `CLAUDE.md` contiene una instrucción antigua de correr la suite completa en cada cambio, **muéstrasela al usuario** y propón quitarla; el bloque dice que la sustituye, pero la decisión de editar su texto es suya.
+Escribe `faro/config.json > tests.dominios` (sin pisar lo ya declarado ni inventar: lo dudoso queda en `pendiente`) y un bloque delimitado `<!-- faro:tests -->` en el `CLAUDE.md` del repo con la regla nueva. Si el `CLAUDE.md` contiene una instrucción antigua de correr la suite completa en cada cambio, **muéstrasela al usuario** y propón quitarla; el bloque dice que la sustituye, pero la decisión de editar su texto es suya.
 
 ## 4 · Comprueba
 

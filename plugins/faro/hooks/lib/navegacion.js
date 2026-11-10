@@ -22,9 +22,13 @@ const refs = require('./referencias.js');
 const tareas = require('./tareas-json.js');
 const fasesLite = require('./fases-lite.js');
 
-const CAMBIOS_REL = 'gestion/cambios/changes';
-const REQS_REL = 'gestion/requisitos.md';
-const RIESGOS_REL = 'gestion/risks.md';
+// #293: rutas segun el layout del repo (faro/... o, sin migrar, en la raiz). Fuente: lib/paths.js.
+function R(root) {
+  const P = require('./paths.js')(root);
+  const g = P.dir('gestion');
+  return { CAMBIOS: `${P.specBase}/changes`, SPECS: `${P.specBase}/specs`, REQS: `${g}/requisitos.md`, RIESGOS: `${g}/risks.md`,
+    GESTION: g, TAREAS: `${g}/tareas`, DOCS: P.dir('documentos'), ESTADO: P.ESTADO };
+}
 const TOPE_FICHEROS = 4000;
 const NO_ENTRAR = new Set(['node_modules', '.git', '.claude', '.hg', 'dist', 'build']);
 
@@ -77,7 +81,7 @@ function resolverTarea(root, a) {
     const s = r.subtareas || {};
     const f = r.fechas || {};
     return {
-      ref: idRef(id), tipo: 'tarea', ruta: `gestion/tareas/${id}.json`, estado: r.estado,
+      ref: idRef(id), tipo: 'tarea', ruta: `${R(root).TAREAS}/${id}.json`, estado: r.estado,
       resumen: [
         corto(r.titulo),
         corto(`Objetivo: ${r.objetivo}`),
@@ -93,20 +97,20 @@ function resolverTarea(root, a) {
     };
   }
   // Repos aun sin registro JSON: la casilla de ESTADO.md.
-  const txt = leer(root, 'ESTADO.md');
+  const txt = leer(root, R(root).ESTADO);
   const m = txt && new RegExp(`^[ \\t]*[-*][ \\t]*\\[([ xX])\\][ \\t]*#${esc(id)}\\b[ \\t]*[·:-]?[ \\t]*(.*)$`, 'm').exec(txt);
-  if (m) return { ref: idRef(id), tipo: 'tarea', ruta: 'ESTADO.md', estado: m[1] === ' ' ? 'pendiente' : 'hecha', resumen: [corto(m[2])], relacionados: [], datos: { titulo: m[2].trim() } };
-  throw error('no-existe', `no existe la tarea ${idRef(id)}: ni gestion/tareas/${id}.json ni una casilla en ESTADO.md`);
+  if (m) return { ref: idRef(id), tipo: 'tarea', ruta: R(root).ESTADO, estado: m[1] === ' ' ? 'pendiente' : 'hecha', resumen: [corto(m[2])], relacionados: [], datos: { titulo: m[2].trim() } };
+  throw error('no-existe', `no existe la tarea ${idRef(id)}: ni ${R(root).TAREAS}/${id}.json ni una casilla en ${R(root).ESTADO}`);
 }
 
 function resolverCambio(root, a) {
   const slug = a.id;
-  let rel = `${CAMBIOS_REL}/${slug}`;
+  let rel = `${R(root).CAMBIOS}/${slug}`;
   let archivado = false;
   if (!esDir(path.join(root, ...rel.split('/')))) {
-    rel = `${CAMBIOS_REL}/archive/${slug}`;
+    rel = `${R(root).CAMBIOS}/archive/${slug}`;
     archivado = true;
-    if (!esDir(path.join(root, ...rel.split('/')))) throw error('no-existe', `no existe el cambio '${slug}': ni ${CAMBIOS_REL}/${slug}/ ni ${CAMBIOS_REL}/archive/${slug}/`);
+    if (!esDir(path.join(root, ...rel.split('/')))) throw error('no-existe', `no existe el cambio '${slug}': ni ${R(root).CAMBIOS}/${slug}/ ni ${R(root).CAMBIOS}/archive/${slug}/`);
   }
   const texto = leer(root, `${rel}/proposal.md`) || '';
   const fm = frontmatter(texto);
@@ -121,12 +125,12 @@ function resolverCambio(root, a) {
 }
 
 function resolverReq(root, a) {
-  const texto = leer(root, REQS_REL);
-  if (texto == null) throw error('no-existe', `no existe ${a.ref}: falta ${REQS_REL}`);
+  const texto = leer(root, R(root).REQS);
+  if (texto == null) throw error('no-existe', `no existe ${a.ref}: falta ${R(root).REQS}`);
   const lineas = texto.split(/\r?\n/);
   const n = Number(a.id);
   const i = lineas.findIndex((l) => { const m = /^##\s+REQ-(\d+)\b/.exec(l); return m && Number(m[1]) === n; });
-  if (i < 0) throw error('no-existe', `no existe ${a.ref} en ${REQS_REL}`);
+  if (i < 0) throw error('no-existe', `no existe ${a.ref} en ${R(root).REQS}`);
   let fin = lineas.length;
   for (let j = i + 1; j < lineas.length; j++) if (/^##\s/.test(lineas[j])) { fin = j; break; }
   const seg = lineas.slice(i, fin);
@@ -135,7 +139,7 @@ function resolverReq(root, a) {
   const estado = campo('estado');
   const origen = campo('origen');
   return {
-    ref: a.ref, tipo: 'req', ruta: `${REQS_REL}:${i + 1}`, estado: estado || '(sin estado)',
+    ref: a.ref, tipo: 'req', ruta: `${R(root).REQS}:${i + 1}`, estado: estado || '(sin estado)',
     resumen: [corto(nombre), ...(origen ? [`Origen: ${corto(origen, 120)}`] : [])],
     relacionados: todasTareas(root).filter((t) => (t.r.requisitos || []).some((q) => Number(String(q).replace(/\D/g, '')) === n)).map((t) => idRef(t.id)),
     datos: { nombre, estado, origen },
@@ -143,8 +147,8 @@ function resolverReq(root, a) {
 }
 
 function resolverRiesgo(root, a) {
-  const texto = leer(root, RIESGOS_REL);
-  if (texto == null) throw error('no-existe', `no existe ${a.ref}: falta ${RIESGOS_REL}`);
+  const texto = leer(root, R(root).RIESGOS);
+  if (texto == null) throw error('no-existe', `no existe ${a.ref}: falta ${R(root).RIESGOS}`);
   const lineas = texto.split(/\r?\n/);
   const n = Number(a.id);
   let cab = null;
@@ -158,7 +162,7 @@ function resolverRiesgo(root, a) {
       const desc = cols[idx(/desc|riesgo|titulo|t[ií]tulo/, 2)] || '';
       const estado = cols[idx(/estado|status/, cols.length - 1)] || '(sin estado)';
       const imp = cols[idx(/impacto/, -1)];
-      return { ref: a.ref, tipo: 'riesgo', ruta: `${RIESGOS_REL}:${i + 1}`, estado, resumen: [corto(desc), ...(imp ? [`Impacto: ${imp}`] : [])], relacionados: [], datos: { desc, estado, impacto: imp || null } };
+      return { ref: a.ref, tipo: 'riesgo', ruta: `${R(root).RIESGOS}:${i + 1}`, estado, resumen: [corto(desc), ...(imp ? [`Impacto: ${imp}`] : [])], relacionados: [], datos: { desc, estado, impacto: imp || null } };
     }
     const cab2 = /^#{2,4}\s+R-?(\d+)\b\s*[·:-]?\s*(.*)$/.exec(l);
     if (cab2 && Number(cab2[1]) === n) {
@@ -166,10 +170,10 @@ function resolverRiesgo(root, a) {
       for (let j = i + 1; j < lineas.length; j++) if (/^#{1,4}\s/.test(lineas[j])) { fin = j; break; }
       const seg = lineas.slice(i, fin).join('\n');
       const est = /^[-*]?\s*estado\s*:\s*(.+)$/im.exec(seg);
-      return { ref: a.ref, tipo: 'riesgo', ruta: `${RIESGOS_REL}:${i + 1}`, estado: est ? est[1].trim() : '(sin estado)', resumen: [corto(cab2[2])], relacionados: [], datos: { desc: cab2[2].trim() } };
+      return { ref: a.ref, tipo: 'riesgo', ruta: `${R(root).RIESGOS}:${i + 1}`, estado: est ? est[1].trim() : '(sin estado)', resumen: [corto(cab2[2])], relacionados: [], datos: { desc: cab2[2].trim() } };
     }
   }
-  throw error('no-existe', `no existe ${a.ref} en ${RIESGOS_REL}`);
+  throw error('no-existe', `no existe ${a.ref} en ${R(root).RIESGOS}`);
 }
 
 // Cabecera (1 KB) de un .md: el frontmatter cabe de sobra y evita leer documentos enteros.
@@ -193,7 +197,7 @@ function buscarDocs(root, id) {
   const verifica = (f) => docIdDe(f) === id;
   const nombre = (f) => f.split('/').pop().toLowerCase();
   // documentos/ primero (es donde viven); gestion/ solo si alli no esta.
-  for (const [dir, opts] of [['documentos', {}], ['gestion', { saltar: ['gestion/tareas'] }]]) {
+  for (const [dir, opts] of [[R(root).DOCS, {}], [R(root).GESTION, { saltar: [R(root).TAREAS] }]]) {
     const todos = ficherosMd(root, dir, opts);
     const porNombre = todos.filter((f) => nombre(f) === minus + '.md' || nombre(f).startsWith(minus + '-')).filter(verifica);
     const halladas = porNombre.length ? porNombre : todos.filter(verifica);
@@ -218,7 +222,7 @@ function resolverDoc(root, a) {
 
 function resolverApp(root, a) {
   const apps = require('./apps.js');
-  if (!apps.esMonorepo(root)) throw error('no-existe', `no existe app:${a.id}: este repo no declara monorepo (.faro.json > monorepo)`);
+  if (!apps.esMonorepo(root)) throw error('no-existe', `no existe app:${a.id}: este repo no declara monorepo (faro/config.json > monorepo)`);
   const app = apps.apps(root).find((x) => x.id === a.id);
   if (!app) throw error('no-existe', `no existe app:${a.id}: no está declarada ni descubierta (apps: ${apps.apps(root).map((x) => x.id).join(', ') || 'ninguna'})`);
   const rasgos = apps.rasgosTexto(app);
@@ -234,7 +238,7 @@ function resolverApp(root, a) {
 function resolverFase(root, a) {
   const n = Number(a.id);
   const f = fasesLite.leerFases(root).find((x) => x.num === n);
-  if (!f) throw error('no-existe', `no existe fase:${n} en ESTADO.md`);
+  if (!f) throw error('no-existe', `no existe fase:${n} en ${R(root).ESTADO}`);
   const ids = todasTareas(root).filter((t) => t.r.fase === n).map((t) => idRef(t.id));
   let rel = ids;
   if (!rel.length) {
@@ -247,7 +251,7 @@ function resolverFase(root, a) {
     }
   }
   return {
-    ref: `fase:${n}`, tipo: 'fase', ruta: 'ESTADO.md', estado: f.estado,
+    ref: `fase:${n}`, tipo: 'fase', ruta: R(root).ESTADO, estado: f.estado,
     resumen: [corto(f.nombre), `Inicio ${f.inicio || '-'} · objetivo ${f.objetivo || '-'} · ${rel.length} tarea(s)`],
     relacionados: rel, datos: f,
   };
@@ -278,11 +282,12 @@ function regexCita(a) {
   }
 }
 
-function tipoDeRuta(rel) {
-  if (rel === 'ESTADO.md' || rel === 'INICIATIVA.md') return 'estado';
-  if (rel.startsWith(`${CAMBIOS_REL}/`)) return 'cambio';
-  if (rel.startsWith('gestion/cambios/specs/')) return 'spec';
-  if (rel.startsWith('documentos/')) return 'doc';
+function tipoDeRuta(root, rel) {
+  const N = R(root);
+  if (rel === N.ESTADO) return 'estado';
+  if (rel.startsWith(`${N.CAMBIOS}/`)) return 'cambio';
+  if (rel.startsWith(`${N.SPECS}/`)) return 'spec';
+  if (rel.startsWith(`${N.DOCS}/`)) return 'doc';
   return 'gestion';
 }
 
@@ -298,23 +303,23 @@ function citas(root, texto) {
     else if (a.tipo === 'app') cita = (r.apps || []).includes(a.id);
     else if (a.tipo === 'fase') cita = r.fase === Number(a.id);
     else if (a.tipo === 'tarea') cita = id !== a.id && /^\d+$/.test(a.id) && (r.prs || []).includes(Number(a.id));
-    if (cita) out.push({ tipo: 'tarea', ruta: `gestion/tareas/${id}.json` });
+    if (cita) out.push({ tipo: 'tarea', ruta: `${R(root).TAREAS}/${id}.json` });
   }
   // 2) Texto: ESTADO.md, gestion/ (sin tareas/) y documentos/.
   const propios = new Set();
-  if (a.tipo === 'req') propios.add(REQS_REL);
-  if (a.tipo === 'riesgo') propios.add(RIESGOS_REL);
+  if (a.tipo === 'req') propios.add(R(root).REQS);
+  if (a.tipo === 'riesgo') propios.add(R(root).RIESGOS);
   if (a.tipo === 'doc') buscarDocs(root, a.id).forEach((f) => propios.add(f));
   const re = regexCita(a);
-  const dirsPropios = a.tipo === 'cambio' ? [`${CAMBIOS_REL}/${a.id}/`, `${CAMBIOS_REL}/archive/${a.id}/`] : [];
+  const dirsPropios = a.tipo === 'cambio' ? [`${R(root).CAMBIOS}/${a.id}/`, `${R(root).CAMBIOS}/archive/${a.id}/`] : [];
   const presupuesto = { n: TOPE_FICHEROS };
-  const ficheros = ['ESTADO.md', 'INICIATIVA.md',
-    ...ficherosMd(root, 'gestion', { saltar: ['gestion/tareas'], presupuesto }),
-    ...ficherosMd(root, 'documentos', { presupuesto })];
+  const ficheros = [R(root).ESTADO,
+    ...ficherosMd(root, R(root).GESTION, { saltar: [R(root).TAREAS], presupuesto }),
+    ...ficherosMd(root, R(root).DOCS, { presupuesto })];
   for (const rel of ficheros) {
     if (propios.has(rel) || dirsPropios.some((d) => rel.startsWith(d))) continue;
     const t = leer(root, rel);
-    if (t && re.test(t)) out.push({ tipo: tipoDeRuta(rel), ruta: rel });
+    if (t && re.test(t)) out.push({ tipo: tipoDeRuta(root, rel), ruta: rel });
   }
   return out;
 }
@@ -326,11 +331,11 @@ function rotas(root) {
   const registros = todasTareas(root);
   if (!registros.length) return [];
   const reqs = new Set();
-  const txt = leer(root, REQS_REL) || '';
+  const txt = leer(root, R(root).REQS) || '';
   for (const m of txt.matchAll(/^##\s+REQ-(\d+)\b/gm)) reqs.add(Number(m[1]));
   let appsIds = null;
   try { const apps = require('./apps.js'); if (apps.esMonorepo(root)) appsIds = new Set(apps.apps(root).map((x) => x.id)); } catch { /* sin apps.js legible */ }
-  const hayCambio = (slug) => esDir(path.join(root, ...CAMBIOS_REL.split('/'), slug)) || esDir(path.join(root, ...CAMBIOS_REL.split('/'), 'archive', slug));
+  const hayCambio = (slug) => esDir(path.join(root, ...R(root).CAMBIOS.split('/'), slug)) || esDir(path.join(root, ...R(root).CAMBIOS.split('/'), 'archive', slug));
   const out = [];
   for (const { id, r } of registros) {
     const origen = idRef(id);

@@ -1,7 +1,7 @@
 <!--
   faro-onepager.html — PLANTILLA del one-pager ejecutivo FARO.
   Data-driven: se renderiza desde un objeto DATA. El harness (`harness.js onepager`)
-  calcula el modelo desde ESTADO.md + risks.md + kpis.md e inyecta:
+  calcula el modelo desde faro/ESTADO.md + risks.md + kpis.md e inyecta:
       <script>window.__ONEPAGER__ = { ... };</script>
   reemplazando el marcador /*__DATA__*/ de abajo. Si abres esta plantilla SIN datos,
   muestra un EJEMPLO para ver el formato. NO editar datos aquí; el diseño sí.
@@ -181,7 +181,7 @@
     dims:[{k:"Alcance",sig:"ok",nota:"—"},{k:"Plazo",sig:"ok",nota:"—"},{k:"Coste",sig:"warn",nota:"—"},{k:"Riesgo",sig:"crit",nota:"—"}],
     avance:{pct:25,nota:"1 de 4 fases cerradas",fases:[{n:1,nombre:"Fase 1",estado:"done"},{n:2,nombre:"Fase 2",estado:"now"},{n:3,nombre:"Fase 3",estado:"todo"},{n:4,nombre:"Fase 4",estado:"todo"}]},
     hitos:[{fecha:"AAAA-MM-DD",txt:"Hito de la fase en curso",hot:true}],
-    kpis:{definidos:false,pendienteMsg:"Sin KPIs de negocio definidos en gestion/kpis.md.",items:[],derivados:[{v:"25%",n:"avance por fases"},{v:"1/4",n:"fases cerradas"},{v:"0",n:"KPIs definidos"}]},
+    kpis:{definidos:false,pendienteMsg:"Sin KPIs de negocio definidos en faro/gestion/kpis.md.",items:[],derivados:[{v:"25%",n:"avance por fases"},{v:"1/4",n:"fases cerradas"},{v:"0",n:"KPIs definidos"}]},
     riesgos:{abiertos:0,total:0,top:[]},
     decisiones:[],
     adaptativo:{tipoLabel:"proyecto",notaPie:"Adaptativo por tipo: proyecto muestra fases · RAID · KPIs; worker/app mostraría gates · tests · despliegue; iniciativa, OKRs · discovery."}
@@ -247,7 +247,7 @@
   function riesgos(){
     var r=D.riesgos; if(!r) return '';
     var head='<div class="block"><div class="lbl">Top riesgos (RAID)'+(r.total?' · '+esc(r.abiertos)+' abiertos de '+esc(r.total):'')+'</div>';
-    if(!r.top||!r.top.length) return head+'<p class="empty-soft">Sin riesgos registrados en gestion/risks.md.</p></div>';
+    if(!r.top||!r.top.length) return head+'<p class="empty-soft">Sin riesgos registrados en faro/gestion/risks.md.</p></div>';
     return head+'<ul class="risk">'+r.top.map(function(x){
       return '<li class="'+esc(x.sev)+'"><span class="id">'+esc(x.id)+'</span><div class="tx"><b>'+esc(x.txt)+'</b>'+
         (x.tag?'<span class="sev '+esc(x.sev)+'">'+esc(x.tag)+'</span>':'')+'</div></li>';
@@ -264,7 +264,7 @@
   function foot(){
     var a=D.adaptativo||{};
     return '<footer><span class="lbl">Generado por</span> <code>harness.js onepager</code>'+
-      '<span class="adapt">— datos de ESTADO.md + risks.md + kpis.md, sin edición manual</span>'+
+      '<span class="adapt">— datos de faro/ESTADO.md + risks.md + kpis.md, sin edición manual</span>'+
       '<span class="grow"></span>'+
       (a.notaPie?'<span class="adapt">'+esc(a.notaPie)+'</span>':'')+
       '<span class="lbl num">actualizado '+esc(D.meta.fecha||"")+'</span></footer>';

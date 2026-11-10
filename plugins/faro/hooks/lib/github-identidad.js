@@ -197,8 +197,8 @@ module.exports = function (g) {
     if (email) git('config', 'user.email', email);
     const teams = ((await api('user/teams')) || []).filter((t) => t && t.organization && (!org || t.organization.login === org)).map((t) => t.slug);
     try {
-      // Metadato: los teams del usuario se estampan en .faro.json.
-      const mp = path.join(ROOT, '.faro.json');
+      // Metadato: los teams del usuario se estampan en faro/config.json.
+      const mp = require('./config-repo.js').rutaAbs(ROOT);
       let meta = {}; try { meta = JSON.parse(fs.readFileSync(mp, 'utf8')); } catch {}
       if (teams.length) { meta.teams = teams; fs.writeFileSync(mp, JSON.stringify(meta, null, 2) + '\n'); }
     } catch {}

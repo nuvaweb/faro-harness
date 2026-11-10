@@ -8,7 +8,7 @@
 //   - falla CERRADO ante lo ambiguo (varias carpetas candidatas, app sin nombre ni rol);
 //   - idempotente (un repo que ya es monorepo no cambia);
 //   - git mv (historial conservado); la gestion de la raiz no se toca;
-//   - escribe el bloque .faro.json > monorepo, workspace, package.json raiz, CLAUDE.md por app,
+//   - escribe el bloque faro/config.json > monorepo, workspace, package.json raiz, CLAUDE.md por app,
 //     etiquetas app:<id> y (opcional) CODEOWNERS.
 //
 // SEGURIDAD: ids con patron estricto (monorepo-plan.validarId); git solo recibe rutas construidas
@@ -22,7 +22,7 @@ const mp = require('./monorepo-plan.js');
 const mg = require('./monorepo-gestion.js');
 
 const NO_ENTRAR = new Set(['node_modules', '.git', 'dist', 'build', '.wrangler', '.next', '.output', '.turbo', 'coverage']);
-const NO_CANDIDATAS = new Set(['apps', 'packages', 'libs', 'gestion', 'documentos', 'fuentes', 'flujos', 'borrador', 'notebooks', 'scripts', 'plantillas']);
+const NO_CANDIDATAS = new Set(['faro', 'apps', 'packages', 'libs', 'gestion', 'documentos', 'fuentes', 'flujos', 'borrador', 'notebooks', 'scripts', 'plantillas']);
 // Lo que pertenece a LA APP cuando un repo simple se convierte (lo demas es gestion o raiz y no se mueve).
 const ES_DE_APP = [
   /^package\.json$/, /^wrangler\.(jsonc|json|toml)$/, /^tsconfig(\..+)?\.json$/,
@@ -46,7 +46,7 @@ function estadoGit(root) {
   if (!existe(path.join(root, '.git'))) return { git: false, rama: null, sucio: [], protegida: false, anclada: false };
   const rama = (gitOut(root, ['rev-parse', '--abbrev-ref', 'HEAD']) || '').trim() || null;
   const por = gitOut(root, ['status', '--porcelain', '--untracked-files=all']) || '';
-  const sucio = por.split('\n').filter(Boolean).filter((l) => l.slice(3).replace(/"/g, '') !== mp.PLAN_FILE);
+  const sucio = por.split('\n').filter(Boolean).filter((l) => l.slice(3).replace(/"/g, '') !== mp.planFile(root));
   return {
     git: true, rama, sucio,
     protegida: !rama || ['main', 'master', 'develop', 'HEAD'].includes(rama),
@@ -129,7 +129,7 @@ function planInit(root, o = {}) {
   const lp = mp.leerPlan(root, { org: o.org });
   if (lp && lp.errores.length) { p.errores.push(...lp.errores); return fin(); }
   const plan = o.plan || (lp && lp.plan) || null;
-  const cfgFaro = leerJson(path.join(root, '.faro.json')) || {};
+  const cfgFaro = leerJson(require('./config-repo.js').rutaAbs(root)) || {};
   const monExist = ap.leerConfig(root) || {};
   const declExist = (monExist.apps && typeof monExist.apps === 'object') ? monExist.apps : {};
   const ws = ap.descubrir(root, { schema: o.schema });
@@ -160,7 +160,7 @@ function planInit(root, o = {}) {
   }
   p.apps = deseadas.map((d) => ({ id: d.id, ruta: mp.rutaDeApp(d.id), rol: d.rol, funcional: d.funcional || null, equipo: d.equipo || null, existe: existe(path.join(root, mp.rutaDeApp(d.id))) }));
   const teams = Array.isArray(cfgFaro.teams) ? cfgFaro.teams : [];
-  for (const d of deseadas) if (d.equipo && teams.length && !teams.includes(d.equipo)) p.avisos.push(`el equipo '${d.equipo}' de ${d.id} no está en 'teams' de .faro.json (${teams.join(', ')}).`);
+  for (const d of deseadas) if (d.equipo && teams.length && !teams.includes(d.equipo)) p.avisos.push(`el equipo '${d.equipo}' de ${d.id} no está en 'teams' de faro/config.json (${teams.join(', ')}).`);
 
   // ---- modo
   const todasExisten = deseadas.every((d) => existe(path.join(root, mp.rutaDeApp(d.id))));
@@ -224,7 +224,7 @@ function planInit(root, o = {}) {
   const nuevo = { ...monExist, apps, ...(tag ? { tag } : {}) };
   if (JSON.stringify(nuevo) !== JSON.stringify(monExist) && !deseadas.some((d) => !d.rol)) {
     p.cfg = { ...cfgFaro, monorepo: nuevo };
-    p.acciones.push({ tipo: 'editar', texto: `Declarar en .faro.json > monorepo: ${deseadas.map((d) => d.id).join(', ')}${tag ? ` (tag '${tag}')` : ''}.` });
+    p.acciones.push({ tipo: 'editar', texto: `Declarar en faro/config.json > monorepo: ${deseadas.map((d) => d.id).join(', ')}${tag ? ` (tag '${tag}')` : ''}.` });
   }
   p.etiquetas = deseadas.filter((d) => d.rol).map((d) => `app:${d.id}`);
   p.codeowners = o.codeowners === true || (plan && plan.codeowners === true) || false;
@@ -304,7 +304,7 @@ function aplicarInit(root, p, { git = true, codeownersFn = null } = {}) {
       op.escribir(`apps/${id}/CLAUDE.md`, claudeMd(id, a.rol, (leerJson(path.join(root, 'apps', id, 'package.json')) || {}).name));
     }
     if (p.archivos.claudeMd.length) res.hechos.push(`CLAUDE.md creado en: ${p.archivos.claudeMd.map((i) => `apps/${i}`).join(', ')}.`);
-    if (p.cfg) { op.escribir('.faro.json', JSON.stringify(p.cfg, null, 2) + '\n'); res.hechos.push('.faro.json: bloque monorepo escrito.'); }
+    if (p.cfg) { const cfgRel = require('./config-repo.js').ruta(root); op.escribir(cfgRel, JSON.stringify(p.cfg, null, 2) + '\n'); res.hechos.push(`${cfgRel}: bloque monorepo escrito.`); }
     for (const c of p.consolidacion) {
       const r = mg.aplicarConsolidar(root, c, { git });
       res.hechos.push(...r.hechos); res.errores.push(...r.errores);

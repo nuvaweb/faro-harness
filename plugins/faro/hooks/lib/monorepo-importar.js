@@ -166,7 +166,7 @@ function importarUna(root, item, { confirmo, ctx, plan }) {
     const errPlan = mp.validarPlan(nuevoPlan, { org: ctx.org });
     if (errPlan.length) { abortarMerge(root); out.errores.push(`El plan resultante no es válido: ${errPlan.join('; ')}. La importación se ha deshecho (git merge --abort).`); return out; }
     mp.escribirPlan(root, nuevoPlan);
-    sh(root, ['add', '--', mp.PLAN_FILE]);
+    sh(root, ['add', '--', mp.planFile(root)]);
     const hayMerge = (() => { try { sh(root, ['rev-parse', '-q', '--verify', 'MERGE_HEAD']); return true; } catch { return false; } })();
     const hayCambios = (() => { try { sh(root, ['diff', '--cached', '--quiet']); return false; } catch { return true; } })();
     if (hayMerge || hayCambios) {
@@ -183,7 +183,7 @@ function importarUna(root, item, { confirmo, ctx, plan }) {
 }
 
 function ctxCfgApps(root) {
-  try { const j = JSON.parse(mg.leerSeguro(path.join(root, '.faro.json'))); return (j.monorepo && j.monorepo.apps) || {}; } catch { return {}; }
+  try { const j = JSON.parse(mg.leerSeguro(require('./config-repo.js').rutaAbs(root))); return (j.monorepo && j.monorepo.apps) || {}; } catch { return {}; }
 }
 
 /** Declara las apps, consolida la gestion y deja el commit hecho. -> { hechos, errores } */
@@ -229,11 +229,11 @@ async function cli(o, ctx) {
     for (const id of o.apps) {
       const e = plan && plan.apps.find((a) => a.id === id && a.origen);
       if (e) items.push({ fuenteTexto: e.origen.fuente, app: id, rama: e.origen.rama, modo: e.origen.modo });
-      else errores.push(`--app ${id}: falta el origen (pásalo como argumento o guárdalo en ${mp.PLAN_FILE}).`);
+      else errores.push(`--app ${id}: falta el origen (pásalo como argumento o guárdalo en ${mp.planFile(root)}).`);
     }
   } else if (plan) {
     for (const a of plan.apps) if (a.origen) items.push({ fuenteTexto: a.origen.fuente, app: a.id, rama: a.origen.rama, modo: a.origen.modo });
-    if (!items.length) errores.push(`${mp.PLAN_FILE} no tiene ninguna app con 'origen'.`);
+    if (!items.length) errores.push(`${mp.planFile(root)} no tiene ninguna app con 'origen'.`);
   } else errores.push('Uso: harness.js monorepo importar <org/repo|url|ruta> --app <id> [--rol "<frase>"] [--rama <r>] [--modo subtree|copia] [--actualizar] [--dry-run|--confirmo] (o guarda los orígenes en gestion/monorepo-plan.json).');
   const vistos = new Set();
   for (const it of items) {

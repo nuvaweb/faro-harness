@@ -52,7 +52,7 @@ Sin `--fecha-objetivo`, el issue **hereda la fecha de su hito** (fase, versión 
 `harness.js campos-tarea` (campos de la organización), `campos-tarea <N>` (valores del issue),
 `campos-tarea <N> --campo "Nombre=valor"` o `--quitar <campo>`.
 
-**`--hito` ancla el issue a su hito** — la fase N de ESTADO.md, `backlog` o el título de un hito que ya exista (un hito no siempre es una fase; `--fase` se acepta como alias con aviso): OBLIGATORIO en un tipo que PLANIFICA
+**`--hito` ancla el issue a su hito** — la fase N de faro/ESTADO.md, `backlog` o el título de un hito que ya exista (un hito no siempre es una fase; `--fase` se acepta como alias con aviso): OBLIGATORIO en un tipo que PLANIFICA
 (requerimiento/mejora/tarea/documentacion/investigacion/diseno/datos) — no puede quedar suelto de
 un ciclo —, OPCIONAL en uno que SURGE (bug/infra/pregunta) — no tiene que fingir que estaba
 planificado. `--hito backlog` para lo ya aceptado pero sin fecha decidida. Si necesitas documentar de
@@ -139,7 +139,7 @@ se va a hacer no es un cierre por completado: eso es `descartar-tarea <N> "<moti
 ## Hitos, cierre forzoso, tiempo y enlaces
 
 - **Fase = hito, en las DOS forjas.** `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" hito` lista los hitos con tareas
-  cerradas/total (y horas estimadas/consumidas en GitLab); `hito sync` crea uno por fase de ESTADO.md ("Fase N — nombre")
+  cerradas/total (y horas estimadas/consumidas en GitLab); `hito sync` crea uno por fase de faro/ESTADO.md ("Fase N — nombre")
   y cierra los de fases terminadas — disparado también por `/faro:publicar`.
 - **Cierre FORZOSO: una fase terminada no cierra su hito con tareas suyas abiertas dentro.** El harness
   DETECTA y avisa cuántas quedan (nunca las mueve ni las cierra por su cuenta — mover una tarea de fase
@@ -171,7 +171,7 @@ se va a hacer no es un cierre por completado: eso es `descartar-tarea <N> "<moti
 ## Issues sin estructura (el detalle vive AHÍ)
 
 En FARO el detalle del trabajo —contexto, alcance, subtareas, criterios de aceptación—
-vive **en el issue**; `ESTADO.md` solo lleva el checkbox de una línea, que **se genera** desde el registro `gestion/tareas/<N>.json` (`harness.js estado-indice --escribir`; el histórico se rellena con `harness.js tarea migrar`, ver `/faro:migrar-tareas`). Un issue sin
+vive **en el issue**; `faro/ESTADO.md` solo lleva el checkbox de una línea, que **se genera** desde el registro `faro/gestion/tareas/<N>.json` (`harness.js estado-indice --escribir`; el histórico se rellena con `harness.js tarea migrar`, ver `/faro:migrar-tareas`). Un issue sin
 estructura deja el trabajo sin definir en el único sitio donde debería estarlo, y quien
 lo coja (persona o **agente**) rellenará los huecos suponiendo.
 

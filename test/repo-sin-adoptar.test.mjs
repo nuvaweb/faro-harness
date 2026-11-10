@@ -78,7 +78,7 @@ test('validate tampoco crea el andamiaje en un repo sin adoptar', () => {
 test('NO se ordena el onboarding: se OFRECE /faro:adoptar', () => {
   const ctx = contexto(corre(repoLegacy(), 'session'));
   assert.ok(!/OBLIGATORIO/.test(ctx), `sigue ordenando: ${ctx.slice(0, 400)}`);
-  assert.match(ctx, /NO crees ESTADO\.md/i, 'debe decir explicitamente que no lo cree');
+  assert.match(ctx, /NO crees (faro\/)?ESTADO\.md/i,'debe decir explicitamente que no lo cree');
   assert.match(ctx, /faro:adoptar/, 'y ofrecer el camino correcto para un repo con historia');
 });
 

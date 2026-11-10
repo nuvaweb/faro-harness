@@ -116,21 +116,21 @@ Tu **comportamiento** manda, se ejecute donde se ejecute. Es tu obligación:
   todo issue cuelga de un hito, también los que SURGEN (bug/infra/pregunta) — el que planifica se decide con el usuario,
   el que surge se propone en la fase ACTIVA. `--hito backlog` para lo aceptado sin fecha; `--origen-fase` documenta de
   qué fase VIENE un hallazgo sin anclarlo (útil si esa fase ya cerró). Y **`harness.js rama <tipo> "<desc>"` se BLOQUEA
-  sin `--issue <N>`** (0.36.0) salvo prefijos de gestión (`chore/`) o repos sin `ESTADO.md`: una rama solo existe si hay
+  sin `--issue <N>`** (0.36.0) salvo prefijos de gestión (`chore/`) o repos sin `faro/ESTADO.md`: una rama solo existe si hay
   un issue detrás. **Cierre forzoso**, en las dos forjas: `hito sync` (y `/faro:publicar` al cerrar ciclo) NO cierra el
   hito de una fase `done` si le quedan tareas SUYAS abiertas — avisa cuántas, nunca las mueve solo.
 - **Monorepo — apps del issue** (#134, #211): `asignar-tarea … --app <app>` pone la etiqueta `app:<app>` (la crea si
   falta) y valida que la app existe (`harness.js apps`). Si el issue toca varias apps, `--app api,web` (o `--app`
   repetido) pone una etiqueta por app; si alguna no existe, no se crea nada. Sin `--app` en un monorepo, el harness avisa y propone la app.
   Esa etiqueta decide qué gates y revisores le tocan. `harness.js codeowners` genera `.github/CODEOWNERS` por app
-  (desde `equipo` de `.faro.json`: `@<org>/<team>`) y `.github/labeler.yml` (actions/labeler v7: `app:<app>` cuando
+  (desde `equipo` de `faro/config.json`: `@<org>/<team>`) y `.github/labeler.yml` (actions/labeler v7: `app:<app>` cuando
   el PR toca `apps/<app>/**`), en un bloque marcado que respeta lo manual; `--comprobar` no escribe y falla si están
   desactualizados. `harness.js ci` en un monorepo de GitHub escribe además `.github/workflows/labeler.yml` (sin pisar uno existente; `pull_request_target` sin checkout del PR) y con `--con-codeowners` genera también estos dos ficheros. Para el subagente que implementa un issue, `harness.js ficha <N>` da su ficha autocontenida.
 - **Campos de issue de la organización** (GitHub, #215): `asignar-tarea … --fecha-objetivo AAAA-MM-DD --prioridad <opción>`
   (también `--inicio`, `--esfuerzo` y `--campo "Nombre=valor"` para cualquier otro campo). Se validan antes de crear; sin
   fecha explícita se hereda la del hito, y `mover-tarea` la pasa al hito nuevo si era la heredada. `campos-tarea [<N>]`
   lista los campos de la organización o los valores de un issue, y los fija (`--campo`) o los quita (`--quitar`).
-- **En el motor** (sin `ESTADO.md`), `asignar-tarea` ancla el issue al hito de la versión en curso (el abierto más
+- **En el motor** (sin `faro/ESTADO.md`), `asignar-tarea` ancla el issue al hito de la versión en curso (el abierto más
   próximo a la de `plugin.json`, o `X.Y` si no hay ninguno); `--hito <X.Y>` fuerza otro.
 - **`hito auditar`** (0.36.1): barrido de TODOS los issues abiertos del repo, no solo los que crea el harness — cubre
   el pasado (issues previos al anclaje) y lo externo (creado desde la web, por un bot, por integración). Lista los
@@ -142,7 +142,7 @@ Tu **comportamiento** manda, se ejecute donde se ejecute. Es tu obligación:
   tarea sigue en el Backlog**: lo que se hizo pertenecía a alguna fase. Lo que no se hará no es un cierre por
   completado — eso es `descartar-tarea <N> "<motivo>"` (`not_planned`).
 - **Gestión NATIVA extra (solo GitLab, GRATUITA salvo lo indicado):** `hito [listar|crear|cerrar|sync]` (una fase de
-  ESTADO.md = un hito, igual que en GitHub), `tiempo [<tarea> [<2h>|--estimar <2h>]]` (estimación y consumo por tarea,
+  faro/ESTADO.md = un hito, igual que en GitHub), `tiempo [<tarea> [<2h>|--estimar <2h>]]` (estimación y consumo por tarea,
   agregado por hito sin argumentos — GitHub no tiene tiempo/estimación nativos), `enlazar <t> <bloquea|bloqueada-por|relaciona> <t2>`
   (GitHub no tiene enlaces de bloqueo), y en `asignar-tarea` los modificadores `--hito --estimacion --vence --peso
   --bloqueada-por`. Peso y bloqueo son Premium/Ultimate: se intentan y se dice lo que quedó de verdad.

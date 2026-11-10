@@ -12,7 +12,7 @@
 // entonces, y un fichero que solo cambia en textos no arrastra dependientes (#198, lib/validado.js).
 // Toda la logica (dominios, grafo require/import, regla interior/contrato/transversal, etiqueta `lento`) vive en
 // plugins/faro/hooks/lib/dominios.js, el mismo servicio que usa el hook TDD de los repos de trabajo; los dominios
-// del motor se declaran en .faro.json > tests.dominios. Aqui solo se ejecuta: argv fijo, sin shell.
+// del motor se declaran en faro/config.json (o .faro.json sin migrar) > tests.dominios. Aqui solo se ejecuta: argv fijo, sin shell.
 'use strict';
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -28,7 +28,7 @@ const RE_RUTA = /^test\/[\w.-]+\.test\.mjs$/;
 
 function main() {
   const cfg = dom.config(RAIZ);
-  if (!cfg.declarado) { console.error('Sin .faro.json > tests.dominios: nada que deducir. Usa `npm test` (suite completa).'); return 2; }
+  if (!cfg.declarado) { console.error('Sin faro/config.json > tests.dominios: nada que deducir. Usa `npm test` (suite completa).'); return 2; }
   const ctx = dom.contexto(RAIZ, { cfg });
   const total = ctx.lista.filter((f) => /^test\/.*\.test\.mjs$/.test(f)).length;
   let tests; let porque; let foto = null;

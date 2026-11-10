@@ -266,7 +266,7 @@ module.exports = function (g) {
     if (!existe) { console.log(`⚠ '${quien}' NO esta en el equipo de ${equipoMsg}. Revisa el login o añadelo en GitHub. NO asigno.`); return; }
     // 'ctx' no existe en este submodulo: specBase llega ya inyectado desde github.js (y redeclararlo
     // con el mismo nombre hacia shadowing del const de arriba).
-    const base = specBase || 'gestion/cambios';
+    const base = specBase || require('./paths.js')().specBase;   // #293
     const origenLine = origenFaseArg && !ajeno ? `\n\nOrigen: Fase ${origenFaseArg} (hallado despues, no se reabre esa fase para esto).` : '';
     // En un repo AJENO el cuerpo no cita rutas internas de esta sesion (gestion/cambios/...): alli no significan nada.
     const slugCuerpo = ajeno ? '' : slug;

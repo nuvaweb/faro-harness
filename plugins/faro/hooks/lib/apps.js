@@ -5,7 +5,7 @@
 // skills e issues por app le preguntan aqui, para que nadie reinvente la deteccion.
 //
 // Dos fuentes, a proposito separadas:
-//   - lo DECLARADO (.faro.json > monorepo): rol, funcional y equipo de cada app, y la plantilla del
+//   - lo DECLARADO (faro/config.json > monorepo): rol, funcional y equipo de cada app, y la plantilla del
 //     tag. La clave 'monorepo' es la que ACTIVA el modo: un workspace sin ella es solo un dato.
 //   - lo DEDUCIDO del disco: ruta, paquete y version (package.json), worker (wrangler.*), front,
 //     contrato (ARCHITECTURE.md), changelog propio y tests. Lo tecnico no se declara: se lee, porque
@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const FARO_JSON = '.faro.json';
+// #293: la ruta de la configuracion la resuelve config-repo.js (faro/config.json o, sin migrar, .faro.json).
 const TAG_DEFECTO = '{app}@{version}';
 // Carpetas del workspace que contienen codigo COMPARTIDO, no apps desplegables. Su contenido no se
 // exige declarado. El contrato (faro-schema.json > enums.monorepo.carpetas_paquete) puede ampliarlas.
@@ -38,15 +38,15 @@ const parseJsonc = (texto) => {
 
 // ---------- lo declarado ----------
 
-function faroJson(root) { return leerJson(path.join(root, FARO_JSON)) || {}; }
+function faroJson(root) { return leerJson(require('./config-repo.js').rutaAbs(root)) || {}; }   // #293: faro/config.json o, sin migrar, .faro.json
 
-/** El bloque .faro.json > monorepo tal cual, o null si no existe (o no es un objeto). */
+/** El bloque faro/config.json > monorepo tal cual, o null si no existe (o no es un objeto). */
 function leerConfig(root) {
   const m = faroJson(root).monorepo;
   return m && typeof m === 'object' && !Array.isArray(m) ? m : null;
 }
 
-/** ¿Esta ACTIVO el modo monorepo? Solo por declaracion explicita (.faro.json > monorepo). */
+/** ¿Esta ACTIVO el modo monorepo? Solo por declaracion explicita (faro/config.json > monorepo). */
 function esMonorepo(root) { return leerConfig(root) !== null; }
 
 // ---------- lo deducido: el workspace ----------
@@ -197,7 +197,7 @@ function tagDe(root, appId, version) {
 const RASGOS_VACIOS = { paquete: null, version: null, worker: null, front: null, contrato: null, changelog: null, claudeMd: false, agentsMd: false, tests: { carpeta: null, colocados: false } };
 
 /**
- * TODAS las apps: declaradas (.faro.json > monorepo.apps) ∪ descubiertas (workspace).
+ * TODAS las apps: declaradas (faro/config.json > monorepo.apps) ∪ descubiertas (workspace).
  * Orden: el del workspace; las declaradas que no existen, al final. Repo simple -> [].
  */
 function apps(root, { schema } = {}) {
@@ -287,27 +287,27 @@ function contratoMonorepo(schema) {
   };
 }
 
-/** Lo que la declaracion .faro.json > monorepo incumple del contrato (faro-schema.json). */
+/** Lo que la declaracion faro/config.json > monorepo incumple del contrato (faro-schema.json). */
 function validarConfig(root, { schema } = {}) {
   const cfg = leerConfig(root);
   if (!cfg) return [];
   const c = contratoMonorepo(schema);
   const out = [];
-  for (const k of Object.keys(cfg)) if (!c.clavesRaiz.includes(k)) out.push(`.faro.json > monorepo.${k}: clave desconocida (válidas: ${c.clavesRaiz.join(', ')}).`);
+  for (const k of Object.keys(cfg)) if (!c.clavesRaiz.includes(k)) out.push(`faro/config.json > monorepo.${k}: clave desconocida (válidas: ${c.clavesRaiz.join(', ')}).`);
   if (!cfg.apps || typeof cfg.apps !== 'object' || Array.isArray(cfg.apps)) {
-    out.push(".faro.json > monorepo.apps debe ser un objeto { \"<app>\": { \"rol\": \"...\" } }.");
+    out.push("faro/config.json > monorepo.apps debe ser un objeto { \"<app>\": { \"rol\": \"...\" } }.");
   } else {
     const teams = faroJson(root).teams;
     for (const [id, m] of Object.entries(cfg.apps)) {
-      if (!m || typeof m !== 'object' || Array.isArray(m)) { out.push(`.faro.json > monorepo.apps.${id} debe ser un objeto con ${c.obligatoriasApp.join(', ')}.`); continue; }
-      for (const k of c.obligatoriasApp) if (!m[k] || !String(m[k]).trim()) out.push(`.faro.json > monorepo.apps.${id}: falta '${k}' (una frase de qué es la app).`);
-      for (const k of Object.keys(m)) if (!c.clavesApp.includes(k)) out.push(`.faro.json > monorepo.apps.${id}.${k}: clave desconocida (válidas: ${c.clavesApp.join(', ')}).`);
-      if (m.equipo && Array.isArray(teams) && teams.length && !teams.includes(m.equipo)) out.push(`.faro.json > monorepo.apps.${id}.equipo '${m.equipo}' no está en 'teams' (${teams.join(', ')}).`);
+      if (!m || typeof m !== 'object' || Array.isArray(m)) { out.push(`faro/config.json > monorepo.apps.${id} debe ser un objeto con ${c.obligatoriasApp.join(', ')}.`); continue; }
+      for (const k of c.obligatoriasApp) if (!m[k] || !String(m[k]).trim()) out.push(`faro/config.json > monorepo.apps.${id}: falta '${k}' (una frase de qué es la app).`);
+      for (const k of Object.keys(m)) if (!c.clavesApp.includes(k)) out.push(`faro/config.json > monorepo.apps.${id}.${k}: clave desconocida (válidas: ${c.clavesApp.join(', ')}).`);
+      if (m.equipo && Array.isArray(teams) && teams.length && !teams.includes(m.equipo)) out.push(`faro/config.json > monorepo.apps.${id}.equipo '${m.equipo}' no está en 'teams' (${teams.join(', ')}).`);
     }
   }
   if (cfg.tag !== undefined) {
     const falta = typeof cfg.tag !== 'string' ? c.marcadoresTag : c.marcadoresTag.filter((x) => !cfg.tag.includes(x));
-    if (falta.length) out.push(`.faro.json > monorepo.tag '${cfg.tag}' debe incluir ${falta.join(' y ')} (por defecto '${TAG_DEFECTO}').`);
+    if (falta.length) out.push(`faro/config.json > monorepo.tag '${cfg.tag}' debe incluir ${falta.join(' y ')} (por defecto '${TAG_DEFECTO}').`);
   }
   return out;
 }
@@ -321,13 +321,13 @@ function avisos(root, { schema } = {}) {
     const ws = workspace(root);
     const candidatas = ws.fuente ? descubrir(root, { schema }).filter((a) => a.tipo === 'app') : [];
     if (!candidatas.length) return [];
-    return [`workspace (${ws.fuente}) con ${candidatas.length} app(s) (${candidatas.map((a) => a.ruta).join(', ')}) sin modo monorepo: /faro:monorepo te guía (o decláralas en .faro.json > "monorepo": { "apps": { "<app>": { "rol": "..." } } }).`];
+    return [`workspace (${ws.fuente}) con ${candidatas.length} app(s) (${candidatas.map((a) => a.ruta).join(', ')}) sin modo monorepo: /faro:monorepo te guía (o decláralas en faro/config.json > "monorepo": { "apps": { "<app>": { "rol": "..." } } }).`];
   }
   const out = validarConfig(root, { schema });
   for (const a of apps(root, { schema })) {
     if (a.tipo !== 'app') continue;
-    if (a.origen === 'descubierta') out.push(`${a.ruta} está en el workspace sin declarar — añádela a .faro.json > monorepo.apps.${a.id} con su rol.`);
-    else if (!a.existe) out.push(`app declarada '${a.id}' no existe en el workspace — quítala de .faro.json > monorepo.apps o crea su carpeta.`);
+    if (a.origen === 'descubierta') out.push(`${a.ruta} está en el workspace sin declarar — añádela a faro/config.json > monorepo.apps.${a.id} con su rol.`);
+    else if (!a.existe) out.push(`app declarada '${a.id}' no existe en el workspace — quítala de faro/config.json > monorepo.apps o crea su carpeta.`);
     if (a.existe && !a.claudeMd) out.push(`${a.ruta} no tiene CLAUDE.md propio — créalo con qué es la app y cómo se trabaja en ella (Claude Code lo carga al entrar en la carpeta).`);
   }
   return out;

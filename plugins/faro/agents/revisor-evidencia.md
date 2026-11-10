@@ -28,8 +28,8 @@ El reparto es estricto, porque dos jueces sobre el mismo material y sin árbitro
 
 Y mira **los dos sitios donde viven los requisitos**, no solo uno:
 
-- `gestion/cambios/specs/<capacidad>/spec.md` — las specs **vivas** (lo ya consolidado).
-- `gestion/cambios/changes/<cambio>/specs/<capacidad>/spec.md` — los **deltas del cambio en curso**.
+- `faro/gestion/cambios/specs/<capacidad>/spec.md` — las specs **vivas** (lo ya consolidado).
+- `faro/gestion/cambios/changes/<cambio>/specs/<capacidad>/spec.md` — los **deltas del cambio en curso**.
   Este es el que importa cuando te lanzan desde `/faro:pr`: es el trabajo que se está revisando.
   El comando `specs evidencia` **solo mira las vivas**, así que los deltas los abres tú.
 
@@ -46,7 +46,7 @@ Y mira **los dos sitios donde viven los requisitos**, no solo uno:
 
 1. **Reúne los requisitos.** `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" specs evidencia` te da el
    inventario: requisitos de las specs vivas y cuáles declaran `Evidencia:`. Las specs viven en
-   `gestion/cambios/specs/<capacidad>/spec.md` con el formato:
+   `faro/gestion/cambios/specs/<capacidad>/spec.md` con el formato:
    - `### Requisito: <nombre>` — la norma, en lenguaje EARS (DEBE / NO DEBE)
    - `#### Escenario: <caso>` — con líneas `- CUANDO …` / `- ENTONCES …`
    - opcionalmente `Evidencia: <ruta del test>` bajo el requisito
@@ -109,7 +109,7 @@ DEMOSTRADOS
 
 ## Reglas duras
 
-- **No modificas nada.** Ni specs, ni tests, ni ESTADO.md. Propones, no aplicas.
+- **No modificas nada.** Ni specs, ni tests, ni faro/ESTADO.md. Propones, no aplicas.
 - **No inventes un test que no has leído.** Si citas un fichero como evidencia, ábrelo y comprueba
   qué hace. Una evidencia falsa es peor que ninguna: cierra el hueco sin taparlo.
 - **Un requisito sin escenarios no es culpa del test.** Si la spec no dice qué habría que comprobar,

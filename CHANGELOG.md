@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## 2.0.0 — 2026-11-10
+
+### Cambiado (rompe el layout)
+- Todo lo de FARO cuelga de `faro/` (#293): `faro/{gestion,fuentes,documentos,flujos,borrador,notebooks}/`, `faro/ESTADO.md` y `faro/config.json` (antes `.faro.json`). En un monorepo hay una sola `faro/` en la raíz.
+  - Siguen en la raíz `CLAUDE.md`, `.claude/`, `README.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, el CI, `src/` y `scripts/`.
+  - Las skills y los agentes siguen en el plugin; solo cambian las rutas que citan.
+  - `~/.faro.json`, las credenciales del usuario, no cambia.
+- Mapa único de rutas en `lib/paths.js` (`BASE`, `AREAS`, `ESTADO`, `CONFIG`, `ruta()`, `detectarLayout`) y un lector y escritor único de la configuración (`lib/config-repo.js`). Un test impide leer `ESTADO.md` o `.faro.json` con literales fuera del mapa.
+- Lectura dual: un repo sin migrar sigue funcionando con el layout antiguo. `validate` avisa en una línea de que puede migrar.
+- Los mensajes del motor citan `faro/config.json > …`.
+
+### Añadido
+- `harness.js migrar-layout [--dry-run]`:
+  - mueve a `faro/` con `git mv`, para conservar el historial;
+  - recalcula los enlaces relativos y actualiza las rutas citadas, el `.gitignore` y los permisos de `.claude/settings.json`;
+  - el histórico (`changes/archive/`, `decisions/`, `reporting/`, `CHANGELOG.md`) solo recalcula enlaces.
+  - Para sin mover nada si un destino ya existe o hay cambios sin guardar. Deja todo en el índice, sin commit.
+
+### Quitado
+- `.metrics/`, que era de la telemetría retirada. `migrar-layout` la retira.
+
+### Corregido
+- Repo a medio migrar (#295): si ya existe `faro/` pero la configuración sigue en `.faro.json`, se lee `.faro.json` en vez de una configuración vacía sin aviso. Es la misma regla en el motor, el wizard y los hooks de TDD.
+- `migrar-layout` no sigue enlaces simbólicos al buscar markdown ni reescribe a través de ellos (`.gitignore`, `.claude/settings.json`, `.md`). Comprueba cada segmento de la ruta, también un `.claude/` enlazado, así que no puede tocar ficheros de fuera del repo. Si `faro/` es un enlace, no migra.
+- La importación de la gestión de un repo al monorepo rechaza un enlace simbólico en cualquier segmento del área (`faro/gestion`), no solo en el último.
+
 ## 1.6.0 — 2026-11-10
 
 ### Añadido

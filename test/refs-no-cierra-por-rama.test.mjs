@@ -69,7 +69,8 @@ test('planCierreDeTarea: si su PR solo la referencia, consolidar no la cierra', 
 
 test('consolidar consulta los PRs de la rama antes del cierre activo, y pr crear acepta Refs como ancla', () => {
   const src = fs.readFileSync(path.join(HOOKS, 'harness.js'), 'utf8');
-  const consolidar = src.slice(src.indexOf('async function cmdConsolidar'), src.indexOf('async function cmdConsolidar') + 8000);
+  const ini = src.indexOf('async function cmdConsolidar');
+  const consolidar = src.slice(ini, src.indexOf('\nasync function ', ini + 1)); // la función entera, no una ventana fija que se queda corta al crecer
   assert.match(consolidar, /prsDeRama/);
   assert.match(consolidar, /soloReferencia/);
   const prCrear = src.slice(src.indexOf('async function cmdPrCrear'), src.indexOf('async function cmdTerminar'));

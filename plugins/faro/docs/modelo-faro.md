@@ -39,7 +39,7 @@ suya (muchos conceptos → una clase). Renombrar/actualizar toca al concepto, nu
 El repo puede llamarse **como sea**; su metadata declara a qué concepto pertenece:
 
 ```yaml
-# ESTADO.md del repo (o frontmatter de un doc)
+# faro/ESTADO.md del repo (o frontmatter de un doc)
 concepto: gratia            # ← EL ANCLA: a qué pertenece
 domain: [producto, operaciones]   # transversal: uno o varios
 # el nombre del repo es libre; esto es lo que el sistema lee

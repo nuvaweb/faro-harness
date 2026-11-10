@@ -67,8 +67,8 @@ for (const id of Object.keys(FORJAS)) {
     assert.equal(salida(r).includes(TOKEN), false, 'el token no sale por pantalla');
     assert.equal(enBare(e.bare, 'rev-parse', '--verify', 'main').length, 40);
     const enDevelop = enBare(e.bare, 'ls-tree', '-r', '--name-only', 'develop').split('\n');
-    for (const f of ['CLAUDE.md', '.gitignore', '.faro.json', '.claude/settings.json', 'gestion/risks.md']) assert.ok(enDevelop.includes(f), `${f} en develop\n${enDevelop}`);
-    const meta = JSON.parse(enBare(e.bare, 'show', 'develop:.faro.json'));
+    for (const f of ['CLAUDE.md', '.gitignore', 'faro/config.json', '.claude/settings.json', 'faro/gestion/risks.md']) assert.ok(enDevelop.includes(f), `${f} en develop\n${enDevelop}`);
+    const meta = JSON.parse(enBare(e.bare, 'show', 'develop:faro/config.json'));
     assert.equal(meta.domain, 'sistemas'); assert.equal(meta.naturaleza, 'documental');
     const v = verbos(e.llamadas());
     assert.ok(v.includes(e.f.crear), v.join('\n'));
@@ -103,7 +103,7 @@ for (const id of Object.keys(FORJAS)) {
     assert.match(salida(r), /tanstack-ui.*no está disponible/);
     const enDevelop = enBare(e.bare, 'ls-tree', '-r', '--name-only', 'develop').split('\n');
     assert.ok(enDevelop.includes('CLAUDE.md'));
-    assert.equal(JSON.parse(enBare(e.bare, 'show', 'develop:.faro.json')).plantilla ?? null, null);
+    assert.equal(JSON.parse(enBare(e.bare, 'show', 'develop:faro/config.json')).plantilla ?? null, null);
   });
 
   test(`adoptar en ${id}, cuenta personal: conserva el código, añade la capa y deja develop en el remoto`, () => {
@@ -116,7 +116,7 @@ for (const id of Object.keys(FORJAS)) {
     assert.equal(salida(r).includes(TOKEN), false, 'el token no sale por pantalla');
     assert.equal(/Subi(r|endo) .*GitHub/.test(salida(r)) && id === 'gitlab', false, 'no nombra a la otra forja');
     const enDevelop = enBare(e.bare, 'ls-tree', '-r', '--name-only', 'develop').split('\n');
-    for (const f of ['app.py', 'CLAUDE.md', '.gitignore', '.faro.json']) assert.ok(enDevelop.includes(f), `${f} en develop\n${enDevelop}`);
+    for (const f of ['app.py', 'CLAUDE.md', '.gitignore', 'faro/config.json']) assert.ok(enDevelop.includes(f), `${f} en develop\n${enDevelop}`);
     // El sidecar es local: *.faro está en el .gitignore y lo lee /faro:adoptar para fundirlo.
     assert.ok(fs.existsSync(path.join(dir, 'CLAUDE.md.faro')), 'la versión FARO queda al lado');
     assert.equal(enDevelop.includes('CLAUDE.md.faro'), false);

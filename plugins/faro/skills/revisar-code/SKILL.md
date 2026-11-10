@@ -5,14 +5,14 @@ argument-hint: "[opcional: alcance o ruta a revisar]"
 
 Lanza el subagente **`revisor-code`** **en background** para auditar si el código actual (`src/` o el
 layout real del repo) sigue siendo fiel a su propio contrato: `ARCHITECTURE.md` (mapa de módulos, invariantes,
-estándares declarados), el funcional/`ESTADO.md`, y las specs de cambios recientes que tocaron código.
+estándares declarados), el funcional/`faro/ESTADO.md`, y las specs de cambios recientes que tocaron código.
 **Si el repo tiene `wrangler.toml`/`wrangler.jsonc`/`wrangler.json`** (Cloudflare Workers), lanza
 **también** `revisor-code-worker` (SOLID/Workers específico) — se complementan, nunca uno sustituye
 al otro. Los dos **en background y en la MISMA tanda** (una sola respuesta con ambas llamadas): son
 independientes entre si, asi que corren en paralelo y no se esperan el uno al otro. Es el patrón para futuros stacks propios: un `revisor-code-<stack>` por plataforma, todos
 sumándose al genérico, nunca reemplazándolo.
 
-**En un monorepo** (`.faro.json` declara `monorepo`), nada de eso se mira en la raíz: el código, el
+**En un monorepo** (`faro/config.json` declara `monorepo`), nada de eso se mira en la raíz: el código, el
 contrato y el wrangler viven en cada app. Lista las apps con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps --json`
 y cruza con el diff (o con el alcance que te pidan) para saber cuáles toca. Lanza `revisor-code`
 pasándole esas apps (cada una con su contrato `apps/<x>/ARCHITECTURE.md`),

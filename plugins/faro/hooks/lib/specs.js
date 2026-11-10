@@ -121,10 +121,11 @@ module.exports = function (ctx) {
   // FUENTE DE RUTA UNICA: la base la manda paths.js via harness.js (specBase = 'gestion/cambios').
   // El motor NO la autodetecta; solo cae a un fallback (misma cascada que paths.js) si no se la pasan
   // (p. ej. invocacion suelta en tests). Asi motor y harness miran SIEMPRE la misma carpeta.
+  const _sb = require('./paths.js')(ROOT).specBase;   // #293: faro/gestion/cambios o, sin migrar, gestion/cambios
   const BASE = specBase
-    || (fs.existsSync(path.join(ROOT, 'gestion/cambios')) ? 'gestion/cambios'
+    || (fs.existsSync(path.join(ROOT, _sb)) ? _sb
       : (fs.existsSync(path.join(ROOT, 'specdriven')) ? 'specdriven'
-        : (fs.existsSync(path.join(ROOT, 'openspec')) ? 'openspec' : 'gestion/cambios')));
+        : (fs.existsSync(path.join(ROOT, 'openspec')) ? 'openspec' : _sb)));
   const CHANGES = path.join(ROOT, BASE, 'changes');
   const SPECS = path.join(ROOT, BASE, 'specs');
 

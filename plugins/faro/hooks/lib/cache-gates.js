@@ -26,7 +26,7 @@ const ENTORNO_RELEVANTE = ['NODE_ENV', 'CI', 'NODE_OPTIONS', 'TS_NODE_PROJECT', 
 // carpeta (README, LICENSE…) no cuenta.
 const RE_RAIZ_GLOBAL = /^(?:package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?|npm-shrinkwrap\.json|tsconfig[\w.-]*\.json|[\w.-]*\.config\.[cm]?[jt]sx?|vitest\.workspace\.[cm]?[jt]s|\.[\w.-]*rc(?:\.[\w]+)?|biome\.jsonc?|turbo\.json|wrangler[\w.-]*\.(?:jsonc?|toml)|\.nvmrc|\.node-version|\.tool-versions|\.npmrc|\.yarnrc\.yml|\.pnpmfile\.cjs)$/;
 const esGlobal = (p) => !p.includes('/') && RE_RAIZ_GLOBAL.test(p);
-const EXCLUIR_RAIZ = ['gestion', 'documentos', 'fuentes', 'borrador', 'flujos'];   // la gestion de FARO no es codigo de la app
+const EXCLUIR_RAIZ = ['faro', 'gestion', 'documentos', 'fuentes', 'borrador', 'flujos'];   // la gestion de FARO no es codigo de la app
 const MAX_FICHERO_HASH = 8 * 1024 * 1024;
 
 const rutaValida = (r) => typeof r === 'string' && r.length > 0 && r.length <= 200 && /^[A-Za-z0-9_.@][A-Za-z0-9_.@/-]*$/.test(r) && !r.split('/').includes('..') && !r.endsWith('/');

@@ -13,7 +13,7 @@ import {
   escribirSettingsPlugin, migrarCopiaLegada, leerMetaRepo, carpetasFaroQueFaltan,
 } from '../lib/repo.mjs';
 import { estamparTopics, aplicarConfigRepo, esPlanDePago, planDeOrg, protegerRama, teamsDeRepo } from '../lib/github.mjs';
-import { settingsPluginOk, escribirMetaRepo } from '../lib/repo.mjs';
+import { settingsPluginOk, escribirMetaRepo, rutaConfig } from '../lib/repo.mjs';
 import { detectarDeclarada } from '../lib/forja-propia.mjs';
 import { perfilesConocidos } from '../lib/perfil.mjs';
 import { overrideMarketplace } from '../lib/gitcred.mjs';
@@ -111,8 +111,8 @@ async function flujoCheck(auth, org, cfg, catalogo, esOwner, ctx = null) {
             say(`  ${C.d}Quita esa regla del .gitignore (o añade la excepción !.claude/settings.json) y repite el check.${C.x}`);
           }
           try {
-            run('git', ['-C', destino, 'add', '-A', '--', '.claude', '.faro.json'], { stdio: 'ignore' });
-            run('git', ['-C', destino, 'commit', '-m', 'chore: migracion al plugin faro — retira copia legada del harness (settings + metadato .faro.json)'], { stdio: 'ignore' });
+            run('git', ['-C', destino, 'add', '-A', '--', '.claude', rutaConfig(destino)], { stdio: 'ignore' });   // #293: faro/config.json o .faro.json
+            run('git', ['-C', destino, 'commit', '-m', 'chore: migracion al plugin faro — retira copia legada del harness (settings + metadato del repo)'], { stdio: 'ignore' });
             ok('Migración commiteada.');
             // PUSH de la rama actual (con confirmacion): no dejar el repo "abierto" con la migracion
             // solo en local. A main NO se mergea aqui: eso es la APROBACION (la aplica un maintainer

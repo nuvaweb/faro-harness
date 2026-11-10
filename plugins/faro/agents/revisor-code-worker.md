@@ -16,10 +16,10 @@ se lanzan juntos cuando el repo es un worker; cada uno cubre lo suyo, sin solapa
 
 Proceso:
 
-0. **¿Monorepo?** Si `.faro.json` declara `monorepo`, te lanzan **una vez por cada app worker afectada** y te pasan la app. Todo lo de abajo se aplica dentro de su carpeta `apps/<x>/`: su `wrangler.*`, su `apps/<x>/src/`, su contrato `apps/<x>/ARCHITECTURE.md` y el documento ARQ de esa app (si `documentos/arquitectura/` tiene uno por app, el suyo). Si no te pasaron la app, sácala del diff con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps --json` y revisa solo las que tienen `worker`. El `validate` del paso 2 es de todo el repo: refleja solo lo que afecte a tu app.
+0. **¿Monorepo?** Si `faro/config.json` declara `monorepo`, te lanzan **una vez por cada app worker afectada** y te pasan la app. Todo lo de abajo se aplica dentro de su carpeta `apps/<x>/`: su `wrangler.*`, su `apps/<x>/src/`, su contrato `apps/<x>/ARCHITECTURE.md` y el documento ARQ de esa app (si `faro/documentos/arquitectura/` tiene uno por app, el suyo). Si no te pasaron la app, sácala del diff con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps --json` y revisa solo las que tienen `worker`. El `validate` del paso 2 es de todo el repo: refleja solo lo que afecte a tu app.
 1. Identifica el código a revisar (diff reciente: `git diff`/`git diff --staged`, o los ficheros de
    `src/` que toque el cambio en curso). Lee también el documento ARQ vivo en
-   `documentos/arquitectura/` (busca por `doc_id`, tipo `ARQ`) y `documentos/arquitectura/cloudflare-checklist.md`
+   `faro/documentos/arquitectura/` (busca por `doc_id`, tipo `ARQ`) y `faro/documentos/arquitectura/cloudflare-checklist.md`
    si existen.
 2. Corre `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" validate` (typecheck + tests + dry-run según
    defina el gate) y refleja el resultado.
@@ -40,7 +40,7 @@ Proceso:
      verificar secretos; validación/límite de tamaño del input.
    - **Contrato**: el código cumple el change spec-driven (endpoints/esquemas/bindings declarados);
      tras cambiar bindings, `cf-typegen` regenerado.
-   - **Docs**: el `README`/el documento ARQ vivo (`documentos/arquitectura/`) reflejan endpoints/bindings
+   - **Docs**: el `README`/el documento ARQ vivo (`faro/documentos/arquitectura/`) reflejan endpoints/bindings
      actuales (si están desactualizados, señálalo — `/faro:redactar` lo actualiza, sumando a
      `redactor-tecnico` como contenido experto).
 4. No modifiques ficheros.

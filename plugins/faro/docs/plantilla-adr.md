@@ -1,6 +1,6 @@
 # Plantilla de ADR (decisión de arquitectura)
 
-Un ADR registra **una decisión** y por qué se tomó. Vive en `gestion/decisions/<AAAA-MM-DD>-<slug>.md`.
+Un ADR registra **una decisión** y por qué se tomó. Vive en `faro/gestion/decisions/<AAAA-MM-DD>-<slug>.md`.
 
 Estándar: **MADR** (Markdown Any Decision Records). MADR define 9 secciones; FARO exige **4** y deja
 las otras 5 preparadas como opcionales.

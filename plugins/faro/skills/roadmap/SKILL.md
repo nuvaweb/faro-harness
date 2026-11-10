@@ -11,13 +11,13 @@ Genera la **hoja de ruta visual** del trabajo: A4 **horizontal**, pensada para q
 
 ## Mecánica
 
-1. **Genera** con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" roadmap` — deriva TODO de `ESTADO.md` + `gestion/risks.md` (no inventa nada) y escribe `gestion/reporting/presentaciones/roadmap-AAAA-MM-DD.html`. **Datado como todo el reporting**: misma fecha → ACTUALIZA ese fichero; fecha nueva → snapshot nuevo. No hay "roadmap vivo": el vigente es el de fecha más reciente.
+1. **Genera** con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" roadmap` — deriva TODO de `faro/ESTADO.md` + `faro/gestion/risks.md` (no inventa nada) y escribe `faro/gestion/reporting/presentaciones/roadmap-AAAA-MM-DD.html`. **Datado como todo el reporting**: misma fecha → ACTUALIZA ese fichero; fecha nueva → snapshot nuevo. No hay "roadmap vivo": el vigente es el de fecha más reciente.
 
 2. **Interpreta la salida** y explícasela al usuario en llano. El comando ya resume avance, fase, motivo, fases sin cerrar y nº de obstáculos.
 
 3. **Avisa de lo que resta valor** (sin asumir, preguntando):
-   - **Fases sin `Objetivo: AAAA-MM-DD`** en `ESTADO.md` → el carril sale sin fechas y no se puede juzgar el plazo. Es lo que más empobrece el resultado; ofrece añadirlas.
-   - **Sin riesgos en `gestion/risks.md`** → el bloque "qué nos frena" sale vacío. Pregunta si de verdad no hay ninguno o es que no están registrados.
+   - **Fases sin `Objetivo: AAAA-MM-DD`** en `faro/ESTADO.md` → el carril sale sin fechas y no se puede juzgar el plazo. Es lo que más empobrece el resultado; ofrece añadirlas.
+   - **Sin riesgos en `faro/gestion/risks.md`** → el bloque "qué nos frena" sale vacío. Pregunta si de verdad no hay ninguno o es que no están registrados.
    - **Fases marcadas "sin cerrar"** (se saltaron: quedaron abiertas y el trabajo ya va por una posterior) → señálalo, es una señal de gestión real: o se cierran, o se replantea el faseo.
 
 ## Qué dibuja, y de dónde sale

@@ -15,12 +15,12 @@ runbooks incluidos) **se prepara si hace falta para que el resultado opere y per
 
 | Etapa | Qué se hace (con quién está el problema) | Dónde queda en FARO |
 |---|---|---|
-| **1. Iniciación / discovery** | Aterrizar la idea: problema, para quién, valor esperado, stakeholders, qué hay ya | Onboarding → `ESTADO.md` + brief (BRF); material recibido → `fuentes/` |
-| **2. Requerimientos** (elicitación BABOK) | Sacar lo que NO está escrito: entrevistas, observación del flujo real, workshops; requisitos verificables (DEBE + escenario); alcance y fuera-de-alcance explícitos | Funcional (FUN) + historias (HU); registro `gestion/requisitos.md` (REQ-NN + estado + origen, agente `gestor-requisitos`); cambios → `gestion/cambios/` |
-| **3. Planificación** | Fases con **entregable observable** y gate objetivo cada una; riesgos y asunciones desde el día 1; KPIs con línea base | `ESTADO.md` (fases+tareas+owner) · `risks.md` · `kpis.md` |
+| **1. Iniciación / discovery** | Aterrizar la idea: problema, para quién, valor esperado, stakeholders, qué hay ya | Onboarding → `faro/ESTADO.md` + brief (BRF); material recibido → `faro/fuentes/` |
+| **2. Requerimientos** (elicitación BABOK) | Sacar lo que NO está escrito: entrevistas, observación del flujo real, workshops; requisitos verificables (DEBE + escenario); alcance y fuera-de-alcance explícitos | Funcional (FUN) + historias (HU); registro `faro/gestion/requisitos.md` (REQ-NN + estado + origen, agente `gestor-requisitos`); cambios → `faro/gestion/cambios/` |
+| **3. Planificación** | Fases con **entregable observable** y gate objetivo cada una; riesgos y asunciones desde el día 1; KPIs con línea base | `faro/ESTADO.md` (fases+tareas+owner) · `risks.md` · `kpis.md` |
 | **4. Ejecución (piloto → producción)** | Entregar funcionando DENTRO del flujo del usuario/cliente; iterar con feedback real; decisiones estructurales registradas | Cambios spec-driven aplicados · ADRs · rama→develop→main |
 | **5. Seguimiento y control** | Estado con EVIDENCIA (tareas, KPIs medidos contra fuente, riesgos revisados); nada de reporting de memoria | Informes datados · presentación viva · `harness.js validate` |
-| **6. Cierre / operación** | El resultado queda operando: guías y runbooks SI HACEN FALTA para que otros lo usen/operen; medición final de valor; lecciones | GUI/RUN/PRO/SLA en `documentos/operaciones/` · informe de fase + tag |
+| **6. Cierre / operación** | El resultado queda operando: guías y runbooks SI HACEN FALTA para que otros lo usen/operen; medición final de valor; lecciones | GUI/RUN/PRO/SLA en `faro/documentos/operaciones/` · informe de fase + tag |
 
 Las etapas son iterativas y se solapan (PMI moderno): se puede estar pilotando una parte mientras se
 eliciten requerimientos de otra. Lo que NO se salta son los **gates**: fase cerrada = entregable +
@@ -35,21 +35,21 @@ informe + tag; cambio aplicado = spec aprobada antes.
   flujo real, no transcribiendo la lista de features que llega. Mucho requisito vive en la cabeza de
   la gente: entrevista, reformula, confirma.
 - **Digestión de fuentes (ciclo de vuelta)**: todo material que llega (transcripción, brief, funcional
-  de cliente, pdf) entra por `fuentes/`; el harness señala lo que queda SIN DIGERIR (posterior al
+  de cliente, pdf) entra por `faro/fuentes/`; el harness señala lo que queda SIN DIGERIR (posterior al
   funcional/ESTADO) y el agente `gestor-requisitos` lo digiere: extrae requisitos → registro
-  `gestion/requisitos.md` (REQ-NN + estado + origen), decisiones → ADR, riesgos → RAID, y lo
+  `faro/gestion/requisitos.md` (REQ-NN + estado + origen), decisiones → ADR, riesgos → RAID, y lo
   sustantivo abre cambio spec-driven. Un requisito `aceptado` sin cambio/tarea que lo cubra es un
   hueco de trazabilidad que `validate` avisa — esa es la red para que nada se escape.
 - **Resultado medible o no cuenta**: todo proyecto tiene KPIs con línea base y fuente (`kpis.md`);
   "entregado" = funcionando en el flujo real Y medido, no "documentado".
 - **Riesgos como disciplina continua (PMBOK)**: identificar → analizar (probabilidad×impacto) →
   responder (evitar/mitigar/transferir/aceptar, con dueño) → revisar en cada fase. Viven en
-  `gestion/risks.md` (RAID: riesgos, asunciones, impedimentos, dependencias) y los relevantes se
+  `faro/gestion/risks.md` (RAID: riesgos, asunciones, impedimentos, dependencias) y los relevantes se
   citan en cada informe. Un riesgo sin dueño ni respuesta no está gestionado, está apuntado.
 - **Las tareas viven en la forja** (Issues en GitHub, incidencias en GitLab; `harness.js forge` dice cuál,
-  y solo si es `desconocida` se llevan únicamente en `ESTADO.md`): una tarea = un Issue (no un bug), con label del contrato
+  y solo si es `desconocida` se llevan únicamente en `faro/ESTADO.md`): una tarea = un Issue (no un bug), con label del contrato
   (`faro-schema.json > enums.labels`) y ASIGNACIÓN a persona (`harness.js asignar-tarea "<titulo>"
-  <login>` — le llega email; lo asignado a ti: `harness.js mis-tareas`). El checkbox de `ESTADO.md`
+  <login>` — le llega email; lo asignado a ti: `harness.js mis-tareas`). El checkbox de `faro/ESTADO.md`
   y el issue se referencian mutuamente; el estado se actualiza donde se trabaja, no de memoria.
 - **GRANULARIDAD — una tarea es un ENTREGABLE DE VALOR, no un paso suelto. NO ATOMICES.** Igual que
   una fase entrega algo observable, una tarea también: agrupa todo lo necesario para entregarlo y
@@ -70,20 +70,20 @@ informe + tag; cambio aplicado = spec aprobada antes.
   Orden: **login de la forja primero**; si no está disponible, el usuario de git (`user.name`); si
   tampoco, **PREGUNTA** (AskUserQuestion). Jamás pongas un nombre plausible, un placeholder tipo
   "Equipo FARO"/el nombre de la organización, ni deduzcas la persona del contexto o del nombre del repo. Aplica a
-  documentos, `ESTADO.md`, ADRs, risks, informes y presentaciones: un nombre inventado es un dato
+  documentos, `faro/ESTADO.md`, ADRs, risks, informes y presentaciones: un nombre inventado es un dato
   falso en un documento controlado, y firma a alguien que no ha firmado.
 - **Una conversación, un destino**: lo valioso de cada sesión queda en su sitio del estándar (la
   skill `documentacion` decide dónde). Lo que no queda escrito no existe.
 - **Fit-for-purpose**: el método se adapta al proyecto — un encargo corto no necesita el pack
   completo; una implementación en cliente sí (incl. guías de operación). Si un paso no aporta,
   propón saltarlo y registra la decisión: el estándar sirve al proyecto, no al revés.
-- **Retomar = reconstruir contexto primero**: ESTADO.md → cambios activos → riesgos → último
+- **Retomar = reconstruir contexto primero**: faro/ESTADO.md → cambios activos → riesgos → último
   informe; resume al usuario antes de tocar nada. Repo fuera de FARO → propone `faro adoptar`.
 
 
 ## Fases ↔ hitos de la forja (GitHub y GitLab)
 
-Las fases de ESTADO.md tienen su reflejo NATIVO como hitos en las dos forjas: `harness.js hito sync` crea un hito por
+Las fases de faro/ESTADO.md tienen su reflejo NATIVO como hitos en las dos forjas: `harness.js hito sync` crea un hito por
 fase ("Fase N — nombre"), cierra los de fases `done` y reabre los que no lo estén; `/faro:publicar` lo hace solo al
 cerrar ciclo. Las tareas de un tipo que PLANIFICA se crean SIEMPRE dentro del hito de su fase — con
 `asignar-tarea --hito <N>` en las dos forjas (en GitHub crea el hito si falta; `--hito backlog` si aún no se decide cuándo; en GitLab, más su estimación con `--estimacion`); las horas se registran con `harness.js tiempo` (solo GitLab). El informe

@@ -179,7 +179,10 @@
           "plugins/faro/hooks/lib/atomico.js",
           "plugins/faro/hooks/lib/paths.js",
           "plugins/faro/hooks/lib/subir.js",
-          "plugins/faro/hooks/lib/consolidar.js"
+          "plugins/faro/hooks/lib/consolidar.js",
+          "plugins/faro/hooks/lib/config-repo.js",
+          "plugins/faro/hooks/lib/migrar-layout.js",
+          "plugins/faro/hooks/lib/estado-ci.js"
         ],
         "tests": [
           "test/consolidar.test.mjs",
@@ -197,7 +200,11 @@
           "test/worktrees-limpieza.test.mjs",
           "test/publicar-confirmacion.test.mjs",
           "test/subir-con-token.test.mjs",
-          "test/consolidar-seleccion.test.mjs"
+          "test/consolidar-seleccion.test.mjs",
+          "test/layout-faro.test.mjs",
+          "test/migrar-layout.test.mjs",
+          "test/consolidar-ci.test.mjs",
+          "test/estado-ci.test.mjs"
         ],
         "lento": [
           "test/consolidar.test.mjs"

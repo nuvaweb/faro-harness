@@ -1,8 +1,8 @@
 # pruebas desechables: no se versionan (la carpeta se mantiene con .gitkeep)
-borrador/*
-!borrador/.gitkeep
+faro/borrador/*
+!faro/borrador/.gitkeep
 # el README que documenta la zona SI se versiona (no es scratch)
-!borrador/README.md
+!faro/borrador/README.md
 
 # ajustes locales de Claude Code (por usuario)
 .claude/settings.local.json
@@ -17,13 +17,13 @@ Thumbs.db
 # sidecars del CLI FARO (copia pristina; no se versiona)
 *.faro
 # borrador organizado (scratch desechable): mantiene las carpetas, ignora el contenido
-!borrador/scripts/
-!borrador/tmp/
-!borrador/data/
-borrador/scripts/*
-!borrador/scripts/.gitkeep
-borrador/tmp/*
-!borrador/tmp/.gitkeep
-borrador/data/*
-!borrador/data/.gitkeep
+!faro/borrador/scripts/
+!faro/borrador/tmp/
+!faro/borrador/data/
+faro/borrador/scripts/*
+!faro/borrador/scripts/.gitkeep
+faro/borrador/tmp/*
+!faro/borrador/tmp/.gitkeep
+faro/borrador/data/*
+!faro/borrador/data/.gitkeep
 

@@ -1,4 +1,4 @@
-# gestion/reporting/
+# faro/gestion/reporting/
 
 Lo que se ENSEÑA hacia fuera: informes de fase (`informes/`) y presentaciones a
 direccion (`presentaciones/`).

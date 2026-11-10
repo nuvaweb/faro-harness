@@ -18,6 +18,9 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const mp = require('./monorepo-plan.js');
+// #293: cada punta resuelve SU layout. El origen (apps/<id> o el clon importado) puede traer la gestion en
+// faro/ o en la raiz; el destino es la raiz del monorepo con el suyo. Las carpetas son AREAS logicas.
+const paths = require('./paths.js');
 
 const CARPETAS = ['documentos', 'fuentes', 'flujos', 'notebooks', 'gestion'];
 const NO_ENTRAR = new Set(['node_modules', '.git', 'dist', 'build', '.wrangler', '.next', '.output', '.turbo', 'coverage']);
@@ -53,7 +56,14 @@ const existe = (abs) => { try { fs.lstatSync(abs); return true; } catch { return
 /** Ficheros regulares bajo una carpeta (relativos, con '/'); sin enlaces simbolicos ni carpetas generadas. */
 function ficheros(absBase, rel = '', prof = 8) {
   if (prof < 0) return [];
-  try { if (fs.lstatSync(path.join(absBase, rel)).isSymbolicLink()) return []; } catch { return []; }
+  // CADA segmento, no solo el ultimo: con el layout faro/ (#293) el area es 'faro/gestion' y un 'faro' enlazado
+  // llevaria la lectura (y el movimiento) fuera del origen
+  const segs = String(rel).split('/').filter(Boolean);
+  try {
+    for (let i = 1; i <= Math.max(segs.length, 1); i++) {
+      if (fs.lstatSync(path.join(absBase, ...segs.slice(0, i))).isSymbolicLink()) return [];
+    }
+  } catch { return []; }
   let ents = [];
   try { ents = fs.readdirSync(path.join(absBase, rel), { withFileTypes: true }); } catch { return []; }
   const out = [];
@@ -93,8 +103,9 @@ function frontmatter(txt) {
 /** doc_id de todos los .md de documentos/ y gestion/ bajo `base` -> [{id, rel}] (rel relativo a `base`). */
 function docsDe(base) {
   const out = [];
+  const P = paths(base);
   for (const c of ['documentos', 'gestion']) {
-    for (const f of ficheros(base, c)) {
+    for (const f of ficheros(base, P.dir(c))) {
       if (!f.endsWith('.md')) continue;
       const t = leer(path.join(base, f));
       if (t == null || t.length > MAX_BYTES) continue;
@@ -116,8 +127,9 @@ const claveDe = (docs) => {
 
 /** Lectura determinista de la gestion que trae una carpeta (la raiz de un origen o apps/<id>). */
 function leerGestion(base) {
-  const estadoTxt = leer(path.join(base, 'ESTADO.md'));
-  const carpetas = CARPETAS.filter((c) => { try { return fs.lstatSync(path.join(base, c)).isDirectory(); } catch { return false; } });
+  const P = paths(base);
+  const estadoTxt = leer(path.join(base, P.ESTADO));
+  const carpetas = CARPETAS.filter((c) => { try { return fs.lstatSync(path.join(base, P.dir(c))).isDirectory(); } catch { return false; } });
   const fases = [];
   if (estadoTxt) {
     for (const l of estadoTxt.replace(/\r\n/g, '\n').split('\n')) {
@@ -125,8 +137,8 @@ function leerGestion(base) {
       if (m) fases.push({ n: Number(m[1]), titulo: m[2], estado: m[3] });
     }
   }
-  const risks = leer(path.join(base, 'gestion', 'risks.md')) || '';
-  const reqs = leer(path.join(base, 'gestion', 'requisitos.md')) || '';
+  const risks = leer(path.join(base, P.dir('gestion'), 'risks.md')) || '';
+  const reqs = leer(path.join(base, P.dir('gestion'), 'requisitos.md')) || '';
   const riesgos = [...risks.matchAll(/^\|\s*(R-\d+)\s*\|/gm)].map((m) => m[1]);
   const requisitos = [...reqs.matchAll(/^##\s+(REQ-\d+)\b/gm)].map((m) => m[1]);
   const docs = docsDe(base);
@@ -177,13 +189,15 @@ function planConsolidar(root, id, { desplazamiento, clave, origen = null, plan =
   const baseRel = `apps/${id}`;
   const base = leerDe || path.join(root, baseRel);
   const g = leerGestion(base);
+  const PO = paths(base);   // layout del origen
+  const PD = paths(root);   // layout del destino (la raiz)
   const dz = Number.isInteger(desplazamiento) ? desplazamiento : 100;
   const claveApp = clave || g.clave || id.toUpperCase().replace(/-/g, '');
-  const historicoA = `gestion/historico/ESTADO-${claveApp}-${id}.md`;
+  const historicoA = `${PD.dir('gestion')}/historico/ESTADO-${claveApp}-${id}.md`;
   const p = {
     app: id, base: baseRel, clave: claveApp, desplazamiento: dz, origen,
     yaConsolidado: existe(path.join(root, historicoA)),
-    historico: g.estado ? { de: `${baseRel}/ESTADO.md`, a: historicoA } : null,
+    historico: g.estado ? { de: `${baseRel}/${PO.ESTADO}`, a: historicoA } : null,
     fases: g.fases,
     movimientos: [], colisiones: [], decisiones: [], avisos: [],
     renumeraciones: {
@@ -199,10 +213,11 @@ function planConsolidar(root, id, { desplazamiento, clave, origen = null, plan =
   const rootDocs = new Map(docsDe(root).filter((d) => !d.rel.startsWith('apps/')).map((d) => [d.id, d.rel]));
   const destinos = new Set();
   for (const c of CARPETAS) {
-    for (const rel of ficheros(base, c)) {
-      if (c === 'gestion' && (rel === 'gestion/risks.md' || rel === 'gestion/requisitos.md')) continue;
-      if (c === 'gestion' && rel.startsWith('gestion/tareas/')) continue;
-      const a = rel;
+    const og = PO.dir(c);
+    for (const rel of ficheros(base, og)) {
+      if (c === 'gestion' && (rel === `${og}/risks.md` || rel === `${og}/requisitos.md`)) continue;
+      if (c === 'gestion' && rel.startsWith(`${og}/tareas/`)) continue;
+      const a = PD.dir(c) + rel.slice(og.length);   // misma ruta dentro del area, en el layout del destino
       let motivo = null;
       if (existe(path.join(root, a)) || destinos.has(a)) motivo = 'ya existe en la raíz';
       else if (rel.endsWith('.md')) {
@@ -216,7 +231,7 @@ function planConsolidar(root, id, { desplazamiento, clave, origen = null, plan =
       } else { destinos.add(a); p.movimientos.push({ de: `${baseRel}/${rel}`, a }); }
     }
   }
-  if (existe(path.join(base, 'gestion', 'tareas'))) p.avisos.push(`gestion/tareas de ${id} NO se mueve: los números de issue de otro repositorio chocarían con los de la raíz (sus referencias pasan a org/repo#N).`);
+  if (existe(path.join(base, PO.dir('gestion'), 'tareas'))) p.avisos.push(`${PO.dir('gestion')}/tareas de ${id} NO se mueve: los números de issue de otro repositorio chocarían con los de la raíz (sus referencias pasan a org/repo#N).`);
   if (existe(path.join(base, 'pnpm-lock.yaml'))) p.avisos.push(`apps/${id}/pnpm-lock.yaml se deja en su sitio: tras consolidar ejecuta 'pnpm install' en la raíz para generar el único lockfile y bórralo de la app.`);
   if (g.estado) decidir({ id: `fusion-faseo:${id}`, pregunta: `¿Cómo se fusionan las fases abiertas de ${id} en el faseo de la raíz? (el ESTADO original queda archivado en ${historicoA})`, opciones: ['manual', 'omitir'], defecto: 'manual' });
   const claveRaiz = claveDe([...rootDocs.keys()].map((i) => ({ id: i })));
@@ -339,22 +354,24 @@ function aplicarConsolidar(root, plan, { git = true } = {}) {
   if (plan.yaConsolidado) { res.hechos.push(`${plan.app}: ya consolidada (existe ${plan.historico && plan.historico.a}); nada que hacer.`); return res; }
   const op = operaciones(root, git);
   const base = plan.base;
+  const go = paths(path.join(root, base)).dir('gestion');   // gestion del origen
+  const gd = paths(root).dir('gestion');                    // gestion de la raiz
   try {
     // 1. fusionar requisitos y riesgos (se leen ANTES de mover nada)
-    const reqApp = leer(path.join(root, base, 'gestion', 'requisitos.md'));
+    const reqApp = leer(path.join(root, base, go, 'requisitos.md'));
     if (reqApp != null && plan.renumeraciones.requisitos.length) {
       const sec = calificarIssues(desplazar(seccionesRequisitos(reqApp), plan.desplazamiento), plan.origen);
-      const actual = leer(path.join(root, 'gestion', 'requisitos.md'));
-      op.escribir('gestion/requisitos.md', `${(actual == null ? '# Registro de requisitos\n' : actual.replace(/\r\n/g, '\n').replace(/\n+$/, '\n'))}\n${sec}`);
+      const actual = leer(path.join(root, gd, 'requisitos.md'));
+      op.escribir(`${gd}/requisitos.md`, `${(actual == null ? '# Registro de requisitos\n' : actual.replace(/\r\n/g, '\n').replace(/\n+$/, '\n'))}\n${sec}`);
       res.hechos.push(`requisitos: ${plan.renumeraciones.requisitos.length} fusionados (+${plan.desplazamiento}).`);
     }
-    const riesgosApp = leer(path.join(root, base, 'gestion', 'risks.md'));
+    const riesgosApp = leer(path.join(root, base, go, 'risks.md'));
     if (riesgosApp != null && plan.renumeraciones.riesgos.length) {
-      const nuevo = fusionarRiesgos(leer(path.join(root, 'gestion', 'risks.md')), calificarIssues(desplazar(riesgosApp, plan.desplazamiento), plan.origen));
-      op.escribir('gestion/risks.md', nuevo);
+      const nuevo = fusionarRiesgos(leer(path.join(root, gd, 'risks.md')), calificarIssues(desplazar(riesgosApp, plan.desplazamiento), plan.origen));
+      op.escribir(`${gd}/risks.md`, nuevo);
       res.hechos.push(`riesgos: ${plan.renumeraciones.riesgos.length} fusionados (+${plan.desplazamiento}).`);
     }
-    for (const f of ['gestion/requisitos.md', 'gestion/risks.md']) if (existe(path.join(root, base, f))) op.borrar(`${base}/${f}`);
+    for (const f of [`${go}/requisitos.md`, `${go}/risks.md`]) if (existe(path.join(root, base, f))) op.borrar(`${base}/${f}`);
 
     // 2. ESTADO original -> historico
     if (plan.historico) {
@@ -403,12 +420,13 @@ function aplicarConsolidar(root, plan, { git = true } = {}) {
 
 /** REQ-NN / R-NN citados en los .md/.json/.txt de `carpetas` que NO estan definidos en gestion/requisitos.md ni gestion/risks.md. */
 function referenciasColgantes(root, carpetas) {
+  const P = paths(root);
   const defs = new Set();
-  for (const m of (leer(path.join(root, 'gestion', 'requisitos.md')) || '').matchAll(/^##\s+(REQ-\d+)\b/gm)) defs.add(m[1]);
-  for (const m of (leer(path.join(root, 'gestion', 'risks.md')) || '').matchAll(/^\|\s*(R-\d+)\s*\|/gm)) defs.add(m[1]);
+  for (const m of (leer(path.join(root, P.dir('gestion'), 'requisitos.md')) || '').matchAll(/^##\s+(REQ-\d+)\b/gm)) defs.add(m[1]);
+  for (const m of (leer(path.join(root, P.dir('gestion'), 'risks.md')) || '').matchAll(/^\|\s*(R-\d+)\s*\|/gm)) defs.add(m[1]);
   const colgantes = new Set();
   for (const c of carpetas) {
-    for (const rel of ficheros(root, c)) {
+    for (const rel of ficheros(root, P.dir(c))) {
       if (!TEXTO.has(path.extname(rel).toLowerCase())) continue;
       const t = leer(path.join(root, rel));
       if (t == null || t.length > MAX_BYTES) continue;

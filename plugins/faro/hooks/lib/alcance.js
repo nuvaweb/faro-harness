@@ -20,7 +20,7 @@
 // con destino en otro repo, aliases de git, enlaces creados durante la propia orden ni forjas distintas
 // de GitHub. LIMITES CONOCIDOS de lo que SI se mira: `xargs git …`, `find -exec git …` y `parallel git …`
 // no se pueden resolver (el destino lo pone la entrada) y por eso piden confirmacion (ask) en cuanto
-// aparece `git`; `cp`/`mv`/`tee`/`sed -i`/`dd of=` solo se vigilan sobre `.faro.json` (ver abajo). Una
+// aparece `git`; `cp`/`mv`/`tee`/`sed -i`/`dd of=` no se vigilan sobre la configuracion del repo (es libre, #238). Una
 // invocacion con escape (`\git`) se analiza como `git`; `command git` y `env git` tambien.
 //
 // Diferenciales guard/shell cerrados tras revision: la palabra de la orden se lee con los escapes del shell
@@ -29,20 +29,14 @@
 // `env -S`, `>& fichero`, sustituciones en heredocs sin comillas, lanzadores de PowerShell y las rutas
 // destino que git escribe (push <ruta>, --output/-o/--prefix/--file/--directory, bundle create).
 // Escapes: una barra invertida sin comillas se analiza con las DOS lecturas (separador de ruta de PowerShell/cmd y
-// escape de bash) y gana la peor; `~usuario` no se resuelve (ask). `.faro.json` se reconoce en todas sus formas
-// (mayusculas, punto/espacio final, :$DATA, 8.3, comodines, enlace simbolico) y el control de pre-doc compara el
-// alcance PARSEADO antes/despues de la edicion (da igual como este escrita la clave); en Bash cualquier orden que
-// mencione `.faro.json` y no sea una lectura reconocida pide confirmacion. Una expresion de sed/awk con comodines
-// (s#.*[:/]##) no cuenta como mencion, y sed/awk sin -i o cp desde .faro.json son lecturas (#204).
+// escape de bash) y gana la peor; `~usuario` no se resuelve (ask).
 // SIGUE SIN CUBRIRSE (limite aceptado): lo que depende de variables sin resolver en redirecciones (`> $OUT`),
 // llaves de shell (`{a,b}`), contenedores/ssh/watch/script, y interpretes (node -e, python -c), scripts (`bash x.sh`, source),
 // aliases/funciones definidos fuera de la orden, `git config --global` y tee/cp/mv hacia otro repo.
 //
-// LISTA BLANCA .faro.json > alcance: NO la puede ampliar el propio agente. pre-doc pide confirmacion
-// (ask) ante Write/Edit/MultiEdit de `.faro.json` que mencione `alcance`/`repos_permitidos` (o que edite
-// un fichero que ya lo tiene), y el analisis de Bash pide confirmacion ante cualquier orden que escriba
-// `.faro.json` (redireccion, tee, cp, mv, install, sed -i, truncate, dd). Se eligio el ask frente a leer
-// la lista desde la rama base: es mas simple, no depende de git y deja la decision en el humano.
+// LISTA BLANCA faro/config.json (o .faro.json sin migrar, #293) > alcance: el fichero es LIBRE (#238) — ni pre-doc
+// ni pre-bash piden confirmacion por editarlo o mencionarlo; lo fija test/restricciones-alcance.test.mjs. El control
+// esta en la revision humana del PR que toque la configuracion, no en este hook.
 //
 // Modulo autonomo (sin ctx): lo cargan directo pre-doc, pre-bash, el transporte `gh` y asignar-tarea.
 // Determinista, sin shell (execFile con windowsHide).
@@ -162,17 +156,17 @@ function esOrganizacionPropia(root, org) {
   return !!propia && !!org && propia.toLowerCase() === String(org).toLowerCase();
 }
 
-/** .faro.json > alcance. repos_permitidos: solo entradas con forma org/repo. */
+/** faro/config.json > alcance. repos_permitidos: solo entradas con forma org/repo. */
 function leerAlcance(root) {
   try {
-    const j = JSON.parse(fs.readFileSync(path.join(root, '.faro.json'), 'utf8'));
+    const j = JSON.parse(fs.readFileSync(require('./config-repo.js').rutaAbs(root), 'utf8'));
     const a = j && typeof j.alcance === 'object' && j.alcance ? j.alcance : {};
     return { repos_permitidos: Array.isArray(a.repos_permitidos) ? a.repos_permitidos.filter((x) => typeof x === 'string' && RE_REPO.test(x)) : [] };
   } catch { return { repos_permitidos: [] }; }
 }
 function validarConfig(root, { schema } = {}) {
   let j;
-  try { j = JSON.parse(fs.readFileSync(path.join(root, '.faro.json'), 'utf8')); } catch { return []; }
+  try { j = JSON.parse(fs.readFileSync(require('./config-repo.js').rutaAbs(root), 'utf8')); } catch { return []; }
   if (!j || j.alcance === undefined) return [];
   const claves = (schema && schema.enums && schema.enums.alcance && schema.enums.alcance.claves) || ['repos_permitidos'];
   const a = j.alcance;

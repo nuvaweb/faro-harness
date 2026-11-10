@@ -16,8 +16,8 @@ El veredicto se justifica **contra algo escrito**, nunca contra tu opinión. Lo 
 de fuerza:
 
 1. el **fuera de alcance** del funcional — la única exclusión deliberada;
-2. los **requisitos** (`gestion/requisitos.md`, REQ-NN con estado);
-3. las **decisiones** (`gestion/decisions/`, ADR con status).
+2. los **requisitos** (`faro/gestion/requisitos.md`, REQ-NN con estado);
+3. las **decisiones** (`faro/gestion/decisions/`, ADR con status).
 
 Si nada de eso aplica, el veredicto **no es «no aplica»**: es **«falta decidir»**. Esa tercera salida
 existe justo para que no inventes un criterio con tal de no quedarte callado.
@@ -36,9 +36,9 @@ Con sus respuestas:
 
 - **`funcional` / `fuera-de-alcance`** → escribe el apartado `## Fuera de alcance` en el funcional.
   Tres líneas bastan. Es lo que más veredictos justifica.
-- **`decisiones`** → crea los ADR en `gestion/decisions/<AAAA-MM-DD>-<slug>.md` con la plantilla
+- **`decisiones`** → crea los ADR en `faro/gestion/decisions/<AAAA-MM-DD>-<slug>.md` con la plantilla
   (`${CLAUDE_PLUGIN_ROOT}/docs/plantilla-adr.md`).
-- **`requisitos`** → regístralos en `gestion/requisitos.md` con estado y origen.
+- **`requisitos`** → regístralos en `faro/gestion/requisitos.md` con estado y origen.
 
 En un repo que **adopta FARO con historia previa** esto es lo normal: las decisiones se tomaron —el
 código las demuestra— pero nunca se escribieron. Sembrar el criterio es el trabajo, no un trámite

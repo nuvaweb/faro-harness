@@ -24,7 +24,7 @@ const mg = require('./monorepo-gestion.js');
 const imp = require('./monorepo-importar.js');
 
 // Ficheros de la RAIZ de la plantilla que no se copian a la app (son del repo, no de la app).
-const NO_COPIAR = [/^pnpm-workspace\.yaml$/, /^pnpm-lock\.yaml$/, /^\.node-version$/, /^\.faro\.json$/, /^ESTADO\.md$/, /^gestion\//, /^\.claude\//];
+const NO_COPIAR = [/^pnpm-workspace\.yaml$/, /^pnpm-lock\.yaml$/, /^\.node-version$/, /^\.faro\.json$/, /^ESTADO\.md$/, /^gestion\//, /^faro\//, /^\.claude\//];
 const WRANGLER = ['wrangler.jsonc', 'wrangler.json', 'wrangler.toml'];
 
 const leer = (abs) => mg.leerSeguro(abs);
@@ -110,7 +110,7 @@ function planDesdePlantilla(root, dirTpl, { id }) {
 function render(id, rol, nombre, p, { aplicado = false } = {}) {
   const L = [`APP NUEVA — ${id} desde ${nombre}${aplicado ? ' · APLICADO' : ' · DRY-RUN (no se ha tocado nada)'}`, ''];
   L.push(`- apps/${id}/ ← ${p.ficheros.length} fichero(s) de la plantilla, sin su historial (sin workspace, lock ni gestion/).`);
-  L.push(`- Registrar la app en .faro.json > monorepo.apps.${id} (rol: ${rol}; plantilla: ${nombre}), apps/${id}/CLAUDE.md y etiqueta app:${id}.`);
+  L.push(`- Registrar la app en faro/config.json > monorepo.apps.${id} (rol: ${rol}; plantilla: ${nombre}), apps/${id}/CLAUDE.md y etiqueta app:${id}.`);
   L.push(`- apps/${id}/package.json: name → ${id}.`);
   if (p.allowBuilds.length) L.push(`- pnpm-workspace.yaml raíz: allowBuilds +${p.allowBuilds.join(', ')}.`);
   if (p.excluir.length) L.push(`- pnpm-workspace.yaml raíz: minimumReleaseAgeExclude +${p.excluir.join(', ')}.`);
@@ -165,9 +165,9 @@ function aplicar(root, dirTpl, p, { id, rol, nombre, ctx, inicial }) {
   const pkgRaizAbs = path.join(root, 'package.json');
   const pkgRaiz = leerJson(pkgRaizAbs);
   if (p.packageManager && pkgRaiz && !pkgRaiz.packageManager) { pkgRaiz.packageManager = p.packageManager; escribirJson(pkgRaizAbs, pkgRaiz); hechos.push(`package.json de la raíz: packageManager ${p.packageManager}.`); }
-  const cfgAbs = path.join(root, '.faro.json');
+  const cfgAbs = require('./config-repo.js').rutaAbs(root);
   const cfg = leerJson(cfgAbs);
-  if (!cfg || !cfg.monorepo || !cfg.monorepo.apps || !cfg.monorepo.apps[id]) throw new Error(`.faro.json no tiene monorepo.apps.${id} tras registrar la app.`);
+  if (!cfg || !cfg.monorepo || !cfg.monorepo.apps || !cfg.monorepo.apps[id]) throw new Error(`${require('./config-repo.js').ruta(root)} no tiene monorepo.apps.${id} tras registrar la app.`);
   cfg.monorepo.apps[id].plantilla = nombre;
   escribirJson(cfgAbs, cfg);
   mono.gitRun(root, ['add', '-A']);
@@ -175,7 +175,8 @@ function aplicar(root, dirTpl, p, { id, rol, nombre, ctx, inicial }) {
 }
 
 // Ficheros de la raiz que aplicar() puede tocar: se guardan para deshacer si falla.
-const RAIZ_TOCABLE = ['pnpm-workspace.yaml', 'package.json', '.node-version', '.faro.json'];
+// La config del repo es faro/config.json o, sin migrar, .faro.json (#293).
+const raizTocable = (root) => ['pnpm-workspace.yaml', 'package.json', '.node-version', require('./config-repo.js').ruta(root)];
 
 function deshacer(root, id, copia) {
   try { fs.rmSync(path.join(root, mp.rutaDeApp(id)), { recursive: true, force: true }); } catch { /* best-effort */ }
@@ -183,7 +184,7 @@ function deshacer(root, id, copia) {
     const abs = path.join(root, rel);
     try { if (txt == null) fs.rmSync(abs, { force: true }); else fs.writeFileSync(abs, txt); } catch { /* best-effort */ }
   }
-  try { mono.gitRun(root, ['reset', '-q', '--', mp.rutaDeApp(id), ...RAIZ_TOCABLE]); } catch { /* sin nada en el indice */ }
+  try { mono.gitRun(root, ['reset', '-q', '--', mp.rutaDeApp(id), ...raizTocable(root)]); } catch { /* sin nada en el indice */ }
 }
 
 function parseArgs(argv) {
@@ -232,7 +233,7 @@ async function cli(argv, ctx) {
       return 0;
     }
     if (bloqueos.length) { log([...render(id, rol, v.plantilla, p), '', 'BLOQUEOS para aplicar:', ...bloqueos.map((b) => `- ${b}`), '', 'No aplico: resuelve los bloqueos (o --inicial si es el primer commit del repo).'].join('\n')); return 1; }
-    const copia = Object.fromEntries(RAIZ_TOCABLE.map((rel) => [rel, leer(path.join(root, rel))]));
+    const copia = Object.fromEntries(raizTocable(root).map((rel) => [rel, leer(path.join(root, rel))]));
     let res;
     try { res = aplicar(root, t.dir, p, { id, rol, nombre: v.plantilla, ctx, inicial }); } catch (e) {
       deshacer(root, id, copia);

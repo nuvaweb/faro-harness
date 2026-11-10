@@ -1,5 +1,5 @@
 ---
-description: "Úsala para migrar el histórico de tareas: crea los issues que faltan, rellena gestion/tareas/<N>.json (tarea migrar) y regenera las líneas de fase de ESTADO.md (estado-indice)."
+description: "Úsala para migrar el histórico de tareas: crea los issues que faltan, rellena faro/gestion/tareas/<N>.json (tarea migrar) y regenera las líneas de fase de faro/ESTADO.md (estado-indice)."
 argument-hint: "[opcional: numero de fase, si solo se procesa una]"
 ---
 
@@ -69,7 +69,7 @@ Lánzalo en background mientras procesas la fase siguiente (`/faro:delegacion`) 
 bucle esperándolo, pero **no cierres una fase sin su veredicto**.
 
 Si el repo no tiene código (naturaleza documental), sáltate este paso: la evidencia son los propios
-documentos, y el cruce con `gestion/` ya lo hace `validate`.
+documentos, y el cruce con `faro/gestion/` ya lo hace `validate`.
 
 ### 1.3 Crea los que falten
 
@@ -109,29 +109,29 @@ no arrastres el desajuste a la fase siguiente.
 
 ### 1.5 Registros de tarea y línea de la fase (los genera el motor)
 
-Cada issue de la fase tiene su registro `gestion/tareas/<N>.json` (objetivo, resultado, fechas, apps,
-subtareas…) y **la línea de ESTADO.md se GENERA desde él**: no se escribe a mano. Con los issues de la
+Cada issue de la fase tiene su registro `faro/gestion/tareas/<N>.json` (objetivo, resultado, fechas, apps,
+subtareas…) y **la línea de faro/ESTADO.md se GENERA desde él**: no se escribe a mano. Con los issues de la
 fase ya cuadrados con la forja (pasos 1.1-1.4):
 
 ```
 harness.js tarea migrar               # solo enseña el plan: cuántos registros y cuáles son dudosos
-harness.js tarea migrar --confirmo    # escribe gestion/tareas/<N>.json (idempotente; no pisa lo editado a mano)
+harness.js tarea migrar --confirmo    # escribe faro/gestion/tareas/<N>.json (idempotente; no pisa lo editado a mano)
 harness.js tarea validar              # lista los campos «pendientes de revisar» de lo migrado
-harness.js estado-indice --escribir   # regenera las líneas de tarea de cada fase en ESTADO.md
+harness.js estado-indice --escribir   # regenera las líneas de tarea de cada fase en faro/ESTADO.md
 ```
 
 - `tarea migrar` **no inventa**: lo que no se puede deducir (objetivo, resultado de una tarea hecha,
   justificación de una descartada, fechas, apps en un monorepo) queda en `origen.revisar`. **Repásalos
   con el usuario**, campo a campo, y corrígelos con `harness.js tarea set <N> <campo> <valor>` o editando
   el JSON; al quedar sin pendientes el registro ya cuenta como revisado. `--incluir-cerradas` añade los
-  issues cerrados de la forja que ESTADO.md no cita. Sin token o sin forja trabaja offline (solo
-  ESTADO.md y los cambios), con más campos por revisar.
+  issues cerrados de la forja que faro/ESTADO.md no cita. Sin token o sin forja trabaja offline (solo
+  faro/ESTADO.md y los cambios), con más campos por revisar.
 - `estado-indice` deja cada línea como `- [ ] #N · título — @quién` (`[x]` si la tarea está hecha o
-  descartada), conserva marcadores como `[cu:…]` y **no toca nada más** de ESTADO.md (frontmatter,
+  descartada), conserva marcadores como `[cu:…]` y **no toca nada más** de faro/ESTADO.md (frontmatter,
   descripción, `Objetivo:`, criterios). `--comprobar` sale con 1 si el índice está desactualizado y
   `validate` lo avisa.
 - Las líneas **sin `#N`** (tareas históricas que nunca tuvieron issue) reciben un id local `L-<n>`
-  (`gestion/tareas/L-<n>.json`): se numeran en el orden de ESTADO.md y **no cambian** aunque marques la
+  (`faro/gestion/tareas/L-<n>.json`): se numeran en el orden de faro/ESTADO.md y **no cambian** aunque marques la
   casilla, añadas líneas o repitas la migración; el registro guarda de dónde viene en
   `extensiones['migracion.origen']`. `estado-indice --escribir` las rotula (`- [x] L-3 · título`).
   Consúltalas con `harness.js tarea L-3` o `harness.js ir L-3`. Si más adelante creas el issue, anota su
@@ -141,7 +141,7 @@ harness.js estado-indice --escribir   # regenera las líneas de tarea de cada fa
   pisa lo que escribes tú (objetivo, resultado, justificación, extensiones). `--comprobar` solo informa de
   la deriva. Si cierra una tarea sin `resultado`, te lo avisa: ponlo con `harness.js tarea set <N> resultado "..."`.
 - La **descripción** de la fase y el **`Objetivo:` con fecha** siguen siendo obligatorios en las fases
-  abiertas y los escribes tú en ESTADO.md: son la capa de gestión.
+  abiertas y los escribes tú en faro/ESTADO.md: son la capa de gestión.
 
 **No sustituyas las líneas por `Tareas: ver hito de esta fase`.** Una fase abierta sin casillas no
 pasa `validate` (`Fase N: no declara ninguna tarea`): el faseo se contabiliza y se cruza con la
@@ -165,7 +165,7 @@ Cuando no queden fases por procesar:
 ```
 harness.js resumen     # las migradas ya no cuentan como plan_sin_hito
 harness.js validate    # sin huecos de faseo: cada línea con su #N y su @quién, [x] = issue cerrado
-harness.js estado-indice --comprobar   # el índice de ESTADO.md cuadra con gestion/tareas/
+harness.js estado-indice --comprobar   # el índice de faro/ESTADO.md cuadra con faro/gestion/tareas/
 ```
 
 Commitea con el recuento por fase: cuántas creadas, cuántas cerradas, cuántas enlazadas a issues

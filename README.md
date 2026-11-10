@@ -86,6 +86,11 @@ El harness avisa en sesión si a un repo le falta este bloque o el `autoUpdate`.
   comprueba novedades al arrancar sesión (con hasta ~10 min de retardo aleatorio).
 - **Manual/inmediato**: `/plugin update faro@faro-marketplace` (o desde el menú `/plugin`).
 - La versión instalada aparece en `/plugin` → faro. Novedades: `CHANGELOG.md`.
+- **De 1.x a 2.0** (layout `faro/`): desde 2.0 todo lo de FARO vive en `faro/` (`faro/gestion/`,
+  `faro/ESTADO.md`, `faro/config.json`…). Un repo con el layout antiguo sigue funcionando y `validate`
+  lo avisa. Para migrarlo, revisa el plan con `harness.js migrar-layout --dry-run`
+  y aplícalo con `migrar-layout`: usa `git mv`, así que el historial se conserva, y deja los cambios
+  en el índice para un único commit.
 
 ### Problemas frecuentes
 
@@ -107,7 +112,7 @@ En comandos: `/faro:pr` → `/faro:consolidar` → `/faro:publicar`. Todo lo dem
 
 | Comando | Qué hace |
 |---|---|
-| `/faro:iniciar` | Arranque guiado de un trabajo nuevo: entrevista → ESTADO.md → clave → brief (BRF) → fuentes → RAID → validate, orquestando los roles (digestión, redacción y riesgos en paralelo como subagentes) |
+| `/faro:iniciar` | Arranque guiado de un trabajo nuevo: entrevista → faro/ESTADO.md → clave → brief (BRF) → fuentes → RAID → validate, orquestando los roles (digestión, redacción y riesgos en paralelo como subagentes) |
 | `/faro:estado` | Estado ejecutivo del trabajo: faseo, validación, git y actividad por usuario |
 | `/faro:pendientes` | Panel de promoción: features pendientes de integrar y develop pendiente de aprobar |
 | `/faro:documentacion` | Directiva documental: qué es cada artefacto y dónde vive (úsala antes de crear nada) |
@@ -126,10 +131,10 @@ En comandos: `/faro:pr` → `/faro:consolidar` → `/faro:publicar`. Todo lo dem
 
 ### Digestión de fuentes y requisitos (automático, sin comando)
 
-Todo material que llega (transcripciones, briefs, funcionales de cliente, pdfs) entra por `fuentes/`.
+Todo material que llega (transcripciones, briefs, funcionales de cliente, pdfs) entra por `faro/fuentes/`.
 El harness detecta en cada sesión las **fuentes sin digerir** (posteriores a la última revisión del
 funcional/ESTADO.md) y dirige la digestión — el agente `gestor-requisitos` la orquesta: extrae
-requisitos al registro **`gestion/requisitos.md`** (`REQ-NN` + estado `propuesto|aceptado|en-cambio|entregado|descartado`
+requisitos al registro **`faro/gestion/requisitos.md`** (`REQ-NN` + estado `propuesto|aceptado|en-cambio|entregado|descartado`
 + `origen:` la fuente), decisiones a ADR, riesgos al RAID, y lo sustantivo abre cambio spec-driven.
 `validate` bloquea el formato inválido (`[req]`) y avisa de trazabilidad (`[requisitos]`: aceptado sin
 cambio/tarea que lo cubra) y de fuentes pendientes (`[digestion]`). Los binarios (pdf/docx) generan una
@@ -151,7 +156,7 @@ no haber publicado no es una deuda — es el estado normal, y avisar de lo norma
 dice `consolidar` al terminar, y solo si el gate está en verde, es `ESTADO: develop LISTO para
 publicar`: te informa de que **puedes** si quieres, no de que deberías.
 
-### El faseo de ESTADO.md (lo que exige `validate`)
+### El faseo de faro/ESTADO.md (lo que exige `validate`)
 
 Cada fase se declara así, y el formato es **rígido** — lo valida el harness:
 
@@ -209,7 +214,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 | Comando | Qué hace |
 |---|---|
 | `/faro:tareas` | Tus Issues asignados: detalle de los de ESTA repo y recuento de los de las demás (para trabajarlas, abre esa repo) |
-| `/faro:migrar-tareas` | Migra tareas escritas a mano en ESTADO.md a issues anclados a su fase (`asignar-tarea --hito`), dejando en ESTADO.md una línea por issue (`- [ ] #N · título — @quién`, cuadrada con el hito) y el detalle dentro del issue |
+| `/faro:migrar-tareas` | Migra tareas escritas a mano en faro/ESTADO.md a issues anclados a su fase (`asignar-tarea --hito`), dejando en faro/ESTADO.md una línea por issue (`- [ ] #N · título — @quién`, cuadrada con el hito) y el detalle dentro del issue |
 | `/faro:adoptar` | Adopta un repo existente al layout FARO sin perder contexto ni tocar el stack |
 | `/faro:auditoria` | Auditoría integral de salud (subagente, en background) |
 | `/faro:forja` | Operaciones de plataforma en la forja del repo (GitLab o GitHub): peticiones de integracion, proteccion de ramas, exigir pipeline, releases, etiquetas, miembros |
@@ -217,7 +222,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 | `/faro:changelog` | Versiona y registra: decide major/minor/patch por impacto, escribe la entrada del CHANGELOG y valida que versión, changelog y commit digan lo mismo (`--check` solo diagnostica) |
 
 > Las tres consultas se confunden a menudo: **`/faro:tareas`** son Issues asignados a ti ·
-> **`/faro:pendientes`** son ramas por promover o aprobar · la planificación externa (proyecto y épicas), si se declara en `.faro.json > planificacion`, se lee con `harness.js planificacion`.
+> **`/faro:pendientes`** son ramas por promover o aprobar · la planificación externa (proyecto y épicas), si se declara en `faro/config.json > planificacion`, se lee con `harness.js planificacion`.
 
 ## Qué instala exactamente
 
@@ -239,16 +244,16 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
    Login por token obligatorio (API); SSH opcional para push.
 3. **Clasificación por topics**: `faro` + `dom-<departamento>` + `plat-*` + `gob-*` + `sys-*`.
    El wizard filtra por topic `faro`, nunca por nombre. Las **plataformas** de producto (tipo
-   `<id>-func`) no vienen de serie: cada organización las declara en `.faro.json > plataformas`.
+   `<id>-func`) no vienen de serie: cada organización las declara en `faro/config.json > plataformas`.
 4. **Compatibilidad con el flujo anterior**: si un repo lleva copia local `.claude/hooks/`, el
    plugin se inhibe en los hooks (gobierna la copia) y guía la migración. Nada se rompe.
    **El ciclo git es RÍGIDO y aplica SIEMPRE** (también en modo plugin, desde 0.9.1): un repo con
-   `ESTADO.md`, `.faro.json` o el plugin faro declarado en su settings tiene bloqueado el commit
+   `faro/ESTADO.md`, `faro/config.json` o el plugin faro declarado en su settings tiene bloqueado el commit
    directo en `main`/`master`/`develop` — el trabajo va en rama `<tipo>/<slug>` y llega por PR/merge.
    Desde 0.38.0 el bloqueo actúa **al editar**, no solo al commitear, y aplica **también al repo del
-   propio motor**: lo único que el motor no hereda es el gobierno de instancia (ESTADO.md/onboarding),
+   propio motor**: lo único que el motor no hereda es el gobierno de instancia (faro/ESTADO.md/onboarding),
    no la protección de ramas. Solo los repos `template-*` quedan exentos, por diseño. Las ramas
-   protegidas son **extensibles por repo** vía `.faro.json` → `"ramas_protegidas": ["demo", "pre"]`.
+   protegidas son **extensibles por repo** vía `faro/config.json` → `"ramas_protegidas": ["demo", "pre"]`.
 5. **Directus queda FUERA** del plugin (se reintroducirá si se necesita).
 6. **Clave documental: UNA POR REPO** (4-10 caracteres, estilo Jira). Todo `doc_id` es
    `CLAVE-TIPO-NNN` y el número se calcula leyendo los ficheros **locales**, así que dos repos que

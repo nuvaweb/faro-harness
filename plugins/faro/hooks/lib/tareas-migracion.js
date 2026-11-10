@@ -51,8 +51,7 @@ const numerico = (a, b) => Number(a) - Number(b);
 // ---------- fuentes ----------
 
 function textoEstado(root) {
-  for (const f of ['ESTADO.md', 'INICIATIVA.md']) { try { return fs.readFileSync(path.join(root, f), 'utf8'); } catch { /* siguiente */ } }
-  return null;
+  try { return fs.readFileSync(path.join(root, require('./paths.js')(root).ESTADO), 'utf8'); } catch { return null; }   // #293
 }
 
 function tituloYQuien(resto) {
@@ -149,7 +148,7 @@ function contarCasillas(txt) {
 
 /** Cambios spec-driven con 'issue: N' en su proposal (activos y archivados). -> [{slug, issue, estado, tareas}] */
 function leerCambios(root) {
-  const base = path.join(root, 'gestion', 'cambios', 'changes');
+  const base = path.join(root, require('./paths.js')(root).specBase, 'changes');
   const out = [];
   const recorrer = (dir, archivado) => {
     let ents = [];

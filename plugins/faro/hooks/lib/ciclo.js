@@ -385,7 +385,7 @@ function contabilidadFase(fase, estados) {
 // 'desajustes' viene de desajustesDelFaseo (la forja): el checkbox marcado NO es evidencia de que el
 // trabajo saliera. Si no se pudo consultar la forja llega vacio, y entonces no bloquea — quedarse sin
 // conexion no puede impedir gobernar el faseo.
-function planCerrarFase({ fase, informe, desajustes, siguiente }) {
+function planCerrarFase({ fase, informe, desajustes, siguiente, dirInformes = 'gestion/reporting/informes' }) {
   const faltan = [];
   if (!fase) return { ok: false, faltan: ['no hay ninguna fase con ese numero en ESTADO.md.'], faseActual: null };
   if (/^(done|closed)$/i.test(String(fase.estado || ''))) {
@@ -395,7 +395,7 @@ function planCerrarFase({ fase, informe, desajustes, siguiente }) {
     faltan.push(`la fase ${fase.num} tiene ${fase.open} tarea(s) abierta(s) sin marcar: cierralas antes (o muevelas a otra fase con 'mover-tarea <N> --hito <M>').`);
   }
   if (!informe) {
-    faltan.push(`falta el informe de cierre: crea 'gestion/reporting/informes/AAAA-MM-DD-fase-${fase.num}-informe.md' (lo redacta /faro:reportar). Sin informe, nadie sabra que entrego esta fase.`);
+    faltan.push(`falta el informe de cierre: crea '${dirInformes}/AAAA-MM-DD-fase-${fase.num}-informe.md' (lo redacta /faro:reportar). Sin informe, nadie sabra que entrego esta fase.`);
   }
   for (const d of (desajustes || [])) {
     faltan.push(`${d} El checkbox no es evidencia de que el trabajo saliera: cuadralo antes de cerrar.`);

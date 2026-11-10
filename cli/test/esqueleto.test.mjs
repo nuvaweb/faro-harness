@@ -8,6 +8,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { RAIZ_ESQUELETO, copiarEsqueleto } from '../bin/lib/esqueleto.mjs';
+import { detectarLayout } from '../bin/lib/layout.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ESQUELETO = path.join(REPO, 'bin', 'esqueleto');
@@ -45,7 +46,7 @@ test('copiarEsqueleto: instala el gitignore como .gitignore y deja la estructura
   copiarEsqueleto(destino);
   assert.equal(fs.existsSync(path.join(destino, 'gitignore')), false);
   assert.match(fs.readFileSync(path.join(destino, '.gitignore'), 'utf8'), /\.env/);
-  for (const rel of ['CLAUDE.md', 'README.md', '.claude/settings.json', 'gestion/risks.md', 'documentos/README.md']) {
+  for (const rel of ['CLAUDE.md', 'README.md', '.claude/settings.json', 'faro/gestion/risks.md', 'faro/documentos/README.md']) {
     assert.ok(fs.existsSync(path.join(destino, rel)), rel);
   }
 });
@@ -53,8 +54,19 @@ test('copiarEsqueleto: instala el gitignore como .gitignore y deja la estructura
 test('copiarEsqueleto: copia las carpetas que solo llevan .gitkeep, que git necesita para conservarlas', () => {
   const destino = temporal();
   copiarEsqueleto(destino);
-  assert.ok(fs.existsSync(path.join(destino, 'borrador', 'data', '.gitkeep')));
-  assert.ok(fs.existsSync(path.join(destino, 'gestion', 'cambios', 'changes', 'archive', '.gitkeep')));
+  assert.ok(fs.existsSync(path.join(destino, 'faro', 'borrador', 'data', '.gitkeep')));
+  assert.ok(fs.existsSync(path.join(destino, 'faro', 'gestion', 'cambios', 'changes', 'archive', '.gitkeep')));
+});
+
+test('copiarEsqueleto (#293): todo lo de FARO nace bajo faro/; en la raiz solo CLAUDE.md, README, .claude y scripts', () => {
+  const destino = temporal();
+  copiarEsqueleto(destino);
+  for (const area of ['gestion', 'documentos', 'fuentes', 'flujos', 'borrador', 'notebooks']) {
+    assert.equal(fs.existsSync(path.join(destino, area)), false, `${area}/ no debe quedar en la raiz`);
+    assert.ok(fs.existsSync(path.join(destino, 'faro', area)), `falta faro/${area}`);
+  }
+  assert.equal(detectarLayout(destino), 'faro');
+  assert.match(fs.readFileSync(path.join(destino, '.gitignore'), 'utf8'), /^faro\/borrador\/\*$/m);
 });
 
 test('RAIZ_ESQUELETO: apunta al esqueleto que viaja con el CLI', () => {

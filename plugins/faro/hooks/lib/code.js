@@ -6,7 +6,7 @@
 // STACK-AWARE (un mismo harness sirve a doc/worker/app):
 //   - modo 'cloudflare'  -> hay wrangler.jsonc/.json/.toml: gates typecheck+test+deploy dry-run; infra = bindings wrangler.
 //   - modo 'generic'     -> hay package.json sin wrangler:  gates = scripts typecheck/test/lint/build; infra = generica.
-//   - modo 'monorepo'    -> .faro.json declara 'monorepo' (#129): varias apps en un workspace con gestion unica
+//   - modo 'monorepo'    -> faro/config.json declara 'monorepo' (#129): varias apps en un workspace con gestion unica
 //                           en la raiz. Gates POR APP (#130): los de las apps que toca el cambio (o todas al
 //                           publicar), cada uno en la carpeta de su app; deps y CI conscientes del workspace.
 //   - modo 'none'        -> sin package.json (repo documental): gates/infra/deps DORMIDOS (no fallan, avisan).
@@ -105,10 +105,10 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   const detectStack = () => { for (const [s, f] of STACK_MANIFESTS) if (fs.existsSync(path.join(ROOT, f))) return s; return null; };
 
   // ---- deteccion de modo ----
-  // Naturaleza DECLARADA (.faro.json): si es
+  // Naturaleza DECLARADA (faro/config.json): si es
   // 'documental', el humano dijo "esto son docs" -> codigo DORMIDO aunque haya manifiesto de tooling.
   const declaredNature = () => {
-    try { return JSON.parse(fs.readFileSync(path.join(ROOT, '.faro.json'), 'utf8')).naturaleza || null; } catch {}
+    try { return JSON.parse(fs.readFileSync(require('./config-repo.js').rutaAbs(ROOT), 'utf8')).naturaleza || null; } catch {}
     return null;
   };
   const mode = () => {
@@ -623,7 +623,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
         'PLAYBOOK (código genérico):',
         '1. Documenta la arquitectura en un doc ARQ (documentos/): componentes, límites, contratos.',
         m === 'monorepo'
-          ? '2. Monorepo: cada app en su carpeta del workspace, con su CLAUDE.md y su ARCHITECTURE.md; declárala en .faro.json > monorepo.apps (node .claude/hooks/harness.js apps).'
+          ? '2. Monorepo: cada app en su carpeta del workspace, con su CLAUDE.md y su ARCHITECTURE.md; declárala en faro/config.json > monorepo.apps (node .claude/hooks/harness.js apps).'
           : '2. Back y front SEPARADOS en repos propios (filosofía microservicio); relaciónalos por sys-<slug> (topic).',
         '3. Despliegue POR GIT (CI): feature/develop -> preview; merge a main (= aprobación) -> producción. Nunca a main directo.',
         '4. Secrets: nunca en git (env / secret store / CI). Validación (definición de HECHO): typecheck + test + build -> node .claude/hooks/harness.js gates.',

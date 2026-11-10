@@ -122,7 +122,7 @@ function retrato(r, { adoptado = false } = {}) {
   if (r.senales.length) l.push(`Ya trae: ${r.senales.join(', ')}.`);
 
   if (!adoptado) {
-    l.push('Todavia no usa FARO (no hay ESTADO.md ni .faro.json). NO hay que arreglarlo y NO crees nada por tu cuenta.');
+    l.push('Todavia no usa FARO (no hay ESTADO.md ni faro/config.json). NO hay que arreglarlo y NO crees nada por tu cuenta.');
     l.push('Si el usuario quiere gobernarlo con FARO, /faro:adoptar REENFOCA lo que ya existe sin tocar el stack.');
     l.push('Cuentaselo al usuario en UNA linea, en llano, y sigue con lo que venia a hacer.');
   }

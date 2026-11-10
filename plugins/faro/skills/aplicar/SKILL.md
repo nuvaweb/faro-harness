@@ -3,7 +3,7 @@ description: "Úsala para implementar un cambio spec-driven APROBADO — genera 
 argument-hint: "[cambio]"
 ---
 
-Implementa un **cambio spec-driven FARO** aprobado. Ejecútalo **TÚ inline**. Cambio objetivo: $ARGUMENTS (si es ambiguo, lista `gestion/cambios/changes/` y pregunta con `AskUserQuestion`).
+Implementa un **cambio spec-driven FARO** aprobado. Ejecútalo **TÚ inline**. Cambio objetivo: $ARGUMENTS (si es ambiguo, lista `faro/gestion/cambios/changes/` y pregunta con `AskUserQuestion`).
 
 1. **Verifica el gate** (lo refuerza el harness): la `proposal.md` debe estar `estado: aprobada` (con `aprobada_por`) y **sin `[CLARIFICAR:]`** pendientes. Si no → PARA y dilo (la aprobación es humana).
 2. **Si no existe `tasks.md`**: genéralo AHORA desde la proposal y sus **deltas** (`specs/<capacidad>/spec.md`) con el formato de abajo: cada requisito/escenario debe quedar cubierto por al menos una tarea (los escenarios son los criterios de aceptación → tests). Checkboxes `- [ ]`, con `[resp: <email>]` si hay responsable.

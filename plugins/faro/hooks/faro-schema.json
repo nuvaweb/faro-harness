@@ -1,6 +1,7 @@
 {
   "version": "2.0",
   "_nota": "Contrato UNICO de taxonomia FARO. Lo lee el harness (valida) y, opcionalmente, cualquier catalogo/integracion externa que el equipo conecte (agnostico al sistema concreto). MODELO v2 (ver modelo-faro.md): ENTIDAD=clase (alineada con el CDM) · CONCEPTO=instancia con nombre (la identidad) · DOC=documento (apunta al concepto) · REPO=espacio de trabajo DESVINCULADO (git_url). Anadir una clase/tipo/dominio = una entrada aqui.",
+  "_nota_layout": "RUTAS LOGICAS (#293): las rutas de este contrato (plantilla, carpeta, resuelve, tareas_json.directorio/resumen) se escriben en forma LOGICA, relativas al area: gestion/..., documentos/..., ESTADO.md, .faro.json. El motor las traduce al layout del repo con lib/paths.js ruta(): en un repo con faro/ son faro/gestion/..., faro/documentos/..., faro/ESTADO.md y faro/config.json; en uno sin migrar se leen tal cual en la raiz. src/, scripts/ y apps/ no se traducen.",
   "referencias": {
     "_nota": "ESTANDAR DE REFERENCIAS (#157, lib/referencias.js): la forma UNICA de citar un registro desde otro. 'patron' es una expresion regular (sin banderas) que se aplica al texto ya recortado y de como maximo 'max' caracteres; su primer grupo con valor es el identificador. 'canon' dice como se normaliza. Navegar: harness.js ir <ref> [--campo a.b] [--json]; quien la cita: harness.js refs <ref>. 'orden' es el orden de prueba (el primero que casa gana).",
     "max": 80,

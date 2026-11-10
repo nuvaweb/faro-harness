@@ -28,7 +28,7 @@ module.exports = function (ctx) {
   const { ROOT, git } = ctx;
 
   // ---------- RELEASE POR APP (#131) ----------
-  // En un monorepo (.faro.json > monorepo, ver lib/apps.js) cada app tiene SU version (package.json),
+  // En un monorepo (faro/config.json > monorepo, ver lib/apps.js) cada app tiene SU version (package.json),
   // SU CHANGELOG.md y SU tag ('{app}@{version}' por defecto). Las funciones de abajo aceptan un
   // argumento 'app' opcional (id o el objeto App de lib/apps.js): sin el, se comportan EXACTAMENTE
   // como antes (raiz del repo, tag 'v<version>'), que es lo que usan el repo simple y el motor.
@@ -53,7 +53,7 @@ module.exports = function (ctx) {
   };
   const motivoTagInvalido = (version, a) => (!versionValida(version)
     ? `La version '${version}'${a ? ` de '${a.id}' (${a.ruta}/package.json)` : ''} no es SemVer (X.Y.Z) — no se tagea; corrigela.`
-    : `El tag que sale de la plantilla de .faro.json > monorepo.tag para '${a ? a.id : 'la raiz'}' no es un nombre de tag valido (solo [A-Za-z0-9._@/-], sin empezar por '-') — no se tagea; corrige la plantilla.`);
+    : `El tag que sale de la plantilla de faro/config.json > monorepo.tag para '${a ? a.id : 'la raiz'}' no es un nombre de tag valido (solo [A-Za-z0-9._@/-], sin empezar por '-') — no se tagea; corrige la plantilla.`);
 
   // Version publicada: package.json (CLI/paquete npm) manda; si no existe, .claude-plugin/plugin.json
   // en la RAIZ (repo de un solo plugin). Si ninguno existe, puede ser un repo MARKETPLACE (el plugin
@@ -190,7 +190,7 @@ module.exports = function (ctx) {
     return [...vistos];
   }
 
-  // Tags de UNA app segun la plantilla de .faro.json > monorepo.tag: [{tag, version}] de mayor a menor.
+  // Tags de UNA app segun la plantilla de faro/config.json > monorepo.tag: [{tag, version}] de mayor a menor.
   function tagsDeApp(app) {
     const a = appDe(app);
     if (!a) return [];
@@ -226,7 +226,7 @@ module.exports = function (ctx) {
   // estado: 'sin-cambios' (no se toca) · 'sin-version' (su package.json no tiene version: no se tagea)
   //       · 'ya-tageada' (hay cambios pero su version ya tiene tag: falta subirla) · 'sin-changelog'
   //       (la version no esta en SU CHANGELOG: bloquea) · 'lista' (se tagea y se publica su Release).
-  // Repo simple (sin .faro.json > monorepo): [] — nada cambia para el.
+  // Repo simple (sin faro/config.json > monorepo): [] — nada cambia para el.
   function planApps(ref = 'HEAD') {
     if (!appsLib.esMonorepo(ROOT)) return [];
     const out = [];

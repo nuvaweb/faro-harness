@@ -8,8 +8,8 @@ Abre este repo con Claude Code. El plugin `faro` se instala solo y `/faro:inicia
 
 ## Estructura
 
-- `documentos/`: documentación controlada.
-- `gestion/`: cambios, reporting, riesgos y KPIs.
-- `fuentes/`: material de partida.
-- `flujos/`, `notebooks/` y `scripts/`: capa técnica.
-- `borrador/`: pruebas desechables, sin versionar.
+- `faro/documentos/`: documentación controlada.
+- `faro/gestion/`: cambios, reporting, riesgos y KPIs.
+- `faro/fuentes/`: material de partida.
+- `faro/flujos/`, `faro/notebooks/` y `scripts/`: capa técnica.
+- `faro/borrador/`: pruebas desechables, sin versionar.

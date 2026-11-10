@@ -3,7 +3,7 @@
 // lib/apps.js sabe QUE apps hay; este modulo lo lleva a donde la forja lo usa:
 //   - la etiqueta 'app:<id>' de un issue (asignar-tarea --app) y de un PR (labeler por ficheros
 //     tocados). Es la que decide que gates y revisores se lanzan para esa app;
-//   - .github/CODEOWNERS por app, a partir de 'equipo' en .faro.json (equipo = team de la org);
+//   - .github/CODEOWNERS por app, a partir de 'equipo' en faro/config.json (equipo = team de la org);
 //   - .github/labeler.yml (actions/labeler v7): 'app:<id>' si el PR toca apps/<id>/**.
 //
 // Los dos ficheros se generan en un BLOQUE MARCADO: lo de fuera del bloque es del equipo y no se
@@ -31,10 +31,10 @@ const appsDeTrabajo = (lista) => (lista || []).filter((a) => a.tipo === 'app' &&
  */
 function validarApp(root, id, { schema } = {}) {
   const lista = ap.apps(root, { schema });
-  if (!ap.esMonorepo(root) && !lista.length) return { error: `--app solo aplica en un monorepo: este repo no declara "monorepo" en .faro.json ni tiene workspace.` };
+  if (!ap.esMonorepo(root) && !lista.length) return { error: `--app solo aplica en un monorepo: este repo no declara "monorepo" en faro/config.json ni tiene workspace.` };
   const a = lista.find((x) => x.id === id);
   if (!a) return { error: `La app '${id}' no existe en este monorepo. Apps validas: ${lista.map((x) => x.id).join(' · ') || '(ninguna)'}.` };
-  if (a.existe === false) return { error: `La app '${id}' esta declarada en .faro.json pero NO existe en el workspace. Corrige la declaracion o crea su carpeta.` };
+  if (a.existe === false) return { error: `La app '${id}' esta declarada en faro/config.json pero NO existe en el workspace. Corrige la declaracion o crea su carpeta.` };
   return { app: a };
 }
 
@@ -161,7 +161,7 @@ function generar(root, { org, schema } = {}) {
   const lista = ap.apps(root, { schema });
   const trabajo = appsDeTrabajo(lista);
   const avisos = [];
-  for (const a of trabajo) if (!ownersDe(org, a.equipo).length) avisos.push(`la app '${a.id}' no declara 'equipo' en .faro.json: queda fuera de CODEOWNERS`);
+  for (const a of trabajo) if (!ownersDe(org, a.equipo).length) avisos.push(`la app '${a.id}' no declara 'equipo' en faro/config.json: queda fuera de CODEOWNERS`);
   const leer = (rel) => { try { return fs.readFileSync(path.join(root, rel), 'utf8'); } catch { return ''; } };
   const coPrev = leer(RUTA_CODEOWNERS);
   const lbPrev = leer(RUTA_LABELER);
@@ -221,7 +221,7 @@ function escribirWorkflowLabeler(root) {
  * y sale 1 si estan desactualizados (para CI). -> codigo de salida.
  */
 function cmdCodeowners(root, { org, schema, comprobar = false, log = console.log } = {}) {
-  if (!ap.esMonorepo(root)) { log('codeowners: este repo no es un monorepo (sin "monorepo" en .faro.json). Nada que generar.'); return 0; }
+  if (!ap.esMonorepo(root)) { log('codeowners: este repo no es un monorepo (sin "monorepo" en faro/config.json). Nada que generar.'); return 0; }
   const g = generar(root, { org, schema });
   if (!g.apps.length) { log('codeowners: el monorepo no tiene apps en el workspace. Nada que generar.'); return 0; }
   for (const a of g.avisos) log(`⚠ ${a}`);

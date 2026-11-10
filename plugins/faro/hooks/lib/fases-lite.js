@@ -14,10 +14,7 @@ const path = require('path');
 const ALIAS = { pendiente: 'pending', por_hacer: 'pending', en_curso: 'in_progress', en_progreso: 'in_progress', activa: 'in_progress', pruebas: 'testing', hecha: 'done', hecho: 'done', completada: 'done', cerrada: 'done' };
 
 function textoEstado(root) {
-  for (const f of ['ESTADO.md', 'INICIATIVA.md']) {
-    try { return fs.readFileSync(path.join(root, f), 'utf8'); } catch { /* siguiente */ }
-  }
-  return null;
+  try { return fs.readFileSync(path.join(root, require('./paths.js')(root).ESTADO), 'utf8'); } catch { return null; }   // #293
 }
 
 function leerFases(root) {

@@ -20,8 +20,9 @@ const tareas = require('./tareas-json.js');
 const fasesLite = require('./fases-lite.js');
 
 const ESTADOS = ['pendiente', 'en_curso', 'hecha', 'descartada', 'bloqueada'];
-const FICHERO_REL = 'gestion/resumen.json';
-const rutaResumen = (root) => path.join(root, ...FICHERO_REL.split('/'));
+const FICHERO_REL = 'gestion/resumen.json';   // relativa al layout antiguo; la real, ficheroRel(root) (#293)
+const ficheroRel = (root) => `${require('./paths.js')(root).dir('gestion')}/resumen.json`;
+const rutaResumen = (root) => path.join(root, ...ficheroRel(root).split('/'));
 
 const conteoVacio = () => ({ total: 0, ...Object.fromEntries(ESTADOS.map((e) => [e, 0])) });
 function contar(c, estado) { c.total += 1; if (ESTADOS.includes(estado)) c[estado] += 1; }
@@ -84,8 +85,8 @@ function escribir(root) {
 /** ¿Esta resumen.json al dia con los registros? -> {ok, motivo}. */
 function comprobar(root) {
   let previo;
-  try { previo = fs.readFileSync(rutaResumen(root), 'utf8'); } catch { return { ok: false, motivo: `falta ${FICHERO_REL}` }; }
-  return serializar(construir(root)) === previo ? { ok: true, motivo: null } : { ok: false, motivo: `${FICHERO_REL} esta desactualizado` };
+  try { previo = fs.readFileSync(rutaResumen(root), 'utf8'); } catch { return { ok: false, motivo: `falta ${ficheroRel(root)}` }; }
+  return serializar(construir(root)) === previo ? { ok: true, motivo: null } : { ok: false, motivo: `${ficheroRel(root)} esta desactualizado` };
 }
 
 /** Aviso para `validate`: null si no hay tareas, o esta al dia. */
@@ -98,13 +99,13 @@ function aviso(root) {
 function cli(root, argv) {
   if (argv.includes('--comprobar')) {
     const c = comprobar(root);
-    if (c.ok) { console.log(`${FICHERO_REL} al dia.`); return 0; }
+    if (c.ok) { console.log(`${ficheroRel(root)} al dia.`); return 0; }
     console.error(`${c.motivo}. Regeneralo con: harness.js resumen-json`);
     return 1;
   }
   const r = escribir(root);
-  console.log(r.cambio ? `${FICHERO_REL} generado.` : `${FICHERO_REL} sin cambios.`);
+  console.log(r.cambio ? `${ficheroRel(root)} generado.` : `${ficheroRel(root)} sin cambios.`);
   return 0;
 }
 
-module.exports = { FICHERO_REL, ESTADOS, construir, serializar, escribir, comprobar, aviso, cli };
+module.exports = { FICHERO_REL, ficheroRel, ESTADOS, construir, serializar, escribir, comprobar, aviso, cli };

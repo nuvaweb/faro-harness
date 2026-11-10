@@ -25,7 +25,8 @@ const fasesLite = require('./fases-lite.js');
 
 const ID_RE = /^(?:\d+|L-\d+)$/;
 const FICHERO_RE = /^(\d+|L-\d+)\.json$/;
-const DIR_REL = 'gestion/tareas';
+const DIR_REL = 'gestion/tareas';   // relativa al layout antiguo; la real la da dirRel(root) (#293)
+const dirRel = (root) => `${require('./paths.js')(root).dir('gestion')}/tareas`;
 // Campos que `tarea set` puede cambiar. subtareas es CALCULADO y actualizada la pone el modulo.
 const CAMPOS_EDITABLES = ['estado', 'resultado', 'justificacion', 'objetivo', 'fechas.creada', 'fechas.inicio', 'fechas.objetivo', 'fechas.cerrada'];
 const ANULABLES = new Set(['resultado', 'justificacion', 'fechas.creada', 'fechas.inicio', 'fechas.objetivo', 'fechas.cerrada']);
@@ -38,7 +39,7 @@ function esquema() { return _schema || (_schema = JSON.parse(fs.readFileSync(pat
 
 const esIdValido = (id) => typeof id === 'string' && ID_RE.test(id);
 function exigirId(id) { if (!esIdValido(id)) throw new Error(`id de tarea no valido '${String(id).slice(0, 40)}': debe ser un numero (7) o L-<n> (L-3)`); return id; }
-const dirTareas = (root) => path.join(root, ...DIR_REL.split('/'));
+const dirTareas = (root) => path.join(root, ...dirRel(root).split('/'));
 function rutaTarea(root, id) { return path.join(dirTareas(root), `${exigirId(id)}.json`); }
 function hayTareas(root) { try { return fs.statSync(dirTareas(root)).isDirectory(); } catch { return false; } }
 
@@ -173,7 +174,7 @@ function validarTodo(root, { id: soloId } = {}) {
     for (const e of reglas) problemas.push({ id, tipo: 'regla', ruta: e.ruta, mensaje: e.mensaje, faseCerrada });
   }
   if (soloId && !leidos.some((l) => l.id === soloId) && !problemas.some((p) => p.id === soloId)) {
-    problemas.push({ id: soloId, tipo: 'estructura', ruta: `${soloId}.json`, mensaje: `no existe ${DIR_REL}/${soloId}.json`, faseCerrada: false });
+    problemas.push({ id: soloId, tipo: 'estructura', ruta: `${soloId}.json`, mensaje: `no existe ${dirRel(root)}/${soloId}.json`, faseCerrada: false });
   }
   return { total: soloId ? 1 : leidos.length, problemas };
 }
@@ -273,7 +274,7 @@ function establecer(root, id, campo, valor, opts = {}) {
   const txt = String(valor);
   if (/[\r\n]/.test(txt)) throw new Error('el valor debe ir en una sola linea');
   const actual = leer(root, id);
-  if (!actual) throw new Error(`no existe un registro legible para la tarea ${id} (${DIR_REL}/${id}.json)`);
+  if (!actual) throw new Error(`no existe un registro legible para la tarea ${id} (${dirRel(root)}/${id}.json)`);
   const nuevo = JSON.parse(JSON.stringify(actual));
   const partes = campo.split('.');
   const valorFinal = txt === 'null' && ANULABLES.has(campo) ? null : txt;
@@ -309,7 +310,7 @@ function lineaSegura(valor, max = 200) {
 }
 
 module.exports = {
-  ID_RE, DIR_REL, etiqueta, CAMPOS_EDITABLES,
+  ID_RE, DIR_REL, dirRel, etiqueta, CAMPOS_EDITABLES,
   leerValido, lineaSegura,
   esquema, esIdValido, rutaTarea, dirTareas, hayTareas, listar, leer,
   validarEstructura, validarReglas, validarTodo, avisos, pendientesDeRevisar,

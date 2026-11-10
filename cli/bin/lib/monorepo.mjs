@@ -10,11 +10,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { NATURALEZAS } from './model.mjs';
+import { rutaConfig } from './layout.mjs';
 import { personalizarPlantilla } from './plantilla.mjs';
 
 const ID_APP = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 // Ficheros de la RAÍZ que crea o toca el alta del monorepo: se fotografían para deshacer si algo falla.
-const RAIZ_TOCADA = ['pnpm-workspace.yaml', 'package.json', '.node-version', '.faro.json', '.gitignore'];
+// #293: la configuración FARO vive en faro/config.json (o .faro.json sin migrar): se fotografían las dos.
+const RAIZ_TOCADA = ['pnpm-workspace.yaml', 'package.json', '.node-version', '.faro.json', 'faro/config.json', '.gitignore'];
 // Lo que el .gitignore de la RAÍZ debe cubrir en un monorepo de Workers: pnpm install deja node_modules/
 // en la raíz, y wrangler o un .dev.vars pueden aparecer fuera de apps/<id> (el .gitignore de cada app
 // solo cubre su carpeta). Secretos con sus variantes explícitas, como en la plantilla.
@@ -27,7 +29,7 @@ const GITIGNORE_MONOREPO = [
 // Lo que trae la plantilla y NO es de la app: historial, gestión FARO y config del workspace (sube a
 // la raíz). El lockfile de la plantilla lleva su importer en '.', no en apps/<id>: lo regenera pnpm install.
 const NO_ES_DE_APP = new Set([
-  '.git', 'node_modules', 'gestion', 'ESTADO.md', '.faro.json', '.claude',
+  '.git', 'node_modules', 'faro', 'gestion', 'ESTADO.md', '.faro.json', '.claude',
   '.github', '.gitlab-ci.yml', 'pnpm-workspace.yaml', 'pnpm-lock.yaml',
 ]);
 // Mismos scripts de raíz que `harness.js monorepo init` del plugin.
@@ -178,7 +180,8 @@ function escribirRaiz({ destino, repoName, apps, copias }) {
   const nodeVersion = (copias.find((c) => c.nodeVersion) || {}).nodeVersion;
   if (nodeVersion && !fs.existsSync(path.join(destino, '.node-version'))) fs.writeFileSync(path.join(destino, '.node-version'), `${nodeVersion}\n`, 'utf8');
   completarGitignore(destino);
-  const metaF = path.join(destino, '.faro.json');
+  const metaF = path.join(destino, rutaConfig(destino));
+  fs.mkdirSync(path.dirname(metaF), { recursive: true });
   const meta = leerJson(metaF) || {};
   const previas = (meta.monorepo && meta.monorepo.apps) || {};
   meta.monorepo = { ...(meta.monorepo || {}), apps: { ...previas, ...Object.fromEntries(apps.map((a) => [a.id, { rol: a.rol }])) } };

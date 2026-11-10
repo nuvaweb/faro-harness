@@ -6,7 +6,7 @@ module.exports = function (ctx) {
 
 
 // TIPO de la instancia: OPCIONAL. Fuentes (en orden): frontmatter 'tipo:' de ESTADO.md >
-// metadato .faro.json ("tipo"). El NOMBRE del repo es AGNOSTICO (faro-<slug>) y NO clasifica.
+// metadato faro/config.json ("tipo"). El NOMBRE del repo es AGNOSTICO (faro-<slug>) y NO clasifica.
 // Si el tipo esta declarado, el harness ADAPTA sus exigencias (un servicio no se "cierra",
 // un proyecto lleva fechas objetivo); si no, comportamiento generico sin pedirlo.
 function tipoInfo() {
@@ -16,14 +16,13 @@ function tipoInfo() {
   return { tipo, fmTipo: tipo, def: (tipo && TIPOS[tipo]) || null };
 }
 
-// La clasificacion del repo vive en el METADATO: .faro.json + frontmatter de ESTADO.md,
+// La clasificacion del repo vive en el METADATO: faro/config.json + frontmatter de ESTADO.md,
 // validada contra faro-schema.json.
-const REPO_META = '.faro.json';
 function templateMeta() {
-  try { return JSON.parse(fs.readFileSync(path.join(ROOT, REPO_META), 'utf8')); } catch {}
+  try { return JSON.parse(fs.readFileSync(require('./config-repo.js').rutaAbs(ROOT), 'utf8')); } catch {}
   return {};
 }
-// La clasificacion del repo se declara en el METADATO (.faro.json / ESTADO.md) por su
+// La clasificacion del repo se declara en el METADATO (faro/config.json / ESTADO.md) por su
 // DOMINIO (departamento) + el CONCEPTO que trabaja. La ENTIDAD (clase) ya NO la gestiona el harness:
 // un documento puede corresponder a varias entidades -> se resuelve donde se usa, no aqui.
 function clasificacion() {
@@ -34,7 +33,7 @@ function clasificacion() {
   const domain = meta.domain || fm.domain || fm.dominio || null;             // el DEPARTAMENTO (dominio) que lo gobierna
   const teams = Array.isArray(meta.teams) ? meta.teams : (Array.isArray(fm.teams) ? fm.teams : []);   // team(s) del REPO (para atribuir metricas), estampados por el wizard
   const fuente = (meta.concept || meta.concepto || meta.domain)
-    ? REPO_META
+    ? require('./config-repo.js').ruta(ROOT)
     : (fm.concept || fm.concepto || fm.domain || fm.dominio) ? ESTADO_FILE : null;
   return { concepto, domain, teams, fuente };
 }
@@ -116,7 +115,7 @@ function tipoLines() {
   // El TIPO es OPCIONAL y nunca se exige: si esta declarado y el catalogo lo conoce, el harness
   // ADAPTA sus exigencias; si no (valores antiguos o ausencia), comportamiento generico EN SILENCIO.
   if (!c.domain && !c.concepto) {
-    lines.push(`Clasificacion SIN declarar: anade el 'domain' (DEPARTAMENTO que lo crea) al metadato (.faro.json o frontmatter de ${ESTADO_FILE}).`);
+    lines.push(`Clasificacion SIN declarar: anade el 'domain' (DEPARTAMENTO que lo crea) al metadato (faro/config.json o frontmatter de ${ESTADO_FILE}).`);
   } else {
     lines.push(`CLASIFICACION: ${c.domain ? `departamento ${c.domain}` : '(sin departamento)'}${c.concepto ? ` · concepto ${c.concepto}` : ''}${c.fuente ? ` (fuente: ${c.fuente})` : ''}`);
     lines.push(...clasificacionIssues().map((e) => `INCOHERENCIA: ${e}`));

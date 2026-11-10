@@ -26,11 +26,11 @@ Por cada issue roto, busca su rastro. El orden importa — de más fiable a meno
 
 | fuente | qué te da | cómo |
 |---|---|---|
-| **el change spec-driven** | lo que se pretendía, literal | el cuerpo suele citar `gestion/cambios/changes/<slug>/` → lee su `proposal.md`, `spec.md` y `tasks.md` |
+| **el change spec-driven** | lo que se pretendía, literal | el cuerpo suele citar `faro/gestion/cambios/changes/<slug>/` → lee su `proposal.md`, `spec.md` y `tasks.md` |
 | **la rama** | si se empezó y qué se tocó | `git branch -a --contains` · `git log --oneline --all --grep "#<N>"` |
 | **el PR** | si se entregó y qué se discutió | `harness.js gh "repos/{org}/{repo}/issues/<N>/timeline"` (solo GitHub; en GitLab, `harness.js pr ver <n>`) |
 | **los comentarios** | contexto que no llegó al cuerpo | `harness.js issue <N> --comentarios` |
-| **el hito** | en qué fase vive, si esa fase cerró | el `milestone` del issue vs. `ESTADO.md` |
+| **el hito** | en qué fase vive, si esa fase cerró | el `milestone` del issue vs. `faro/ESTADO.md` |
 | **el título** | la única pista si no hay nada más | — |
 
 **No te saltes esto.** Un cuerpo reconstruido sin mirar el repo es tan inútil como el

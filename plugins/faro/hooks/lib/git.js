@@ -462,8 +462,10 @@ function publicarRamaSiHaceFalta(rama) {
 // repo/motor): endurecerlos cambiaria el comportamiento de los repos simples, fuera de alcance.
 const RUTAS_GESTION = [
   /^gestion\//,
+  /^faro\/gestion\//,      // #293: layout faro/
   /(^|\/)CHANGELOG\.md$/i,
   /^ESTADO\.md$/i,
+  /^faro\/ESTADO\.md$/i,
   /^INICIATIVA\.md$/i,
   /^package\.json$/,
   /(^|\/)\.claude-plugin\/plugin\.json$/,

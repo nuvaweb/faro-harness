@@ -30,7 +30,7 @@ Con `--json` obtienes el plan estructurado. **Explícaselo en llano** (qué se m
 
 ## 3. Guarda las respuestas en el plan
 
-Escribe `gestion/monorepo-plan.json` (esquema propio, `version: 1`):
+Escribe `faro/gestion/monorepo-plan.json` (esquema propio, `version: 1`):
 
 ```json
 { "version": 1,

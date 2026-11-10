@@ -5,7 +5,7 @@ argument-hint: "<nombre-del-cambio o tema>"
 
 Crea un **cambio spec-driven FARO** (motor nativo, sin librerías). Ejecútalo **TÚ inline** (puedes preguntar con `AskUserQuestion`). Todo cambio es **HIPÓTESIS hasta validarla**: analiza, LEE el código/documentos afectados, valida con fuentes (WebSearch/MCP), **pregunta lo que no sepas** — no inventes.
 
-Estructura a crear en `gestion/cambios/changes/<slug>/`:
+Estructura a crear en `faro/gestion/cambios/changes/<slug>/`:
 
 1. **`proposal.md`** — el QUÉ, con el **frontmatter FIJO del change** (estándar PROPIO del harness — NO inventes campos ni cojas el formato de documentos; **NUNCA pongas `doc_id`**: eso es solo de documentos controlados, y el harness lo rechaza). La identidad del change es su **carpeta (slug)**, no un id:
    ```yaml
@@ -18,19 +18,19 @@ Estructura a crear en `gestion/cambios/changes/<slug>/`:
    issue: <N>                  # la tarea de la forja que lo ejecuta (la escribe `asignar-tarea <slug>`)
    owner: <usuario git que LIDERA el cambio>
    responsable: <email o @usuario que lo EJECUTA>
-   tareas: ["<fragmento exacto de la tarea de ESTADO.md que cubre>"]
+   tareas: ["<fragmento exacto de la tarea de faro/ESTADO.md que cubre>"]
    aprobada_por:               # usuario git; obligatorio si estado != borrador
    ---
    ```
    Cuerpo: **## Por qué** (el problema/motivo, ≥3 frases con contexto real) y **## Qué cambia** (alcance en items). Marca las dudas con `[CLARIFICAR: ...]` — el gate impide planificar con dudas abiertas. (El harness valida este frontmatter al escribir: si falta un campo o aparece `doc_id`, avisa.)
    **`decision:` — el POR QUÉ técnico (OBLIGATORIA si el cambio toca código).** El `proposal.md` dice
-   el **QUÉ**; el ADR de `gestion/decisions/AAAA-MM-DD-<slug>.md` dice **qué enfoque se eligió y contra
+   el **QUÉ**; el ADR de `faro/gestion/decisions/AAAA-MM-DD-<slug>.md` dice **qué enfoque se eligió y contra
    cuáles**. Sin ese enlace el razonamiento se pierde, y quien retome el trabajo —persona o agente—
    reinventa el enfoque o lo contradice sin saberlo. `validate` lo exige y comprueba que el ADR existe.
    Puedes citarlo corto (`usar-tanstack`) si no es ambiguo. Un cambio documental/organizativo (o con
    `sin_spec: true`) no la necesita: no toda edición arrastra una decisión de arquitectura.
 
-2. **DELTAS de spec** (el RIGOR — **OBLIGATORIO SIEMPRE**, en TODO cambio): `gestion/cambios/changes/<slug>/specs/<capacidad>/spec.md` con secciones. En este repo documental, la "spec" describe **requisitos/capacidades del sistema documental** (no código): el disparador es "todo cambio que añada/modifique una capacidad o requisito del sistema". **Única excepción:** un cambio puramente editorial menor que no toca ninguna capacidad → declara `sin_spec: true` en el frontmatter de `proposal.md` (el harness lo exime; si no, BLOQUEA por falta de spec, incluso en borrador).
+2. **DELTAS de spec** (el RIGOR — **OBLIGATORIO SIEMPRE**, en TODO cambio): `faro/gestion/cambios/changes/<slug>/specs/<capacidad>/spec.md` con secciones. En este repo documental, la "spec" describe **requisitos/capacidades del sistema documental** (no código): el disparador es "todo cambio que añada/modifique una capacidad o requisito del sistema". **Única excepción:** un cambio puramente editorial menor que no toca ninguna capacidad → declara `sin_spec: true` en el frontmatter de `proposal.md` (el harness lo exime; si no, BLOQUEA por falta de spec, incluso en borrador).
 
    **QUÉ MERECE SER UN REQUISITO — no infles la spec.** El gate empuja a escribir specs, y la tentación
    es convertir cada cambio en un requisito para cumplir el trámite. Una spec inflada de requisitos que

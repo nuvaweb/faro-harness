@@ -10,7 +10,7 @@
 // cambio TRANSVERSAL (esquema, config compartida...) -> todos los dominios que lo alcanzan por el grafo (o los que
 // diga el mapa explicito) · la suite completa, solo en CI y en /faro:publicar.
 //
-// Se declara en `.faro.json > tests`:
+// Se declara en `faro/config.json > tests`:
 //   { "comando": "node --test",
 //     "dominios": { "<nombre>": { "descripcion", "codigo": [globs], "tests": [globs], "contrato": [rutas],
 //                                 "dependientes": [nombres], "lento": [globs de tests], "comando", "pendiente": [..] } },
@@ -62,9 +62,9 @@ const casa = (globs, rel) => (globs || []).some((g) => tdd.globRe(g).test(rel));
 
 const VACIA = () => ({ declarado: false, afinar: false, comando: null, dominios: Object.create(null), transversal: [], transversalMapa: {}, entradas: [], codigo: [] });
 
-/** Lee `.faro.json > tests`. Normaliza; lo invalido se ignora aqui y lo avisa validarConfig. */
+/** Lee `faro/config.json > tests`. Normaliza; lo invalido se ignora aqui y lo avisa validarConfig. */
 function config(root) {
-  const t = (leerJson(path.join(root, '.faro.json')) || {}).tests;
+  const t = (leerJson(require('./config-repo.js').rutaAbs(root)) || {}).tests;
   const out = VACIA();
   if (!t || typeof t !== 'object' || Array.isArray(t)) return out;
   const lista = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()) : []);
@@ -95,39 +95,39 @@ function config(root) {
   return out;
 }
 
-/** Lo que `.faro.json > tests` incumple (para validate): una linea por problema, sin ejecutar nada. */
+/** Lo que `faro/config.json > tests` incumple (para validate): una linea por problema, sin ejecutar nada. */
 function validarConfig(root) {
-  const t = (leerJson(path.join(root, '.faro.json')) || {}).tests;
+  const t = (leerJson(require('./config-repo.js').rutaAbs(root)) || {}).tests;
   if (t === undefined) return [];
   const w = [];
-  if (!t || typeof t !== 'object' || Array.isArray(t)) return ['.faro.json > tests debe ser un objeto { "dominios": { ... } }.'];
-  for (const k of Object.keys(t)) if (!CLAVES_TESTS.includes(k)) w.push(`.faro.json > tests.${unaLinea(k, 40)}: clave desconocida (válidas: ${CLAVES_TESTS.join(', ')}).`);
-  if (t.comando !== undefined && (typeof t.comando !== 'string' || !comandoSeguro(t.comando))) w.push('.faro.json > tests.comando no es una forma permitida (node --test · npx|pnpm|yarn vitest|jest · npm|pnpm|yarn test…): no se ejecuta, solo se muestra.');
-  if (t.entradas !== undefined && !listaDe(t.entradas, rutaSegura)) w.push('.faro.json > tests.entradas debe ser una lista de rutas relativas.');
-  if (t.codigo !== undefined && !listaDe(t.codigo, globSeguro)) w.push('.faro.json > tests.codigo debe ser una lista de globs relativos.');
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return ['faro/config.json > tests debe ser un objeto { "dominios": { ... } }.'];
+  for (const k of Object.keys(t)) if (!CLAVES_TESTS.includes(k)) w.push(`faro/config.json > tests.${unaLinea(k, 40)}: clave desconocida (válidas: ${CLAVES_TESTS.join(', ')}).`);
+  if (t.comando !== undefined && (typeof t.comando !== 'string' || !comandoSeguro(t.comando))) w.push('faro/config.json > tests.comando no es una forma permitida (node --test · npx|pnpm|yarn vitest|jest · npm|pnpm|yarn test…): no se ejecuta, solo se muestra.');
+  if (t.entradas !== undefined && !listaDe(t.entradas, rutaSegura)) w.push('faro/config.json > tests.entradas debe ser una lista de rutas relativas.');
+  if (t.codigo !== undefined && !listaDe(t.codigo, globSeguro)) w.push('faro/config.json > tests.codigo debe ser una lista de globs relativos.');
   if (t.transversal !== undefined) {
     const ok = Array.isArray(t.transversal) ? listaDe(t.transversal, globSeguro)
       : t.transversal && typeof t.transversal === 'object' && Object.entries(t.transversal).every(([g, v]) => globSeguro(g) && (v === '*' || listaDe(v, (x) => RE_NOMBRE.test(x))));
-    if (!ok) w.push('.faro.json > tests.transversal debe ser una lista de globs o un mapa { "<glob>": ["<dominio>"] | "*" }.');
+    if (!ok) w.push('faro/config.json > tests.transversal debe ser una lista de globs o un mapa { "<glob>": ["<dominio>"] | "*" }.');
   }
   const ds = t.dominios;
   if (ds === undefined) return w;
-  if (!ds || typeof ds !== 'object' || Array.isArray(ds)) return [...w, '.faro.json > tests.dominios debe ser un objeto { "<dominio>": { "codigo": [...], "tests": [...] } }.'];
+  if (!ds || typeof ds !== 'object' || Array.isArray(ds)) return [...w, 'faro/config.json > tests.dominios debe ser un objeto { "<dominio>": { "codigo": [...], "tests": [...] } }.'];
   const nombres = Object.keys(ds).filter((n) => RE_NOMBRE.test(n));
   for (const [n, d] of Object.entries(ds)) {
     const e = unaLinea(n, 40);
-    if (!RE_NOMBRE.test(n)) { w.push(`.faro.json > tests.dominios: el nombre '${e}' no es válido (minúsculas, números y guiones, máx. 40).`); continue; }
-    if (!d || typeof d !== 'object' || Array.isArray(d)) { w.push(`.faro.json > tests.dominios.${e} debe ser un objeto.`); continue; }
-    for (const k of Object.keys(d)) if (!CLAVES_DOMINIO.includes(k)) w.push(`.faro.json > tests.dominios.${e}.${unaLinea(k, 40)}: clave desconocida (válidas: ${CLAVES_DOMINIO.join(', ')}).`);
-    if (!Array.isArray(d.codigo) || !d.codigo.length || !listaDe(d.codigo, globSeguro)) w.push(`.faro.json > tests.dominios.${e}.codigo debe ser una lista de globs no vacía (p. ej. ["src/${e}/**"]).`);
-    for (const k of ['tests', 'lento']) if (d[k] !== undefined && !listaDe(d[k], globSeguro)) w.push(`.faro.json > tests.dominios.${e}.${k} debe ser una lista de globs.`);
-    if (d.contrato !== undefined && !listaDe(d.contrato, rutaSegura)) w.push(`.faro.json > tests.dominios.${e}.contrato debe ser una lista de rutas relativas.`);
+    if (!RE_NOMBRE.test(n)) { w.push(`faro/config.json > tests.dominios: el nombre '${e}' no es válido (minúsculas, números y guiones, máx. 40).`); continue; }
+    if (!d || typeof d !== 'object' || Array.isArray(d)) { w.push(`faro/config.json > tests.dominios.${e} debe ser un objeto.`); continue; }
+    for (const k of Object.keys(d)) if (!CLAVES_DOMINIO.includes(k)) w.push(`faro/config.json > tests.dominios.${e}.${unaLinea(k, 40)}: clave desconocida (válidas: ${CLAVES_DOMINIO.join(', ')}).`);
+    if (!Array.isArray(d.codigo) || !d.codigo.length || !listaDe(d.codigo, globSeguro)) w.push(`faro/config.json > tests.dominios.${e}.codigo debe ser una lista de globs no vacía (p. ej. ["src/${e}/**"]).`);
+    for (const k of ['tests', 'lento']) if (d[k] !== undefined && !listaDe(d[k], globSeguro)) w.push(`faro/config.json > tests.dominios.${e}.${k} debe ser una lista de globs.`);
+    if (d.contrato !== undefined && !listaDe(d.contrato, rutaSegura)) w.push(`faro/config.json > tests.dominios.${e}.contrato debe ser una lista de rutas relativas.`);
     if (d.dependientes !== undefined) {
-      if (!listaDe(d.dependientes, (x) => typeof x === 'string')) w.push(`.faro.json > tests.dominios.${e}.dependientes debe ser una lista de nombres de dominio.`);
-      else for (const x of d.dependientes) if (!nombres.includes(x)) w.push(`.faro.json > tests.dominios.${e}.dependientes cita '${unaLinea(x, 40)}', que no es un dominio declarado.`);
+      if (!listaDe(d.dependientes, (x) => typeof x === 'string')) w.push(`faro/config.json > tests.dominios.${e}.dependientes debe ser una lista de nombres de dominio.`);
+      else for (const x of d.dependientes) if (!nombres.includes(x)) w.push(`faro/config.json > tests.dominios.${e}.dependientes cita '${unaLinea(x, 40)}', que no es un dominio declarado.`);
     }
-    if (d.comando !== undefined && (typeof d.comando !== 'string' || !comandoSeguro(d.comando))) w.push(`.faro.json > tests.dominios.${e}.comando no es una forma permitida (lista cerrada: node --test · npx|pnpm|yarn vitest|jest · npm|pnpm|yarn test…): no se ejecuta, solo se muestra.`);
-    if (d.pendiente !== undefined && !listaDe(d.pendiente, (x) => typeof x === 'string')) w.push(`.faro.json > tests.dominios.${e}.pendiente debe ser una lista de textos.`);
+    if (d.comando !== undefined && (typeof d.comando !== 'string' || !comandoSeguro(d.comando))) w.push(`faro/config.json > tests.dominios.${e}.comando no es una forma permitida (lista cerrada: node --test · npx|pnpm|yarn vitest|jest · npm|pnpm|yarn test…): no se ejecuta, solo se muestra.`);
+    if (d.pendiente !== undefined && !listaDe(d.pendiente, (x) => typeof x === 'string')) w.push(`faro/config.json > tests.dominios.${e}.pendiente debe ser una lista de textos.`);
   }
   return w;
 }
@@ -418,7 +418,7 @@ function textoPreguntas(lista, { repetir } = {}) {
     l.push(`  · ${p.texto}${p.ficheros ? ` (${p.ficheros.slice(0, 4).map((x) => unaLinea(x, 60)).join(', ')}${p.ficheros.length > 4 ? ', …' : ''})` : ''}`);
     for (const o of p.opciones) l.push(`      - ${o.valor}: ${o.descripcion}`);
     if (p.tipo === 'app' && repetir) l.push(`    Con la respuesta: ${repetir} --app <${p.opciones.map((o) => o.valor).join('|')}>  (p. ej. --app ${p.opciones[0].valor})`);
-    if (p.tipo === 'dominio') l.push('    Con la respuesta: añade el fichero a ese dominio en .faro.json > tests.dominios (o /faro:tests para uno nuevo).');
+    if (p.tipo === 'dominio') l.push('    Con la respuesta: añade el fichero a ese dominio en faro/config.json > tests.dominios (o /faro:tests para uno nuevo).');
   }
   return l.join('\n');
 }
@@ -465,7 +465,7 @@ function ordenDominio(root, nombre, opts = {}) {
     const mostrado = unaLinea(crudo || '', 120);
     const aviso = crudo
       ? `El comando declarado para '${nombre}' no es una forma permitida (lista cerrada): no se ejecuta; si es correcto, que lo lance el usuario.`
-      : `El dominio '${nombre}' no declara comando de tests (.faro.json > tests.comando): no hay nada que ejecutar.`;
+      : `El dominio '${nombre}' no declara comando de tests (faro/config.json > tests.comando): no hay nada que ejecutar.`;
     return { dominio: nombre, argv: null, texto: unaLinea(`${mostrado}${lista.length ? ` ${lista.join(' ')}` : ''}`, 200), aviso, tests: lista };
   }
   const argv = [...base];
@@ -655,17 +655,17 @@ Durante el trabajo ejecuta SOLO los tests del dominio que has tocado: \`harness.
 ${BLOQUE_FIN}
 `;
 
-/** Escribe `.faro.json > tests.dominios` con lo propuesto (sin pisar lo declarado) y, opcional, la regla en CLAUDE.md. */
+/** Escribe `faro/config.json > tests.dominios` con lo propuesto (sin pisar lo declarado) y, opcional, la regla en CLAUDE.md. */
 const esEnlace = (abs) => { try { return fs.lstatSync(abs).isSymbolicLink(); } catch { return false; } };
 
 function aplicar(root, { confirmo, claudeMd } = {}) {
   if (!confirmo) return { escrito: false, motivo: 'Falta --confirmo: la migración de un repo existente nunca es silenciosa.' };
-  const ruta = path.join(root, '.faro.json');
-  if (esEnlace(ruta) || (claudeMd && esEnlace(path.join(root, 'CLAUDE.md')))) return { escrito: false, motivo: 'Un fichero destino (.faro.json o CLAUDE.md) es un enlace simbólico: no se escribe a través de enlaces.' };
+  const ruta = require('./config-repo.js').rutaAbs(root);
+  if (esEnlace(ruta) || (claudeMd && esEnlace(path.join(root, 'CLAUDE.md')))) return { escrito: false, motivo: 'Un fichero destino (faro/config.json o CLAUDE.md) es un enlace simbólico: no se escribe a través de enlaces.' };
   const txt = leer(ruta);
   let j = {};
-  if (txt != null) { try { j = JSON.parse(txt); } catch { return { escrito: false, motivo: '.faro.json no es JSON válido: no se toca.' }; } }
-  if (!j || typeof j !== 'object' || Array.isArray(j)) return { escrito: false, motivo: '.faro.json no es un objeto: no se toca.' };
+  if (txt != null) { try { j = JSON.parse(txt); } catch { return { escrito: false, motivo: 'faro/config.json no es JSON válido: no se toca.' }; } }
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return { escrito: false, motivo: 'faro/config.json no es un objeto: no se toca.' };
   const p = proponer(root);
   if (!j.tests || typeof j.tests !== 'object' || Array.isArray(j.tests)) j.tests = {};
   if (!j.tests.dominios || typeof j.tests.dominios !== 'object') j.tests.dominios = {};
@@ -778,7 +778,7 @@ function cli(argv, root) {
     const r = aplicar(root, { confirmo: flag('--confirmo'), claudeMd: flag('--claude-md') });
     if (!flag('--confirmo')) { process.stderr.write(`${r.motivo} Repite con --confirmo (revisa antes con --proponer).\n`); process.exitCode = 2; return undefined; }
     if (r.escrito === false && r.motivo) { process.stderr.write(`${r.motivo}\n`); process.exitCode = 1; return undefined; }
-    out(r.escrito ? `Escrito .faro.json > tests.dominios: ${r.nuevos.join(', ')}.` : 'Nada nuevo que escribir (los dominios ya estaban declarados).');
+    out(r.escrito ? `Escrito faro/config.json > tests.dominios: ${r.nuevos.join(', ')}.` : 'Nada nuevo que escribir (los dominios ya estaban declarados).');
     if (r.claudeMd) out(`Regla de tests por dominio escrita en ${r.claudeMd}.`);
     if (r.pendientes && r.pendientes.length) out(`Quedan ${r.pendientes.length} decisión(es) humana(s) marcadas como 'pendiente' (validate las lista).`);
     return undefined;

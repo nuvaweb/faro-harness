@@ -209,7 +209,7 @@ module.exports = function (ctx) {
       const n = await af.asegurarEtiquetaGitlab(api, f().path, appDef.id, appDef.rol ? `App ${appDef.id}: ${appDef.rol}`.slice(0, 100) : null);
       if (n) labels.push(n); else console.log(`⚠ No pude crear la etiqueta 'app:${appDef.id}'; la tarea se crea sin ella.`);
     }
-    const sb = specBase || 'gestion/cambios';
+    const sb = specBase || require('./paths.js')().specBase;   // #293
     const desc = slug ? `${cuerpo}\n\nCambio spec-driven: \`${sb}/changes/${slug}/\`.`.trim() : cuerpo;
     // 'entrada' (reporte): va SIN hito, a la bandeja de entrada, hasta el triaje (#84). Igual que en GitHub.
     const nativo = await gestion.opcionesTarea({ ...opts, ciclo: (def && def.ciclo) || 'surge' });

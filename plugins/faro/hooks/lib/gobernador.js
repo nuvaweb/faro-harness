@@ -37,18 +37,18 @@ const entero = (v, min, max) => {
 };
 
 // ───────────────────────── configuracion ─────────────────────────
-/** .faro.json > recursos (esquema cerrado; lo invalido se ignora) → { max_pesados, max_memoria_mb, mem_min_mb, espera_s }. */
+/** faro/config.json > recursos (esquema cerrado; lo invalido se ignora) → { max_pesados, max_memoria_mb, mem_min_mb, espera_s }. */
 function leerRecursosRepo(root) {
   try {
-    const t = JSON.parse(fs.readFileSync(path.join(String(root), '.faro.json'), 'utf8'));
+    const t = JSON.parse(fs.readFileSync(require('./config-repo.js').rutaAbs(String(root)), 'utf8'));
     const r = t && t.recursos;
     return r && typeof r === 'object' && !Array.isArray(r) ? r : {};
   } catch { return {}; }
 }
-/** N de pesados, esperas y memoria. Prioridad: variable de entorno > .faro.json > defecto. */
+/** N de pesados, esperas y memoria. Prioridad: variable de entorno > faro/config.json > defecto. */
 function config(root, env = process.env) {
   const r = root ? leerRecursosRepo(root) : {};
-  // El .faro.json del repo NO es confiable: solo puede ENDURECER (menos pesados, menos espera, mas memoria minima, menos memoria
+  // El faro/config.json del repo NO es confiable: solo puede ENDURECER (menos pesados, menos espera, mas memoria minima, menos memoria
   // maxima). Subir un limite es decision del usuario, por variable de entorno.
   const memDef = Math.min(4096, Math.max(1024, Math.floor(os.totalmem() / 1048576 / 8)));
   const dur = (v, def, hardMin) => { const n = entero(v, hardMin, 1048576); return n === undefined ? def : Math.min(n, def); };
@@ -280,7 +280,7 @@ function cli(argv, { env = process.env, root, out = (t) => console.log(t), lista
   const libre = memoriaLibreMB();
   const cache = C.resumen(env);
   const lineas = [
-    `Pesados en curso: ${slots.length} de ${c.maxPesados} permitidos (FARO_PESADOS o .faro.json > recursos.max_pesados)`,
+    `Pesados en curso: ${slots.length} de ${c.maxPesados} permitidos (FARO_PESADOS o faro/config.json > recursos.max_pesados)`,
     ...slots.map((s) => `  PID ${s.pid} · ${s.etiqueta || '-'}${s.exclusivo ? ' · exclusivo' : ''} · hace ${edad(Date.now() - s.desde)}`),
     `Memoria libre: ${Math.round(libre)} MB (mínimo para lanzar: ${c.memMinMB} MB) · NODE_OPTIONS --max-old-space-size=${c.maxMemoriaMB}`,
     `Caché de gates: ${cache.n} resultado(s), ${Math.round(cache.bytes / 1024)} KB`,

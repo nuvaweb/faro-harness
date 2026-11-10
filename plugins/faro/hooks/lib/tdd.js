@@ -27,7 +27,7 @@
 //
 // Presupuesto de contexto: sin nada que decir, salida VACIA. Un aviso por modulo y sesion como maximo.
 //
-// Configuracion: .faro.json > "tdd": { "modo": "aviso"|"bloqueo"|"off", "codigo": [globs], "tests":
+// Configuracion: faro/config.json > "tdd": { "modo": "aviso"|"bloqueo"|"off", "codigo": [globs], "tests":
 // [globs] }. El contrato (modos y valores por defecto) esta en faro-schema.json >
 // enums.tdd; aqui solo el respaldo si el schema no se puede leer.
 'use strict';
@@ -97,13 +97,16 @@ const casa = (globs, rel) => globs.some((g) => globRe(g).test(rel));
 
 // ---------- configuracion ----------
 
-const esRepoFaro = (root) => ['.faro.json', 'ESTADO.md', 'INICIATIVA.md'].some((f) => fs.existsSync(path.join(root, f)));
+// #293: faro/ o, sin migrar, la raiz. Sin cargar lib/paths.js: tdd-pre/tdd-post corren en CADA herramienta y no cargan el motor.
+const existe = (root, rel) => fs.existsSync(path.join(root, rel));
+const esRepoFaro = (root) => ['faro/config.json', 'faro/ESTADO.md', '.faro.json', 'ESTADO.md'].some((rel) => existe(root, rel));
+const rutaConfig = (root) => path.join(root, existe(root, 'faro/config.json') || !existe(root, '.faro.json') ? 'faro/config.json' : '.faro.json');
 const listaDeTextos = (v) => Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string' && x.trim());
 
 /** {modo, codigo, tests, repeticiones, extensiones, activo}. 'activo' = repo FARO y modo != off. */
 function config(root, { schema } = {}) {
   const c = contrato(schema, root);
-  const t = ((leerJson(path.join(root, '.faro.json')) || {}).tdd) || {};
+  const t = ((leerJson(rutaConfig(root)) || {}).tdd) || {};
   const modo = c.modos.includes(t.modo) ? t.modo : c.modo_defecto;
   return {
     modo,
@@ -115,16 +118,16 @@ function config(root, { schema } = {}) {
   };
 }
 
-/** Lo que .faro.json > tdd incumple del contrato (para validate; avisa, no bloquea). */
+/** Lo que faro/config.json > tdd incumple del contrato (para validate; avisa, no bloquea). */
 function validarConfig(root, { schema } = {}) {
-  const t = (leerJson(path.join(root, '.faro.json')) || {}).tdd;
+  const t = (leerJson(rutaConfig(root)) || {}).tdd;
   if (t === undefined) return [];
   const c = contrato(schema, root);
-  if (!t || typeof t !== 'object' || Array.isArray(t)) return ['.faro.json > tdd debe ser un objeto { "modo": "aviso" }.'];
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return ['faro/config.json > tdd debe ser un objeto { "modo": "aviso" }.'];
   const out = [];
-  for (const k of Object.keys(t)) if (!CLAVES.includes(k)) out.push(`.faro.json > tdd.${k}: clave desconocida (válidas: ${CLAVES.join(', ')}).`);
-  if (t.modo !== undefined && !c.modos.includes(t.modo)) out.push(`.faro.json > tdd.modo '${t.modo}' no es válido (válidos: ${c.modos.join(', ')}; por defecto '${c.modo_defecto}').`);
-  for (const k of ['codigo', 'tests']) if (t[k] !== undefined && !listaDeTextos(t[k])) out.push(`.faro.json > tdd.${k} debe ser una lista de globs (p. ej. ${JSON.stringify(k === 'codigo' ? c.codigo_defecto.slice(0, 2) : c.tests_defecto.slice(0, 2))}).`);
+  for (const k of Object.keys(t)) if (!CLAVES.includes(k)) out.push(`faro/config.json > tdd.${k}: clave desconocida (válidas: ${CLAVES.join(', ')}).`);
+  if (t.modo !== undefined && !c.modos.includes(t.modo)) out.push(`faro/config.json > tdd.modo '${t.modo}' no es válido (válidos: ${c.modos.join(', ')}; por defecto '${c.modo_defecto}').`);
+  for (const k of ['codigo', 'tests']) if (t[k] !== undefined && !listaDeTextos(t[k])) out.push(`faro/config.json > tdd.${k} debe ser una lista de globs (p. ej. ${JSON.stringify(k === 'codigo' ? c.codigo_defecto.slice(0, 2) : c.tests_defecto.slice(0, 2))}).`);
   return out;
 }
 
@@ -398,7 +401,7 @@ function pre(root, payload, cfg) {
       const test = propios[0] || sugerirTest(rel);
       const base = baseModulo(rel);
       res = cfg.modo === 'bloqueo'
-        ? { bloquear: `TDD (modo bloqueo): para editar ${rel} hace falta antes un test en rojo de «${base}» en esta sesión. Escribe o amplía ${test}, ejecútalo y comprueba que falla; después vuelve a editar ${rel}. Si este cambio no admite test, pide al humano que lo decida (.faro.json > tdd.modo).` }
+        ? { bloquear: `TDD (modo bloqueo): para editar ${rel} hace falta antes un test en rojo de «${base}» en esta sesión. Escribe o amplía ${test}, ejecútalo y comprueba que falla; después vuelve a editar ${rel}. Si este cambio no admite test, pide al humano que lo decida (faro/config.json > tdd.modo).` }
         : unaVez(`codigo:${rel}`, `TDD: vas a editar ${rel} sin un test en rojo de «${base}» en esta sesión. Primero el test (${test}): ejecútalo y comprueba que falla; después el código.`);
     }
     if (!res || !res.bloquear) { est.seq += 1; est.codigo[rel] = est.seq; }   // lo que se edita de verdad, para el Stop
@@ -406,7 +409,7 @@ function pre(root, payload, cfg) {
     const hueco = codigoSinDominio(root, rel);
     if (hueco && !est.avisados[`dom:${rel}`]) {
       est.avisados[`dom:${rel}`] = 1;
-      const msg = `TDD: ${rel} no pertenece a ningún dominio de tests (.faro.json > tests.dominios): hueco de cobertura funcional. Decide su dominio con /faro:tests.`;
+      const msg = `TDD: ${rel} no pertenece a ningún dominio de tests (faro/config.json > tests.dominios): hueco de cobertura funcional. Decide su dominio con /faro:tests.`;
       res = res && res.contexto ? { contexto: `${res.contexto} ${msg}` } : (res || { contexto: msg });
     }
   }

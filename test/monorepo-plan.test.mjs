@@ -123,12 +123,13 @@ test('leerPlan / escribirPlan: ida y vuelta; ausente -> null; corrupto -> errore
   const r = mp.leerPlan(dir, { org: 'acme-org' });
   assert.deepStrictEqual(r.errores, []);
   assert.deepStrictEqual(r.plan, PLAN());
-  assert.ok(fs.existsSync(path.join(dir, 'gestion', 'monorepo-plan.json')));
-  fs.writeFileSync(path.join(dir, 'gestion', 'monorepo-plan.json'), '{ no es json');
+  assert.strictEqual(mp.planFile(dir), 'faro/gestion/monorepo-plan.json'); // #293: repo vacío = layout faro/
+  assert.ok(fs.existsSync(path.join(dir, mp.planFile(dir))));
+  fs.writeFileSync(path.join(dir, mp.planFile(dir)), '{ no es json');
   const c = mp.leerPlan(dir);
   assert.strictEqual(c.plan, null); assert.match(c.errores.join(' '), /JSON/);
   // __proto__ no contamina
-  fs.writeFileSync(path.join(dir, 'gestion', 'monorepo-plan.json'), '{"version":1,"apps":[{"id":"a","rol":"r","__proto__":{"x":1}}]}');
+  fs.writeFileSync(path.join(dir, mp.planFile(dir)), '{"version":1,"apps":[{"id":"a","rol":"r","__proto__":{"x":1}}]}');
   assert.ok(mp.leerPlan(dir).errores.length || ({}).x === undefined);
 });
 

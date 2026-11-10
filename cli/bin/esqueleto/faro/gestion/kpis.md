@@ -11,7 +11,7 @@ Formato de cada KPI (el harness valida los 4 campos y avisa de mediciones desact
 - definicion: <qué mide y cómo se calcula>
 - linea_base: <valor de partida (y fecha)>
 - objetivo: <valor meta (y para cuándo: fase/hito)>
-- fuente: <de dónde salen los datos: fuentes/<archivo>, sistema X>
+- fuente: <de dónde salen los datos: faro/fuentes/<archivo>, sistema X>
 - mediciones:
   - AAAA-MM-DD: <valor> — evidencia: <ruta o enlace>
 ```
@@ -19,7 +19,7 @@ Formato de cada KPI (el harness valida los 4 campos y avisa de mediciones desact
 Reglas:
 
 - IDs correlativos: `KPI-01`, `KPI-02`… (no reutilizar).
-- Cada medición con fecha y **evidencia verificable** (archivo en `fuentes/`, export, enlace).
-- Cambiar un `objetivo:` no es un edit silencioso: registra la decisión como ADR en `documentos/decisiones/`.
+- Cada medición con fecha y **evidencia verificable** (archivo en `faro/fuentes/`, export, enlace).
+- Cambiar un `objetivo:` no es un edit silencioso: registra la decisión como ADR en `faro/gestion/decisions/`.
 
 <!-- Define debajo los KPIs reales del trabajo -->

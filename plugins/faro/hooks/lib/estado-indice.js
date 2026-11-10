@@ -28,7 +28,8 @@ const RE_LOCAL = /^L-(\d{1,6})\s*·\s*(.*)$/;
 const RE_TAREA_ID = /^([ \t]*)-\s\[( |x|X)\]\s+#(\d+)\b(.*)$/;
 const ESTADOS_CERRADOS = new Set(['hecha', 'descartada']);
 
-const ficheroEstado = (root) => ['ESTADO.md', 'INICIATIVA.md'].map((f) => path.join(root, f)).find((p) => fs.existsSync(p)) || null;
+// #293: la ruta la decide el mapa unico (faro/ESTADO.md, o ESTADO.md/INICIATIVA.md en un repo sin migrar).
+const ficheroEstado = (root) => { const p = path.join(root, require('./paths.js')(root).ESTADO); return fs.existsSync(p) ? p : null; };
 
 /** Texto de la parte que se conserva tras '— @quien' (o solo los marcadores si no habia responsable). */
 function colaDe(resto) {

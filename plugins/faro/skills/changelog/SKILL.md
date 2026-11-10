@@ -10,9 +10,9 @@ el MISMO cambio**. Si los tres no coinciden, el historial miente y deja de servi
 
 ## 0. ¿Monorepo? Elige la app (o las afectadas)
 
-Si `.faro.json` tiene la clave `monorepo` (`harness.js apps` las lista), **cada app se versiona por
+Si `faro/config.json` tiene la clave `monorepo` (`harness.js apps` las lista), **cada app se versiona por
 separado**: su versión es la de `apps/<x>/package.json`, su registro es `apps/<x>/CHANGELOG.md` y su
-tag es `{app}@{version}` (o la plantilla de `.faro.json > monorepo.tag`). No hay un CHANGELOG común
+tag es `{app}@{version}` (o la plantilla de `faro/config.json > monorepo.tag`). No hay un CHANGELOG común
 que valga por todas.
 
 - **Qué apps tocaste**: las que tengan ficheros en el diff (`git diff --name-only`, por carpeta). Si
@@ -115,7 +115,7 @@ Reglas:
 
 - **Formato del nombre: `v<version>`** (`v0.9.3`, nunca `0.9.3` a secas ni `version-0.9.3`) —
   consistente con el historial existente del repo (revísalo con `git tag -l` antes del primero).
-  **En un monorepo, `<app>@<version>`** (la plantilla de `.faro.json > monorepo.tag`): `publicar` crea
+  **En un monorepo, `<app>@<version>`** (la plantilla de `faro/config.json > monorepo.tag`): `publicar` crea
   uno por cada app cambiada, con su propio Release.
 - **Se etiqueta el commit de MERGE a la rama principal** (main/master), no el commit de la rama de
   trabajo — el tag marca lo que quedó publicado, no lo que se propuso. Si el flujo es

@@ -46,7 +46,7 @@ test('sembrarRepo: el remoto vacío queda con main y develop en el mismo commit,
   sembrarRepo({ url: r.url, identidad: IDENTIDAD });
   assert.equal(git(r.dir, 'rev-parse', 'main'), git(r.dir, 'rev-parse', 'develop'));
   const ficheros = git(r.dir, 'ls-tree', '-r', '--name-only', 'main').split('\n');
-  for (const f of ['.gitignore', 'CLAUDE.md', 'gestion/risks.md', 'borrador/data/.gitkeep']) assert.ok(ficheros.includes(f), f);
+  for (const f of ['.gitignore', 'CLAUDE.md', 'faro/gestion/risks.md', 'faro/borrador/data/.gitkeep']) assert.ok(ficheros.includes(f), f);
   assert.equal(ficheros.includes('gitignore'), false);
   assert.equal(git(r.dir, 'log', '-1', '--format=%ae', 'main'), 'ana@ejemplo.test');
 });

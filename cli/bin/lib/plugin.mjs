@@ -193,6 +193,7 @@ const PLANTILLAS_MARCA = ['render-doc.mjs'];
 // pero los repos anteriores a la taxonomia nueva las tienen en docs/plantillas/ (legado): mirar solo la
 // vigente dejaba esas copias intactas, tapando a las del plugin justo en los repos MAS antiguos.
 const DIRS_PLANTILLAS = [
+  ['faro', 'documentos', 'plantillas', 'html'],   // #293
   ['documentos', 'plantillas', 'html'],
   ['docs', 'plantillas', 'html'],
   ['docs', 'plantillas'],
@@ -203,6 +204,8 @@ const DIRS_PLANTILLAS = [
 // documentacion de la organizacion deja de ser comparable. Desde plugin 0.8.5 la sirve el plugin
 // (docs/nomenclatura-documental.md) y el contrato vigente de tipos es `harness.js tipo`.
 const DOCS_LEGADOS = [
+  ['faro', 'documentos', 'nomenclatura-documental.md'],
+  ['faro', 'documentos', 'arquitectura', 'nomenclatura-documental.md'],
   ['documentos', 'nomenclatura-documental.md'],
   ['documentos', 'arquitectura', 'nomenclatura-documental.md'],
   ['docs', 'nomenclatura-documental.md'],

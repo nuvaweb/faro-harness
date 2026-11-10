@@ -116,16 +116,28 @@ test('migrarCopiaLegada: sin copia legada no hace nada (repo plugin-nativo)', ()
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('metadato: escribirMetaRepo y leerMetaRepo usan .faro.json; sin él no hay metadato', () => {
+test('metadato (#293): en un repo nuevo escribirMetaRepo y leerMetaRepo usan faro/config.json; sin él no hay metadato', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-meta-'));
   assert.equal(leerMetaRepo(dir), null);
   escribirMetaRepo(dir, { domain: 'sistemas', teams: ['ia'] });
-  assert.ok(fs.existsSync(path.join(dir, '.faro.json')));
+  assert.ok(fs.existsSync(path.join(dir, 'faro', 'config.json')));
+  assert.ok(!fs.existsSync(path.join(dir, '.faro.json')));
   assert.equal(leerMetaRepo(dir).domain, 'sistemas');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test('metadato (#293): un repo sin migrar sigue leyendo y escribiendo su .faro.json (lectura dual), sin crear faro/', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-meta-leg-'));
+  fs.writeFileSync(path.join(dir, '.faro.json'), JSON.stringify({ domain: 'viejo' }));
+  fs.writeFileSync(path.join(dir, 'ESTADO.md'), '# x\n');
+  assert.equal(leerMetaRepo(dir).domain, 'viejo');
+  escribirMetaRepo(dir, { domain: 'nuevo' });
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, '.faro.json'), 'utf8')).domain, 'nuevo');
+  assert.ok(!fs.existsSync(path.join(dir, 'faro')), 'no debe abrir faro/ a medias en un repo legado');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('FARO_ROOTS: taxonomía vigente (espejo de paths.js del harness), sin nombres legados', () => {
-  for (const r of ['documentos', 'gestion', 'fuentes', 'flujos', 'borrador']) assert.ok(FARO_ROOTS.includes(r), `falta ${r}`);
+  for (const r of ['documentos', 'gestion', 'fuentes', 'flujos', 'borrador']) assert.ok(FARO_ROOTS.includes(`faro/${r}`), `falta faro/${r}`);
   for (const viejo of ['superpowers', 'specdriven', 'resources', 'flow', 'playground']) assert.ok(!FARO_ROOTS.includes(viejo), `taxonomía vieja: ${viejo}`);
 });
