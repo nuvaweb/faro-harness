@@ -1519,6 +1519,17 @@ function cmdSessionRouted() {
 
 // opts.completo: el bloque de gobierno ENTERO (convenciones, documentos, requisitos, codigo, planes) —
 // lo que piden 'harness.js estado' y 'status'. Sin el, SessionStart emite el INDICE (#127).
+// Lanza `grafo construir --fondo` desacoplado si el indice no existe o no esta fresco (faro/config.json > grafo.fondo: false lo desactiva).
+function lanzarGrafoFondo() {
+  try {
+    if (NO_INSTANCIA || SIN_ADOPTAR) return;
+    if (require('./lib/config-repo.js').leer(ROOT).grafo?.fondo === false) return;
+    // Solo un lstat barato: el hijo decide si el indice esta fresco. Una marca .fallo reciente (< 24 h) frena el relanzamiento.
+    try { if (Date.now() - fs.lstatSync(require('./lib/grafo/indice.js').rutaIndice(ROOT) + '.fallo').mtimeMs < 24 * 3600 * 1000) return; } catch { /* sin marca */ }
+    require('child_process').spawn(process.execPath, [__filename, 'grafo', 'construir', '--fondo'], { detached: true, stdio: 'ignore', windowsHide: true, cwd: ROOT }).unref();
+  } catch { /* el grafo es opcional: la sesion no se entera */ }
+}
+
 function cmdSession(opts = {}) {
   const completo = !!opts.completo;
   // El andamiaje documental se materializa en INSTANCIAS y TEMPLATES; en el repo MOTOR no pinta
@@ -1582,6 +1593,9 @@ function cmdSession(opts = {}) {
     : (errs.length ? ['VALIDACION DE FASEO — errores a corregir:', ...errs.map((e) => `- ${e}`)] : ['Faseo valido.']);
   // #177: aviso breve (alerta al humano, no gasta contexto) si hay procesos propios huerfanos o una bateria corriendo.
   const alert = [alertaSesion(errs), require('./lib/procesos.js').avisoCorto(process.env, ROOT), require('./lib/worktrees.js').avisoCorto(ROOT)].filter(Boolean).join(' · ') || undefined;
+
+  // Grafo (#298): si el indice falta o esta desactualizado, se reconstruye desacoplado y en silencio.
+  lanzarGrafoFondo();
 
   // SessionStart = INDICE (#127, #123). El bloque completo de abajo pasaba de 26.000 caracteres en un
   // repo de trabajo real: la plataforma corta a 10.000 y el modelo solo ve 2.000 de vista previa.
@@ -2714,6 +2728,11 @@ function cmdValidate() {
     require('./lib/tdd.js').validarConfig(ROOT, { schema: faroSchema() }).forEach((w) => flowWarns.push(`[tdd] ${w}`));
     // TESTS POR DOMINIO (#178): config mal formada, codigo sin dominio y dominios cuyo test depende de otro.
     try { const D = require('./lib/dominios.js'); [...D.validarConfig(ROOT), ...D.avisosCobertura(ROOT)].forEach((w) => flowWarns.push(`[tests] ${w}`)); } catch { /* el aviso es opcional */ }
+    // GRAFO (#298): diferencia entre el grafo viejo y el del indice nuevo (modo sombra). Sin indice o sin diferencias, nada.
+    try {
+      const _sb = require('./lib/grafo/sombra.js').leer(ROOT);
+      if (_sb && _sb.soloViejo.length + _sb.soloNuevo.length > 0) flowWarns.push(`[grafo] el grafo nuevo difiere en ${_sb.soloViejo.length + _sb.soloNuevo.length} aristas (${_sb.soloViejo.length} solo en el viejo) — harness.js grafo estado`);
+    } catch { /* el aviso es opcional */ }
     require('./lib/alcance.js').validarConfig(ROOT, { schema: faroSchema() }).forEach((w) => flowWarns.push(`[alcance] ${w}`));
     // FUERA DE ALCANCE del funcional: el contrato del tipo FUN ya lo exige como seccion, pero nadie
     // comprobaba que estuviera RELLENA — un encabezado con nada debajo pasaba. Es el unico criterio
@@ -5150,6 +5169,8 @@ else if (cmd === 'vigilar') cmdVigilar();
 else if (cmd === 'procesos') process.exitCode = require('./lib/procesos.js').cli(process.argv.slice(3), { root: ROOT });
 // worktrees de agentes (#251): lista, --limpiar (borra solo limpios e integrados), --ignorar, --al-terminar (hook SubagentStop).
 else if (cmd === 'worktrees') process.exitCode = require('./lib/worktrees.js').cli(process.argv.slice(3), { root: ROOT });
+// grafo de dependencias (#298): construir [--fondo] | estado.
+else if (cmd === 'grafo') process.exitCode = require('./lib/grafo/cli.js').cli(process.argv.slice(3), { root: ROOT });
 else if (cmd === 'migrar-layout') process.exitCode = require('./lib/migrar-layout.js').cli(process.argv.slice(3), { root: ROOT });
 // triaje: JUZGA lo que llega de fuera contra lo escrito. Sin argumento, diagnostica cuanto criterio
 // hay para juzgar (lo primero que mirar en un repo que adopta FARO).
@@ -5219,4 +5240,4 @@ else if (cmd === 'ci') cmdCi();
 else if (cmd === 'gates' || cmd === 'infra' || cmd === 'deps') { const c = codeMod(); if (!c) { console.log('Falta .claude/hooks/code.js (capa de codigo).'); process.exit(1); } cmd === 'gates' ? c.cmdGates(opcionesGates()) : cmd === 'infra' ? c.cmdInfra() : c.cmdDeps(); }
 else if (cmd === 'stats') cmdStats();
 else if (cmd === 'status-line') cmdStatusLine();
-else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }
+else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }

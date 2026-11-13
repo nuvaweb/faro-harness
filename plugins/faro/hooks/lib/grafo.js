@@ -56,8 +56,8 @@ module.exports = function (ctx) {
   // contemplarlo el grafo daba 16 falsos huerfanos (todo lib/ salia como codigo muerto). Se captura
   // la expresion SUELTA, no solo dentro de require(), porque el patron habitual es guardarla en una
   // variable —const mod = path.join(...); require(mod)— y ahi el literal no toca al require.
-  const RE_JOIN = /path\.(?:join|resolve)\s*\(\s*__dirname\s*,\s*((?:['"][^'"]+['"]\s*,\s*)*['"][^'"]+['"])\s*\)/g;
-  const segmentosDe = (grupo) => [...grupo.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  // La regex vive en lib/grafo/extraer.js (unica fuente; antes estaba duplicada aqui).
+  const { RE_JOIN, segmentosDe } = require('./grafo/extraer.js');
 
   function resolver(desde, spec, existentes) {
     const base = path.posix.normalize(path.posix.join(path.posix.dirname(desde), spec));
@@ -124,6 +124,8 @@ module.exports = function (ctx) {
 
   function analizar() {
     const g = grafo();
+    // Modo sombra (#298): sombra propia para no pisar la de dominios; el resultado no cambia.
+    try { require('./grafo/sombra.js').registrar(ROOT, { aristas: g.aristas }, { sufijo: '.sombra-cableado.json' }); } catch { /* opcional */ }
     return { total: g.nodos.length, ciclos: ciclos(g), huerfanos: huerfanos(g) };
   }
 

@@ -205,6 +205,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 | `pr crear` | Abre la petición de integración **por intención**, en la forja que sea: `pr crear --base develop --titulo "…" [--cuerpo "…"] [--revisor <login>]`. Ninguna skill necesita saber la forma de la API |
 | `codigo` | Salud del código en tres señales: **ciclos de dependencia** (un defecto real: ningún módulo del ciclo se entiende por separado), **atomicidad** (ficheros por encima del umbral) y **módulos que nadie importa** (posible código muerto) |
 | `atomico` | Solo la señal de atomicidad, si quieres el listado a secas. El umbral vive en `faro-schema.json` (`enums.atomicidad`), así que cada repo puede declarar el suyo |
+| `grafo` | Índice único de imports del repo, incremental, en `faro/.cache/grafo.json` (gitignorado). `grafo construir` lo genera; `grafo estado` dice si está al día. La sesión lo reconstruye en segundo plano salvo `faro/config.json > grafo.fondo: false` |
 
 > El tamaño es una **señal**, no una ley: partir un fichero por la mitad baja la cifra y empeora el
 > diseño. Se separa por concepto. Por eso estos comandos avisan y nunca bloquean.

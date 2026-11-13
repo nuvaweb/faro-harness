@@ -428,12 +428,26 @@
           "plugins/faro/hooks/lib/hexagonal.js",
           "plugins/faro/hooks/lib/hexagonal-lenguajes.js",
           "plugins/faro/hooks/lib/hexagonal-fuentes.js",
+          "plugins/faro/hooks/lib/grafo/extraer.js",
           "plugins/faro/skills/code/SKILL.md",
           "plugins/faro/agents/revisor-code.md",
           "plugins/faro/agents/revisor-code-worker.md"
         ],
         "tests": [
           "test/hexagonal.test.mjs"
+        ]
+      },
+      "grafo-faro": {
+        "descripcion": "Grafo FARO (#298): índice único de imports y referencias, incremental y en segundo plano; resuelve alias y workspaces; modo sombra frente a los lectores actuales",
+        "codigo": [
+          "plugins/faro/hooks/lib/grafo/**"
+        ],
+        "tests": [
+          "test/grafo-extraer.test.mjs",
+          "test/grafo-resolver.test.mjs",
+          "test/grafo-indice.test.mjs",
+          "test/grafo-fondo.test.mjs",
+          "test/grafo-sombra.test.mjs"
         ]
       }
     }

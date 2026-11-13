@@ -184,7 +184,7 @@ const RE_IMPORT = [
 ];
 
 /** Grafo require/import relativo entre ficheros del repo: {aristas: Map<fichero, Set<fichero>>, inversas}. */
-function grafo(root, lista) {
+function grafo(root, lista, { universo = lista == null } = {}) {
   const todos = lista || ficheros(root);
   const set = new Set(todos);
   const aristas = new Map();
@@ -207,6 +207,9 @@ function grafo(root, lista) {
       }
     }
   }
+  // Modo sombra (#298): compara con el indice nuevo y deja la diferencia; el resultado sigue siendo este.
+  // Solo con el universo completo (`universo`: lista nula, o la que contexto calcula sin opts.lista); una lista parcial daria diferencias falsas.
+  if (universo) { try { require('./grafo/sombra.js').registrar(root, { aristas }); } catch { /* opcional */ } }
   return { aristas, inversas };
 }
 
@@ -231,7 +234,7 @@ function contexto(root, opts = {}) {
   // lista de ficheros y grafo: PEREZOSOS (los hooks por edicion solo necesitan los globs).
   const memo = (nombre, fn) => { let v; let hecho = false; Object.defineProperty(ctx, nombre, { get() { if (!hecho) { v = fn(); hecho = true; } return v; }, enumerable: true }); };
   memo('lista', () => opts.lista || ficheros(root));
-  memo('g', () => opts.grafo || grafo(root, ctx.lista));
+  memo('g', () => opts.grafo || grafo(root, ctx.lista, { universo: !opts.lista }));
   for (const [n, d] of Object.entries(cfg.dominios)) {
     const o = { ...d, nombre: n };
     for (const [k, gl] of [['codigoF', d.codigo], ['testsF', d.tests], ['lentoF', d.lento]]) {

@@ -1,6 +1,6 @@
 {
   "name": "faro",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "FARO (Forge-Agnostic Repo Operations) — gestor de proyectos agéntico spec-driven para GitHub, GitLab y servidores propios: harness determinista (hooks) que gobierna faseo, riesgos, specs/cambios, documentación controlada y ciclo git, con skills /faro:* y roles de agente. Motor único para las naturalezas doc / app / worker.",
   "author": {
     "name": "Fernando Acevedo"

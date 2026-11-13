@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## 2.1.0 — 2026-11-12
+
+### Añadido
+- Grafo FARO (base): índice único, incremental y en segundo plano; resuelve alias y workspaces; modo sombra frente a los lectores actuales.
+  - `harness.js grafo construir|estado`.
+  - Construcción en segundo plano al abrir sesión; se desactiva con `faro/config.json > grafo.fondo: false`.
+  - Índice en `faro/.cache/grafo.json`, gitignorado.
+  - Aviso `[grafo]` de `validate`.
+
 ## 2.0.0 — 2026-11-10
 
 ### Cambiado (rompe el layout)
