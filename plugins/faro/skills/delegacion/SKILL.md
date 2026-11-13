@@ -88,6 +88,18 @@ Dos cosas que no se negocian:
    Los dos bugs de 0.30.1 pasaban todos los gates y rompían el comando entero.
 2. **Verificar no es delegar la responsabilidad.** El veredicto se contrasta antes de actuar sobre él.
 
+## Antes de leer, pregunta al grafo
+
+Si el repo tiene índice del grafo (`harness.js grafo estado`), consúltalo **antes** de abrir ficheros o
+de lanzar un barrido: devuelve pocas líneas y evita leer decenas.
+
+- `harness.js grafo contexto <tema>` — qué ficheros tocan el tema y por qué.
+- `harness.js grafo esqueleto <fichero>` — firmas y exportaciones de un fichero largo, sin leerlo entero.
+- `harness.js grafo impacto <fichero>` / `tests <fichero>` — quién lo usa y qué lo prueba.
+
+Al delegar, **incluye en el brief del subagente la salida de `grafo contexto <tema>`**: así parte de los
+ficheros relevantes en lugar de buscarlos, y gasta su contexto en lo que importa.
+
 ## Lo que esto NO es
 
 No es un permiso para trocear cualquier tarea. Una tarea pequeña y bien acotada se hace y punto: el

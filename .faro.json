@@ -447,7 +447,10 @@
           "test/grafo-resolver.test.mjs",
           "test/grafo-indice.test.mjs",
           "test/grafo-fondo.test.mjs",
-          "test/grafo-sombra.test.mjs"
+          "test/grafo-sombra.test.mjs",
+          "test/grafo-consultas.test.mjs",
+          "test/grafo-historia.test.mjs",
+          "test/grafo-empuje.test.mjs"
         ]
       }
     }

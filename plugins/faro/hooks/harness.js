@@ -1450,6 +1450,7 @@ function indiceSesion({ cabecera, comunicacion, resumen, funcionalL, estadoBloqu
     ...una(plugin, 500),
     ...(!superpowersDetected() ? ['ATENCION: plugin superpowers NO detectado — el flujo brainstorm->spec->plan pierde sus skills. Indica al usuario: claude plugin install superpowers@claude-plugins-official (requiere reiniciar la sesion).'] : []),
     ...codigoIndiceLines(),
+    ...grafoReglaLines(),
     ...(!NO_INSTANCIA && !SIN_ADOPTAR ? avisoTestsPorDominio() : []),   // #178: una linea por version si el repo no declara dominios
     ...una(atomicoLines(), 320),
     ...una(grafoLines(), 320),
@@ -1528,6 +1529,14 @@ function lanzarGrafoFondo() {
     try { if (Date.now() - fs.lstatSync(require('./lib/grafo/indice.js').rutaIndice(ROOT) + '.fallo').mtimeMs < 24 * 3600 * 1000) return; } catch { /* sin marca */ }
     require('child_process').spawn(process.execPath, [__filename, 'grafo', 'construir', '--fondo'], { detached: true, stdio: 'ignore', windowsHide: true, cwd: ROOT }).unref();
   } catch { /* el grafo es opcional: la sesion no se entera */ }
+}
+
+// GRAFO (#301): con indice y empuje encendido, una linea de regla para orientarse antes de leer.
+function grafoReglaLines() {
+  try {
+    if (!require('./lib/grafo/empuje.js').hayIndice(ROOT)) return [];
+    return ['Para orientarte, antes de leer: `harness.js grafo contexto <tema>` | `esqueleto <fichero>`'];
+  } catch { return []; }
 }
 
 function cmdSession(opts = {}) {
@@ -1642,6 +1651,7 @@ function cmdSession(opts = {}) {
     ...codeSessionLines(),
     ...atomicoLines(),
     ...grafoLines(),
+    ...grafoReglaLines(),
     ...kpiLines(),
     ...requisitosLines(),
     ...gitLines(false),
@@ -1721,7 +1731,28 @@ function specProtocolBreve() {
 
 // Alerta al usuario solo si hay riesgo (faseo); el protocolo spec, el estado de iteracion
 // y el estado git se inyectan como contexto en cada prompt (proactivo, sin ruido visual).
+// GRAFO (#301): empuje minimo en el prompt. Se funde en la unica salida del turno (un solo JSON) o,
+// si el turno no emitia nada, sale solo. Nunca lanza; `grafo.empuje: false` lo apaga.
 function cmdPromptContext() {
+  let extra = [];
+  try {
+    if (!SIN_ADOPTAR) {
+      const E = require('./lib/grafo/empuje.js');
+      const prompt = leerPayloadSync().prompt;
+      // Primero lo barato (tokens del prompt, existencia del indice); el indice solo se parsea si sirve.
+      const idx = E.promptUtil(prompt) && E.hayIndice(ROOT) ? E.cargarParaHook(ROOT) : null;
+      if (idx) extra = E.lineasPrompt(idx, prompt);
+    }
+  } catch { extra = []; }
+  let emitido = false;
+  const NL = String.fromCharCode(10);
+  const emitir = (ctx, ev, alert) => { emitido = true; emit(extra.length ? [ctx, ...extra].join(NL) : ctx, ev, alert); };
+  try { promptContextBase(emitir); } finally {
+    if (!emitido && extra.length) emit(extra.join(NL), 'UserPromptSubmit');
+  }
+}
+
+function promptContextBase(emit) {
   if (!parseEstado()) {
     // Repo con historia que aun no ha adoptado FARO: NADA. Ni directiva ni alerta.
     // Aqui estaba el martillo: se reinyectaba la orden "OBLIGATORIO crea ESTADO.md antes de
@@ -5103,6 +5134,30 @@ function cmdReporteNegocio() {
   console.log(`Reporte de negocio (Word): ${path.relative(ROOT, r.ruta).replace(/\\/g, '/')}`);
 }
 
+// GRAFO (#301): hooks de empuje. Solo `emit` con contexto: NUNCA deciden permisos ni bloquean, nunca
+// lanzan y salen con 0 aunque algo falle.
+function cmdGrafoHook(sub) {
+  try {
+    const E = require('./lib/grafo/empuje.js');
+    const ti = (leerPayloadSync().tool_input) || {};
+    const fp = ti.file_path;
+    if (typeof fp !== 'string' || !fp) return;
+    if (!E.hayIndice(ROOT)) return;
+    const rel = path.relative(ROOT, path.resolve(ROOT, fp)).split(path.sep).join('/');
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return;
+    if (sub === 'post') {
+      const idx = E.cargarParaHook(ROOT);
+      if (!E.enIndice(idx, rel)) return;
+      const l = E.lineaEdicion(idx, rel);
+      if (l) emit(l, 'PostToolUse');
+    } else if (sub === 'leer') {
+      // Primero el recuento de lineas (barato y acotado); el indice solo se parsea si hay aviso.
+      const l = E.avisoLectura(ROOT, path.resolve(ROOT, fp), ti);
+      if (l && E.enIndice(E.cargarParaHook(ROOT), rel)) emit(l, 'PreToolUse');
+    }
+  } catch { /* el empuje es opcional */ }
+}
+
 if (cmd === 'session') cmdSessionRouted();
 else if (cmd === 'status') cmdSession({ completo: true });   // CLI a mano: sin stdin que leer
 // estado: el DETALLE bajo demanda que el indice de sesion ya no inyecta (convenciones, documentos,
@@ -5170,6 +5225,7 @@ else if (cmd === 'procesos') process.exitCode = require('./lib/procesos.js').cli
 // worktrees de agentes (#251): lista, --limpiar (borra solo limpios e integrados), --ignorar, --al-terminar (hook SubagentStop).
 else if (cmd === 'worktrees') process.exitCode = require('./lib/worktrees.js').cli(process.argv.slice(3), { root: ROOT });
 // grafo de dependencias (#298): construir [--fondo] | estado.
+else if (cmd === 'grafo-hook') cmdGrafoHook(process.argv[3]);
 else if (cmd === 'grafo') process.exitCode = require('./lib/grafo/cli.js').cli(process.argv.slice(3), { root: ROOT });
 else if (cmd === 'migrar-layout') process.exitCode = require('./lib/migrar-layout.js').cli(process.argv.slice(3), { root: ROOT });
 // triaje: JUZGA lo que llega de fuera contra lo escrito. Sin argumento, diagnostica cuanto criterio

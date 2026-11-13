@@ -112,8 +112,69 @@ function hace(ms) {
   return `${Math.round(s / 86400)} d`;
 }
 
+const INTENCIONES = ['contexto', 'esqueleto', 'impacto', 'tests', 'porque', 'superficie', 'legado'];
+const PRESUPUESTO_DEFECTO = 40;
+
+/** Recorta a n lineas; si no caben, n-1 mas `… +K más (--presupuesto 2n)`. */
+function recortar(lineas, n) {
+  if (lineas.length <= n) return lineas;
+  if (n < 2) return [`… +${lineas.length} más (--presupuesto ${Math.max(2, n * 2)})`];
+  return [...lineas.slice(0, n - 1), `… +${lineas.length - (n - 1)} más (--presupuesto ${n * 2})`];
+}
+
+function presupuestoPor(root, pedido) {
+  const ent = (v) => (typeof v === 'string' ? /^\d+$/.test(v) : Number.isInteger(v)) && Number(v) >= 1 && Number(v) <= 1000;
+  if (pedido !== undefined && ent(pedido)) return Number(pedido);
+  try {
+    const c = require('../config-repo.js').leer(root).grafo;
+    const p = c && c.presupuesto;
+    if (Number.isInteger(p) && p > 0) return p;
+  } catch { /* configuracion ilegible: defecto */ }
+  return PRESUPUESTO_DEFECTO;
+}
+
+function intencion(sub, resto, { root, out }) {
+  const args = []; let pres; let base;
+  for (let i = 0; i < resto.length; i++) {
+    if (resto[i] === '--presupuesto') pres = resto[++i];
+    else if (resto[i] === '--base') base = resto[++i];
+    else args.push(resto[i]);
+  }
+  if (base !== undefined && (typeof base !== 'string' || !base || base.startsWith('-') || !['impacto', 'tests'].includes(sub))) {
+    out('Uso: --base <ref> solo para impacto y tests (la ref no puede empezar por «-»)');
+    return 2;
+  }
+  const idx = I.cargar(root);
+  if (!idx) { out('grafo: sin índice — harness.js grafo construir'); return 0; }
+  const C = require('./consultas.js'); const H = require('./historia.js');
+  const arg = args.join(' ');
+  let r;
+  try {
+    if (sub === 'contexto') r = C.contexto(root, idx, arg);
+    else if (sub === 'esqueleto') r = C.esqueleto(root, idx, arg);
+    else if (sub === 'superficie') r = C.superficie(root, idx);
+    else if (sub === 'legado') r = C.legado(root, idx);
+    else if (sub === 'impacto') r = H.impacto(root, idx, { base });
+    else if (sub === 'tests') r = H.tests(root, idx, { base });
+    else r = H.porque(root, idx, arg);
+  } catch { out(`grafo: sin resultados (${sub})`); return 0; }
+  let fresco = true;
+  try { fresco = I.fresco(root, idx); } catch { /* sin aviso de desactualizado */ }
+  const cab = fresco ? [] : ['· índice desactualizado'];
+  let lineas = r.lineas.slice();
+  if (cab.length && lineas.length) lineas[0] += ` ${cab[0]}`;
+  const usado = presupuestoPor(root, pres);
+  lineas = recortar(lineas, usado);
+  const invalido = pres !== undefined && !((typeof pres === 'string' ? /^\d+$/.test(pres) : Number.isInteger(pres)) && Number(pres) >= 1 && Number(pres) <= 1000);
+  for (const l of lineas) out(l);
+  if (invalido) out(`(presupuesto inválido: se usa ${usado})`);
+  require('./uso.js').registrar(root, { intencion: sub, lineas: lineas.length, ficheros: r.ficheros, idx });
+  return 0;
+}
+
 function cli(argv, { root, out = console.log, ahora = Date.now } = {}) {
   const [sub, ...resto] = argv;
+  if (INTENCIONES.includes(sub)) return intencion(sub, resto, { root, out });
   if (sub === 'construir') {
     if (resto.includes('--fondo')) return fondo(root, ahora);
     const r = construirYGuardar(root, ahora, { explicito: true });
@@ -134,10 +195,18 @@ function cli(argv, { root, out = console.log, ahora = Date.now } = {}) {
     }
     const gen = Date.parse(idx.generado);
     out(`grafo: ${Object.keys(idx.ficheros).length} ficheros · ${aristasN(idx)} aristas · generado hace ${Number.isFinite(gen) ? hace(ahora() - gen) : '?'} · ${fresco ? 'fresco' : `desactualizado (${cambiados} cambiados)`}`);
+    try {
+      const u = require('./uso.js').leer(root);
+      if (u) {
+        let n = 0; let l = 0; let e = 0;
+        for (const v of Object.values(u.intenciones)) { n += v.n || 0; l += v.lineas || 0; e += v.evitadas || 0; }
+        if (n) out(`uso: ${n} consultas · ${l} líneas devueltas · ≈${e} líneas evitadas`);
+      }
+    } catch { /* la medicion es opcional */ }
     return 0;
   }
-  out('Uso: harness.js grafo construir [--fondo] | estado');
+  out('Uso: harness.js grafo construir [--fondo] | estado | contexto <texto|ref> | esqueleto <fichero> | impacto [--base ref] | tests [--base ref] | porque <fichero> | superficie | legado  [--presupuesto N]');
   return sub ? 2 : 0;
 }
 
-module.exports = { cli, asegurarGitignore, LINEA_IGNORE };
+module.exports = { cli, recortar, asegurarGitignore, LINEA_IGNORE };

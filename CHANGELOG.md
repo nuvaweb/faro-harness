@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## 2.2.0 — 2026-11-13
+
+### Añadido
+- Grafo FARO, consultas por intención (#301): `harness.js grafo contexto|esqueleto|impacto|tests|porque|superficie|legado`.
+  - `contexto <fichero|ref|texto>`: lo relacionado sin embeddings (tokens ponderados + vecindad a un salto).
+  - `esqueleto <fichero>`: declaraciones con línea, imports internos y quién lo importa, sin leerlo entero.
+  - `impacto` / `tests [--base ref]`: desde el diff, hasta 3 saltos; tests ordenados por co-cambio.
+  - `porque <fichero>`: últimos commits con sus `#N` y los documentos de gestión que lo citan.
+  - `superficie` (entradas, entorno/secretos, llamadas a IA) y `legado` (imports rotos, código huérfano).
+  - Presupuesto de líneas: `--presupuesto N` o `faro/config.json > grafo.presupuesto` (40 por defecto); lo recortado se anuncia.
+- Empuje mínimo por hooks: hasta 8 líneas relevantes en cada prompt, una línea de dependientes tras editar y la sugerencia de `grafo esqueleto` antes de leer entero un fichero de más de 300 líneas. Nunca bloquea; se apaga con `grafo.empuje: false`.
+- Medición local en `faro/.cache/grafo-uso.json` (consultas, líneas devueltas, líneas evitadas), visible en `grafo estado`. Nunca sale de la máquina.
+- Skill `delegacion`: «Antes de leer, pregunta al grafo».
+
 ## 2.1.0 — 2026-11-12
 
 ### Añadido
