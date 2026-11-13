@@ -76,8 +76,26 @@ function guardar(root, indice) {
       try { fs.rmSync(tmp, { force: true }); } catch { /* nada */ }
       throw e;
     }
+    guardarResumen(p, indice);
     return true;
   } catch { return false; }
+}
+
+/**
+ * Resumen pequeno junto al indice (<indice>.resumen.json: { ficheros, aristas, generado }) para que la
+ * statusline (#303) no tenga que parsear el indice. Opcional: si no se puede escribir, no pasa nada.
+ */
+function guardarResumen(p, indice) {
+  const r = `${p}.resumen.json`;
+  const tmp = `${r}.tmp-${process.pid}-${crypto.randomBytes(6).toString('hex')}`;
+  try {
+    try { if (fs.lstatSync(r).isSymbolicLink()) return; } catch { /* no existe */ }
+    let m = 0;
+    for (const s of aristas(indice).aristas.values()) m += s.size;
+    const datos = { ficheros: Object.keys(indice.ficheros || {}).length, aristas: m, generado: indice.generado || new Date().toISOString() };
+    fs.writeFileSync(tmp, JSON.stringify(datos), { flag: 'wx' });
+    fs.renameSync(tmp, r);
+  } catch { try { fs.rmSync(tmp, { force: true }); } catch { /* nada */ } }
 }
 
 /** true si `dir` y sus padres dentro de root no son enlaces (los que no existen aun, bien). */
@@ -216,4 +234,4 @@ function fresco(root, indice) {
   return Object.keys(indice.ficheros).every((rel) => vistos.has(rel));
 }
 
-module.exports = { rutaIndice, cargar, guardar, construir, aristas, fresco, ficheros, dirSinEnlaces, VERSION };
+module.exports = { rutaIndice, gitDir, cargar, guardar, construir, aristas, fresco, ficheros, dirSinEnlaces, VERSION };

@@ -124,7 +124,12 @@ function contexto(root, idx, arg) {
     for (const d of [...(inv.get(s.rel) || [])].sort()) if (!vistos.has(d)) { vistos.add(d); vecinos.push({ rel: d, motivo: `importa ${s.rel}` }); }
   }
   const todos = [...semillas, ...vecinos];
-  return { lineas: [cabecera(todos.length), ...todos.map((x) => `${x.rel} — ${x.motivo}`)], ficheros: todos.map((x) => x.rel) };
+  // Aprendizajes vigentes del fichero pedido (#302): van tras la cabecera para sobrevivir al presupuesto.
+  let aps = [];
+  if (rel && semillas.length === 1 && semillas[0].rel === rel) {
+    try { const A = require('./aprendizajes.js'); aps = A.quetocan(root, rel).map(A.linea); } catch { /* opcional */ }
+  }
+  return { lineas: [cabecera(todos.length), ...aps, ...todos.map((x) => `${x.rel} — ${x.motivo}`)], ficheros: todos.map((x) => x.rel) };
 }
 
 const DECL = {

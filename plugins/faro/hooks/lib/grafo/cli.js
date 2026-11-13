@@ -3,7 +3,8 @@
 //   grafo construir           construye (incremental) y guarda el indice; imprime una linea de resumen.
 //   grafo construir --fondo   igual, pero en silencio y coordinado: pide turno al gobernador (etiqueta
 //                             `grafo`), toma un lock exclusivo `<indice>.lock` y no hace nada si el indice
-//                             ya esta fresco o si otro proceso construye. Nunca falla ni imprime.
+//                             ya esta fresco o si otro proceso construye. Despues mina aprendizajes
+//                             candidatos (#302, minado.js) si hace mas de 10 min. Nunca falla ni imprime.
 //   grafo estado              describe el indice guardado.
 //
 // Variable de entorno (solo para tests): FARO_GRAFO_TRAZA=<fichero>. Cada construccion que llega a
@@ -85,19 +86,27 @@ function tomarLock(root, ruta, ahora) {
   return null;
 }
 
-function fondo(root, ahora) {
+// Fondo: construye si el indice no esta fresco y, despues, mina las fuentes locales (#302) si el ultimo
+// minado tiene mas de 10 min. Ambos bajo el mismo gobernador y el mismo lock; nada se imprime ni falla.
+function fondo(root, ahora, { home } = {}) {
   try {
-    if (fallo24h(root)) return 0;
-    const previo = I.cargar(root);
-    if (previo && I.fresco(root, previo)) return 0;
+    const M = require('./minado.js');
+    const previo = fallo24h(root) ? null : I.cargar(root);
+    const indice = !fallo24h(root) && !(previo && I.fresco(root, previo));
+    let minar = false;
+    try { minar = M.tocaMinar(root, ahora); } catch { /* sin minado */ }
+    if (!indice && !minar) return 0;
     const g = require('../gobernador.js').intentar({ etiqueta: 'grafo', duracionS: 120 });
     if (g.estado === 'espera') return 0;
     try {
       const liberar = tomarLock(root, I.rutaIndice(root) + '.lock', ahora);
       if (!liberar) return 0;
       try {
-        const de_nuevo = I.cargar(root); // otro proceso pudo terminar mientras esperabamos el lock
-        if (!(de_nuevo && I.fresco(root, de_nuevo))) construirYGuardar(root, ahora);
+        if (indice) {
+          const de_nuevo = I.cargar(root); // otro proceso pudo terminar mientras esperabamos el lock
+          if (!(de_nuevo && I.fresco(root, de_nuevo))) construirYGuardar(root, ahora);
+        }
+        if (minar && M.tocaMinar(root, ahora)) M.minar(root, { ahora, ...(home ? { home } : {}) });
       } finally { liberar(); }
     } finally { if (g.liberar) g.liberar(); }
   } catch { /* el segundo plano nunca estorba */ }
@@ -172,11 +181,11 @@ function intencion(sub, resto, { root, out }) {
   return 0;
 }
 
-function cli(argv, { root, out = console.log, ahora = Date.now } = {}) {
+function cli(argv, { root, out = console.log, ahora = Date.now, home } = {}) {
   const [sub, ...resto] = argv;
   if (INTENCIONES.includes(sub)) return intencion(sub, resto, { root, out });
   if (sub === 'construir') {
-    if (resto.includes('--fondo')) return fondo(root, ahora);
+    if (resto.includes('--fondo')) return fondo(root, ahora, { home });
     const r = construirYGuardar(root, ahora, { explicito: true });
     out(`grafo: ${Object.keys(r.idx.ficheros).length} ficheros, ${aristasN(r.idx)} aristas, ${r.reextraidos} reextraídos, ${r.ms} ms`);
     if (!r.guardado) out('grafo: no se pudo guardar el índice (supera 20 MB o la ruta no es segura)');
@@ -209,4 +218,4 @@ function cli(argv, { root, out = console.log, ahora = Date.now } = {}) {
   return sub ? 2 : 0;
 }
 
-module.exports = { cli, recortar, asegurarGitignore, LINEA_IGNORE };
+module.exports = { cli, recortar, presupuestoPor, asegurarGitignore, construirYGuardar, aristasN, LINEA_IGNORE };

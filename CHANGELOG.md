@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## 2.3.1 — 2026-11-13
+
+### Corregido
+- La foto pública vuelve a salir sin la marca: dos tests del grafo la escribían literal para comprobar que las skills no la llevan (#306).
+- Dos tests del arranque fallaban a veces en Windows: el de la skill no aceptaba saltos de línea CRLF, y el de la sesión usaba candidatos de prueba que el minado de fondo poda con razón (#306).
+
+## 2.3.0 — 2026-11-13
+
+### Añadido
+- Aprendizajes del repo (#302): lo que el código no dice (una decisión, un enfoque descartado, un cuidado) se guarda como `faro/gestion/aprendizajes/AP-NNN-<slug>.md`, versionado. Solo se añaden; para corregir uno se escribe otro que lo sustituye. El grafo los cita al consultar (`contexto`, `porque`) y al editar los ficheros que tocan.
+- Minado de candidatos sin modelo y sin red: correcciones que hiciste al agente en las conversaciones de este repo, tests que fallaron varias veces antes de pasar, reverts y ficheros que cambian siempre juntos. Los candidatos viven en la caché, nunca en git; los fragmentos se recortan, se enmascaran emails, teléfonos y tokens, y lo que lleva un secreto se descarta. Se apaga con `faro/config.json > grafo.aprender.conversaciones: false`.
+- `harness.js aprender lista|ver|minar|guardar|descartar|cuidados` y la skill `/faro:aprender`: recorre los candidatos contigo y nada se guarda sin tu sí.
+- Cuidados al revisor: `/faro:pr` y `/faro:consolidar` pasan al revisor de código los aprendizajes que tocan los ficheros del cambio.
+- `harness.js conocer` y la skill `/faro:conocer` (#303): para un repo recién adoptado o retomado, en un comando construye el grafo, mina lo local y, si hay token, lee de la forja (GitHub o GitLab) los comentarios de revisión de las últimas 50 peticiones integradas y los últimos 50 bugs cerrados. Termina con un resumen y los 5 mejores candidatos. Repetirlo no duplica nada.
+- La sesión avisa en una línea si hay aprendizajes por revisar (`/faro:aprender`).
+- La statusline muestra el grafo: `◈ <ficheros>f/<aristas>a`, `✓` si está al día o `~` si no, y cuántos candidatos esperan revisión. Lee un resumen pequeño junto al índice, nunca el índice entero.
+
 ## 2.2.0 — 2026-11-13
 
 ### Añadido

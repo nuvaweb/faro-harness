@@ -56,7 +56,29 @@ function cambiados(root, base) {
   return { rels: [...set].sort(porRel), base: usada, invalida, ausente, pedida: base };
 }
 
-const cab = (c) => (c.invalida ? 'base no válida (se ignora): solo árbol de trabajo' : c.ausente ? `base ${limpia(c.pedida)} no encontrada: solo árbol de trabajo` : c.base ? `base ${c.base}` : 'solo árbol de trabajo');
+/**
+ * { rels, base, rama }: cambios de la rama `rama` (sin checkout) frente a su base: merge-base con `base`
+ * o, sin ella, con develop/main/master. No mira el arbol de trabajo: es la rama tal como se integraria.
+ */
+function cambiadosRama(root, rama, base) {
+  const invalida = !seguro(rama) || (base !== undefined && base !== null && !seguro(base));
+  if (invalida || !rev(root, rama)) return { rels: [], base: null, rama, invalida, ausente: !invalida, pedida: rama };
+  const cabeza = rev(root, rama);
+  for (const c of seguro(base) ? [base] : ['develop', 'main', 'master']) {
+    const rc = rev(root, c);
+    if (!rc || rc === cabeza) continue;
+    const mb = git(root, ['merge-base', c, rama]);
+    if (!mb) continue;
+    const out = git(root, ['diff', '--name-only', `${mb.trim()}...${rama}`]);
+    if (out === null) continue;
+    return { rels: lineasDe(out).sort(porRel), base: c, rama, invalida: false, ausente: false, pedida: rama };
+  }
+  return { rels: [], base: null, rama, invalida: false, ausente: false, pedida: rama };
+}
+
+const cab = (c) => (c.rama !== undefined
+  ? (c.invalida ? 'rama o base no válida' : c.ausente ? `rama ${limpia(c.pedida)} no encontrada` : c.base ? `rama ${limpia(c.rama)} · base ${c.base}` : `rama ${limpia(c.rama)} sin base con la que comparar`)
+  : c.invalida ? 'base no válida (se ignora): solo árbol de trabajo' : c.ausente ? `base ${limpia(c.pedida)} no encontrada: solo árbol de trabajo` : c.base ? `base ${c.base}` : 'solo árbol de trabajo');
 const esTest = (idx, rel) => !!(idx && idx.ficheros && idx.ficheros[rel] && idx.ficheros[rel].tipo === 'test');
 
 /** Alcance: cambiados en el indice + BFS por inversas hasta 3 saltos. */
@@ -146,7 +168,7 @@ function docsQueCitan(root, rel) {
       const a = path.join(abs, e);
       let st;
       try { st = fs.lstatSync(a); } catch { continue; }
-      if (st.isDirectory()) recorrer(a, `${r}/${e}`);
+      if (st.isDirectory()) { if (e !== 'aprendizajes') recorrer(a, `${r}/${e}`); } // los AP ya se citan como nodos
       else if (st.isFile() && /\.md$/i.test(e)) leerDoc(a, `${r}/${e}`);
     }
   };
@@ -174,9 +196,10 @@ function porque(root, idx, rel) {
     lineas.push(`  ${h} ${f} ${asunto}`);
   }
   if (!log.length) lineas.push('  (sin historia en git)');
+  try { const A = require('./aprendizajes.js'); lineas.push(...A.quetocan(root, r).map(A.linea)); } catch { /* opcional */ }
   const rutas = docsQueCitan(root, r);
   if (rutas.length) lineas.push('citado en:', ...rutas.map((x) => `  ${x}`));
   return { lineas, ficheros: [r] };
 }
 
-module.exports = { cambiados, impacto, tests, porque };
+module.exports = { cambiados, cambiadosRama, cabecera: cab, cita, impacto, tests, porque };

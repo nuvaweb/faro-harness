@@ -217,6 +217,8 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 | `/faro:tareas` | Tus Issues asignados: detalle de los de ESTA repo y recuento de los de las demás (para trabajarlas, abre esa repo) |
 | `/faro:migrar-tareas` | Migra tareas escritas a mano en faro/ESTADO.md a issues anclados a su fase (`asignar-tarea --hito`), dejando en faro/ESTADO.md una línea por issue (`- [ ] #N · título — @quién`, cuadrada con el hito) y el detalle dentro del issue |
 | `/faro:adoptar` | Adopta un repo existente al layout FARO sin perder contexto ni tocar el stack |
+| `/faro:conocer` | Al adoptar o retomar un repo: construye el grafo, mina lo aprendido (conversaciones, git y, con token, revisiones y bugs de la forja) y recorre contigo los mejores candidatos |
+| `/faro:aprender` | Convierte en aprendizajes del repo (`faro/gestion/aprendizajes/AP-NNN-*.md`) lo que se descubrió; nada se guarda sin tu sí |
 | `/faro:auditoria` | Auditoría integral de salud (subagente, en background) |
 | `/faro:forja` | Operaciones de plataforma en la forja del repo (GitLab o GitHub): peticiones de integracion, proteccion de ramas, exigir pipeline, releases, etiquetas, miembros |
 | `/faro:renombrar` | Renombra un repo FARO con criterio (redirecciones, alias, referencias) |

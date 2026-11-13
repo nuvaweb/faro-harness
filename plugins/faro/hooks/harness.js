@@ -1451,6 +1451,7 @@ function indiceSesion({ cabecera, comunicacion, resumen, funcionalL, estadoBloqu
     ...(!superpowersDetected() ? ['ATENCION: plugin superpowers NO detectado — el flujo brainstorm->spec->plan pierde sus skills. Indica al usuario: claude plugin install superpowers@claude-plugins-official (requiere reiniciar la sesion).'] : []),
     ...codigoIndiceLines(),
     ...grafoReglaLines(),
+    ...grafoPendientesLines(),
     ...(!NO_INSTANCIA && !SIN_ADOPTAR ? avisoTestsPorDominio() : []),   // #178: una linea por version si el repo no declara dominios
     ...una(atomicoLines(), 320),
     ...una(grafoLines(), 320),
@@ -1537,6 +1538,33 @@ function grafoReglaLines() {
     if (!require('./lib/grafo/empuje.js').hayIndice(ROOT)) return [];
     return ['Para orientarte, antes de leer: `harness.js grafo contexto <tema>` | `esqueleto <fichero>`'];
   } catch { return []; }
+}
+
+// APRENDIZAJES (#303): si hay candidatos por revisar, una linea que manda a /faro:aprender. Solo un
+// readdir de la cache y el _estado.json (no se parsea el indice ni los candidatos).
+function grafoPendientesLines() {
+  try { return require('./lib/grafo/conocer.js').lineasSesion(ROOT); } catch { return []; }
+}
+
+// Puerto de forja para `conocer` (#303): GitHub o GitLab sobre su cliente de API; null sin adaptador
+// o sin token (GitHub lo sabe sin red; en GitLab, la primera llamada lo dice y conocer lo omite).
+function forjaConocer() {
+  try {
+    const f = forgeInfo();
+    const FC = require('./lib/grafo/forja-conocer.js');
+    if (f.forge === 'github') {
+      const m = ghMod();
+      const r = m && m.ghRepo ? m.ghRepo() : null;
+      if (!m || !m.ghApi || !r || (m.ghToken && !m.ghToken())) return null;
+      return FC.github({ api: m.ghApi, org: r.org, repo: r.repo });
+    }
+    if (f.forge === 'gitlab') {
+      const m = forjaMod();
+      if (!m || !m.api || !f.path) return null;
+      return FC.gitlab({ api: m.api, proyecto: encodeURIComponent(f.path) });
+    }
+  } catch { /* sin forja: conocer lo dice en una linea */ }
+  return null;
 }
 
 function cmdSession(opts = {}) {
@@ -1652,6 +1680,7 @@ function cmdSession(opts = {}) {
     ...atomicoLines(),
     ...grafoLines(),
     ...grafoReglaLines(),
+    ...grafoPendientesLines(),
     ...kpiLines(),
     ...requisitosLines(),
     ...gitLines(false),
@@ -3250,6 +3279,8 @@ function cmdStatusLine() {
   if (risks) parts.push(`⚠${risks} riesgos`);
   const { errs } = validateEstado();
   if (errs.length) parts.push(`FASEO ✗${errs.length}`);
+  // GRAFO (#303): ◈ ficheros/aristas, fresco o no y candidatos por revisar; lee solo el resumen del indice.
+  try { const seg = require('./lib/grafo/conocer.js').segmentoStatus(ROOT); if (seg) parts.push(seg); } catch { /* opcional */ }
   process.stdout.write(parts.join(' · '));
 }
 
@@ -5148,7 +5179,7 @@ function cmdGrafoHook(sub) {
     if (sub === 'post') {
       const idx = E.cargarParaHook(ROOT);
       if (!E.enIndice(idx, rel)) return;
-      const l = E.lineaEdicion(idx, rel);
+      const l = E.lineaEdicion(idx, rel, ROOT);
       if (l) emit(l, 'PostToolUse');
     } else if (sub === 'leer') {
       // Primero el recuento de lineas (barato y acotado); el indice solo se parsea si hay aviso.
@@ -5227,6 +5258,10 @@ else if (cmd === 'worktrees') process.exitCode = require('./lib/worktrees.js').c
 // grafo de dependencias (#298): construir [--fondo] | estado.
 else if (cmd === 'grafo-hook') cmdGrafoHook(process.argv[3]);
 else if (cmd === 'grafo') process.exitCode = require('./lib/grafo/cli.js').cli(process.argv.slice(3), { root: ROOT });
+// aprendizajes del grafo (#302): lista | ver | minar | guardar --confirmo | descartar | cuidados.
+else if (cmd === 'aprender') process.exitCode = require('./lib/grafo/aprender-cli.js').cli(process.argv.slice(3), { root: ROOT });
+// arranque del grafo (#303): indice + minado local + forja bajo demanda (comentarios de revision y bugs cerrados).
+else if (cmd === 'conocer') require('./lib/grafo/conocer.js').cli(process.argv.slice(3), { root: ROOT, forja: forjaConocer() }).then((c) => { process.exitCode = c; }, () => { process.exitCode = 0; });
 else if (cmd === 'migrar-layout') process.exitCode = require('./lib/migrar-layout.js').cli(process.argv.slice(3), { root: ROOT });
 // triaje: JUZGA lo que llega de fuera contra lo escrito. Sin argumento, diagnostica cuanto criterio
 // hay para juzgar (lo primero que mirar en un repo que adopta FARO).

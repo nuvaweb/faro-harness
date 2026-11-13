@@ -67,16 +67,29 @@ function lineasPrompt(idx, prompt) {
   } catch { return []; }
 }
 
-/** `grafo: <rel> lo importan N (a, b…) · tests: M`, o null si nadie lo importa. */
-function lineaEdicion(idx, rel) {
+/** Sufijo con los aprendizajes vigentes del fichero (#302): `· ojo AP-NNN …` en cuidado, `· AP-NNN …` en el resto. */
+function sufijoAprendizajes(root, rel) {
+  if (!root) return '';
+  try {
+    const A = require('./aprendizajes.js');
+    const aps = A.quetocan(root, rel).sort((a, b) => (a.tipo === 'cuidado' ? 0 : 1) - (b.tipo === 'cuidado' ? 0 : 1) || a.num - b.num);
+    const partes = aps.slice(0, 2).map((a) => `· ${a.tipo === 'cuidado' ? 'ojo ' : ''}${A.linea(a).slice(0, 80)}`);
+    if (aps.length > 2) partes.push(`· +${aps.length - 2} AP`);
+    return partes.join(' ');
+  } catch { return ''; }
+}
+
+/** `grafo: <rel> lo importan N (a, b…) · tests: M [· ojo AP-NNN …]`, o null si no hay nada que decir. */
+function lineaEdicion(idx, rel, root) {
   try {
     const inv = I.aristas(idx).inversas;
     const imp = inv && inv.get(rel);
-    if (!imp || !imp.size) return null;
+    const ap = sufijoAprendizajes(root, rel);
+    if (!imp || !imp.size) return ap ? `grafo: ${rel} ${ap}` : null;
     const lista = [...imp].sort();
     const tests = lista.filter((r) => enIndice(idx, r) && idx.ficheros[r].tipo === 'test').length;
     const nombres = lista.slice(0, MAX_NOMBRES).join(', ') + (lista.length > MAX_NOMBRES ? '…' : '');
-    return `grafo: ${rel} lo importan ${lista.length} (${nombres}) · tests: ${tests}`;
+    return `grafo: ${rel} lo importan ${lista.length} (${nombres}) · tests: ${tests}${ap ? ` ${ap}` : ''}`;
   } catch { return null; }
 }
 

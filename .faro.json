@@ -450,7 +450,9 @@
           "test/grafo-sombra.test.mjs",
           "test/grafo-consultas.test.mjs",
           "test/grafo-historia.test.mjs",
-          "test/grafo-empuje.test.mjs"
+          "test/grafo-empuje.test.mjs",
+          "test/grafo-aprendizaje.test.mjs",
+          "test/grafo-arranque.test.mjs"
         ]
       }
     }
