@@ -10,6 +10,8 @@
 //   aprender cuidados [--base ref] [--rama ref]
 //                                      cuidado/decidido vigentes que cruzan con el diff (para el revisor);
 //                                      con --rama, el de esa rama frente a su base, sin checkout (consolidar)
+//   aprender comprobar [--base ref]    la rama contra los aprendizajes (#310): un descartado reintroducido
+//                                      o un cuidado tocado sin citarlo en un commit. Sale 1 si hay; sin nada, calla
 //
 // Nada de lista/ver/minar escribe en ficheros versionados: los candidatos viven en la cache.
 'use strict';
@@ -48,7 +50,7 @@ function lista(root, o, out) {
   const { recortar, presupuestoPor } = require('./cli.js');
   const vig = A.vigentes(root);
   const pend = M.pendientes(root);
-  const lineas = [`aprender: ${vig.length} vigentes · ${pend.length} por revisar`, ...pend.map(lineaCandidato), ...vig.map(A.linea)];
+  const lineas = [`aprender: ${vig.length} vigentes · ${pend.length} por revisar`, ...pend.map(lineaCandidato), ...vig.sort(A.porCoste).map(A.linea)];
   for (const l of recortar(lineas, presupuestoPor(root, o.presupuesto))) out(l);
   return 0;
 }
@@ -65,7 +67,7 @@ function ver(root, id, out) {
   return 0;
 }
 
-function guardar(root, o, out) {
+function guardar(root, o, out, home) {
   let cand = null;
   if (o.candidato !== undefined) {
     cand = buscarCandidato(root, o.candidato);
@@ -76,6 +78,8 @@ function guardar(root, o, out) {
     toca: typeof o.toca === 'string' ? o.toca.split(',') : cand && Array.isArray(cand.toca) ? cand.toca.filter((x) => typeof x === 'string') : [],
     fuente: typeof o.fuente === 'string' ? o.fuente : cand ? `${cand.fuente.tipo}:${cand.fuente.ref}` : 'manual',
     sustituye: typeof o.sustituye === 'string' ? o.sustituye : undefined, cuerpo: typeof o.cuerpo === 'string' ? o.cuerpo : '',
+    // #311: lo que costo la sesion de la que sale el candidato (solo numeros del jsonl local)
+    coste: cand && cand.fuente && cand.fuente.tipo === 'conversacion' ? M.costeSesion(root, home, cand.fuente.ref) : undefined,
   };
   let p;
   try { p = A.preparar(root, datos); } catch (e) { out(`aprender: ${e.message}`); return 2; }
@@ -98,13 +102,23 @@ function cuidados(root, o, out) {
   const c = o.rama !== undefined ? H.cambiadosRama(root, o.rama, o.base) : H.cambiados(root, o.base);
   if (o.rama !== undefined && (c.invalida || c.ausente)) { out(`aprender cuidados: ${H.cabecera(c)}`); return 2; }
   const cam = c.rels;
-  const xs = A.vigentes(root).filter((a) => (a.tipo === 'cuidado' || a.tipo === 'decidido') && a.toca.some((t) => cam.some((r) => A.cubre(t, r))));
+  const xs = A.vigentes(root).filter((a) => (a.tipo === 'cuidado' || a.tipo === 'decidido') && a.toca.some((t) => cam.some((r) => A.cubre(t, r)))).sort(A.porCoste);
   out(`aprender cuidados: ${xs.length} · ${H.cabecera(c)}`);
   for (const a of xs) out(`${A.linea(a)} — toca ${a.toca.filter((t) => cam.some((r) => A.cubre(t, r))).join(', ')} (${a.rel})`);
   return 0;
 }
 
-const USO = 'Uso: harness.js aprender lista [--presupuesto N] | ver <id> | minar | guardar [--confirmo] --tipo decidido|descartado|cuidado --titulo X --toca a,b [--candidato id] [--sustituye AP-N|AP-N-slug] --cuerpo "…" | descartar <id> | cuidados [--base ref] [--rama ref]';
+function comprobar(root, o, out) {
+  if (o.base !== undefined && (typeof o.base !== 'string' || !o.base || o.base.startsWith('-'))) { out('Uso: aprender comprobar [--base <ref>] (la ref no puede empezar por «-»)'); return 2; }
+  const K = require('./comprobar.js');
+  const r = K.conflictos(root, { base: o.base });
+  if (!r.conflictos.length) return 0;
+  out(`aprender comprobar: ${r.conflictos.length} conflicto(s) · ${require('./historia.js').cabecera(r.c)}`);
+  for (const x of r.conflictos) out(K.lineaConflicto(x));
+  return 1;
+}
+
+const USO = 'Uso: harness.js aprender lista [--presupuesto N] | ver <id> | minar | guardar [--confirmo] --tipo decidido|descartado|cuidado --titulo X --toca a,b [--candidato id] [--sustituye AP-N|AP-N-slug] --cuerpo "…" | descartar <id> | cuidados [--base ref] [--rama ref] | comprobar [--base ref]';
 
 function cli(argv, { root, out = console.log, home, ahora = Date.now } = {}) {
   const [sub, ...resto] = argv;
@@ -116,7 +130,7 @@ function cli(argv, { root, out = console.log, home, ahora = Date.now } = {}) {
       out(`aprender: ${r.nuevos} candidatos nuevos · ${r.total} por revisar`);
       return 0;
     }
-    if (sub === 'guardar') return guardar(root, opciones(resto, ['tipo', 'titulo', 'toca', 'candidato', 'sustituye', 'cuerpo', 'fuente']), out);
+    if (sub === 'guardar') return guardar(root, opciones(resto, ['tipo', 'titulo', 'toca', 'candidato', 'sustituye', 'cuerpo', 'fuente']), out, home || require('os').homedir());
     if (sub === 'descartar') {
       const c = buscarCandidato(root, resto[0]);
       if (!c) { out(`aprender: candidato ${limpia(resto[0] || '')} no existe o no es un id válido (hex, de aprender lista)`); return 2; }
@@ -125,6 +139,7 @@ function cli(argv, { root, out = console.log, home, ahora = Date.now } = {}) {
       return 0;
     }
     if (sub === 'cuidados') return cuidados(root, opciones(resto, ['base', 'rama']), out);
+    if (sub === 'comprobar') return comprobar(root, opciones(resto, ['base']), out);
   } catch (e) { out(`aprender: error — ${limpia(e && e.message)}`); return 1; }
   out(USO);
   return sub ? 2 : 0;

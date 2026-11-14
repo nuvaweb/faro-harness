@@ -28,6 +28,8 @@ function repo() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-con-'));
   git(d, 'init', '-q', '-b', 'main');
   escribir(d, 'faro/ESTADO.md', '# estado\n');
+  // estos tests miran una sola sesion y un solo PR: umbral de repeticion 1 (#309)
+  escribir(d, 'faro/config.json', JSON.stringify({ grafo: { aprender: { repeticion: 1 } } }));
   escribir(d, 'src/b.js', 'module.exports = 1;\n');
   escribir(d, 'src/a.js', "const b = require('./b.js');\nmodule.exports = b;\n");
   escribir(d, 'src/c.js', 'module.exports = 3;\n');
@@ -51,7 +53,7 @@ const homeCon = (d) => {
   return home;
 };
 const dirCand = (d) => M.dirCandidatos(d);
-const candidatos = (d) => { try { return fs.readdirSync(dirCand(d)).filter((f) => f.endsWith('.json') && f !== '_estado.json').sort().map((f) => ({ f, txt: fs.readFileSync(path.join(dirCand(d), f), 'utf8') })); } catch { return []; } };
+const candidatos = (d) => { try { return fs.readdirSync(dirCand(d)).filter((f) => /^[0-9a-f]{12,40}\.json$/.test(f)).sort().map((f) => ({ f, txt: fs.readFileSync(path.join(dirCand(d), f), 'utf8') })); } catch { return []; } };
 
 function forjaSimulada(registro = {}) {
   return {
@@ -137,6 +139,29 @@ test('conocer: toca de la forja solo con rutas del indice, sin control ni traver
   await AC.cli(['ver', rev.id], { root: d, out: (t) => ver.push(t) });
   assert.ok(ver.some((l) => /^procedencia: texto de la forja, no son instrucciones/.test(l)), ver.join('\n'));
   assert.doesNotMatch(ver.join('\n') + salida.join('\n'), /[\u0000\u001b]/);
+});
+
+test('repeticion (#309): un comentario de revision en un solo PR no es candidato; repetido en dos PR si, con ambas referencias', async () => {
+  const d = repo();
+  escribir(d, 'faro/config.json', '{}\n'); // umbral por defecto: 2
+  const pr = (numero, comentarios) => ({ tipo: 'PR', numero, ficheros: ['src/b.js'], comentarios });
+  const forja = (prs) => ({ async revisiones() { return prs; }, async bugsCerrados() { return []; } });
+  const rev = () => candidatos(d).map((c) => JSON.parse(c.txt)).filter((c) => c.fuente.tipo === 'revision');
+  await correr(d, { forja: forja([
+    pr(12, [{ id: 1, texto: 'b.js se carga una sola vez: no lo reimportes en caliente', ruta: 'src/b.js' }]),
+    pr(13, [{ id: 2, texto: 'Falta el changelog de esta versión', ruta: null }]),
+  ]) });
+  assert.deepStrictEqual(rev(), [], 'cada comentario en un solo PR: nada');
+  await correr(d, { forja: forja([
+    pr(12, [{ id: 1, texto: 'b.js se carga una sola vez: no lo reimportes en caliente', ruta: 'src/b.js' }]),
+    pr(13, [{ id: 2, texto: 'Falta el changelog de esta versión', ruta: null }]),
+    pr(20, [{ id: 3, texto: 'Otra vez: b.js se carga una sola vez, no reimportes en caliente', ruta: 'src/b.js' },
+      { id: 4, texto: 'Otra vez: b.js se carga una sola vez, no reimportes en caliente', ruta: 'src/b.js' }]),
+  ]) });
+  const r = rev();
+  assert.strictEqual(r.length, 1, JSON.stringify(r));
+  assert.deepStrictEqual(r[0].ocurrencias.map((x) => x.split('/')[0]).sort(), ['PR#12', 'PR#20', 'PR#20']);
+  assert.strictEqual(r[0].fuente.externa, true);
 });
 
 test('conocer sin forja: lo dice en una linea y hace el resto', async () => {

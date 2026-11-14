@@ -1,0 +1,68 @@
+{
+  "_nota": "Juego de medida del grafo sobre el propio motor FARO (#308). Preguntas de localización e impacto con respuesta comprobable; el banco quita bench/grafo del clon para que el agente no vea las respuestas.",
+  "repos": {
+    "faro": { "ruta": "../.." }
+  },
+  "tareas": [
+    {
+      "id": "tope-indice",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md cuál es el tamaño máximo del índice del grafo FARO, en qué fichero y con qué constante se define.",
+      "comprobar": "node {base}/comprobar.js \"indice\\.js\" \"TOPE_INDICE\" \"20\""
+    },
+    {
+      "id": "usos-secretos",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md en qué fichero se define la función secretosEn y qué ficheros del grafo la usan.",
+      "comprobar": "node {base}/comprobar.js \"guardas\\.js\" \"aprendizajes\\.js\" \"minado\\.js\""
+    },
+    {
+      "id": "margen-fondo",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md cada cuánto tiempo como mínimo vuelve a minar el grafo en segundo plano, con el nombre de la constante y la función que lo decide.",
+      "comprobar": "node {base}/comprobar.js \"MARGEN_FONDO_MS\" \"10\" \"tocaMinar\""
+    },
+    {
+      "id": "presupuesto",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md el presupuesto por defecto de las consultas del grafo, la clave de configuración que lo cambia y su rango válido.",
+      "comprobar": "node {base}/comprobar.js \"40\" \"grafo\\.presupuesto|presupuesto\" \"1000\""
+    },
+    {
+      "id": "enmascarar",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md qué marcadores pone el minado de conversaciones en lugar de los datos sensibles y en qué función se hace.",
+      "comprobar": "node {base}/comprobar.js \"enmascarar\" \"\\[email\\]\" \"\\[token\\]\" \"\\[tel\\]\""
+    },
+    {
+      "id": "importan-indice",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md la lista de ficheros de plugins/faro/hooks/lib/grafo que importan indice.js, uno por línea.",
+      "comprobar": "node {base}/comprobar.js \"aprendizajes\\.js\" \"cli\\.js\" \"conocer\\.js\" \"consultas\\.js\" \"empuje\\.js\" \"historia\\.js\" \"minado\\.js\" \"sombra\\.js\" \"uso\\.js\""
+    },
+    {
+      "id": "fuera-de-grafo",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md qué ficheros de plugins/faro/hooks que NO están dentro de lib/grafo cargan módulos del grafo, uno por línea.",
+      "comprobar": "node {base}/comprobar.js \"harness\\.js\" \"dominios\\.js\" \"lib/grafo\\.js|grafo\\.js\" \"hexagonal-lenguajes\\.js\""
+    },
+    {
+      "id": "apagar-fondo",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md qué clave de configuración apaga el trabajo del grafo en segundo plano y en qué fichero se comprueba.",
+      "comprobar": "node {base}/comprobar.js \"grafo\\.fondo|fondo\" \"false\" \"harness\\.js\""
+    },
+    {
+      "id": "optout-minado",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md cómo se desactiva que el grafo aprenda de las conversaciones (la clave exacta) y en qué fichero se lee.",
+      "comprobar": "node {base}/comprobar.js \"conversaciones\" \"false\" \"minado\\.js\""
+    },
+    {
+      "id": "reverts",
+      "repo": "faro",
+      "prompt": "Sin modificar el código, escribe en RESPUESTA.md cómo detecta el minado del grafo los commits de revert (el patrón) y en qué fichero.",
+      "comprobar": "node {base}/comprobar.js \"Revert\" \"minado\\.js\""
+    }
+  ]
+}

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## 2.4.0 — 2026-11-13
+
+### Cambiado
+- El minado solo propone lo que se repite (#309): una corrección o una racha de tests que falla cuenta si aparece en 2 sesiones distintas, y un comentario de revisión si aparece en 2 PR. El candidato lista dónde se vio. El umbral se cambia con `faro/config.json > grafo.aprender.repeticion`.
+
+### Añadido
+- `harness.js aprender comprobar` (#310): la rama frente a los aprendizajes. Avisa si reintroduce algo `descartado` (sus palabras clave vuelven en las líneas añadidas de sus ficheros) o si toca un `cuidado` sin citar su `AP-NNN` en ningún commit. Sale 1 con conflictos; `validate` y `terminar` lo enseñan como aviso `[aprender]` sin bloquear.
+- Coste en aprendizajes (#311): campo opcional `coste: {minutos, tokens}`. Al guardar desde un candidato de conversación se rellena con la duración y los tokens de esa sesión (solo cifras del jsonl local). `aprender lista`, `cuidados`, `grafo contexto` y el aviso al editar ordenan primero los que más costaron.
+- Banco de medida del grafo (`bench/grafo`, #308): mismas tareas en tres brazos (sin grafo, con empuje, solo a demanda) sobre clones desechables, con `claude -p`; mide coste, tokens, llamadas, exploración, uso del grafo, tiempo y acierto, y deja un informe. Primera ronda en `bench/grafo/RESULTADOS.md`: en preguntas de localización el grafo no ahorra de forma medible y el agente no lo consulta.
+
 ## 2.3.1 — 2026-11-13
 
 ### Corregido

@@ -10,7 +10,9 @@ ficheros que `toca`. **Nada se guarda sin confirmación del usuario.** Ejecútal
 ## Protocolo
 
 1. **Mina**: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" aprender minar`. Lee solo disco (conversaciones de
-   este repo, git, ADR y specs como enlace); deja candidatos filtrados en la caché, nunca en git.
+   este repo, git, ADR y specs como enlace); deja candidatos filtrados en la caché, nunca en git. Una
+   corrección o una revisión solo llega a candidato si se repite en 2 sesiones o PR distintos
+   (`faro/config.json > grafo.aprender.repeticion`).
 2. **Lista**: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" aprender lista`. Si no hay candidatos, dilo en una
    línea y termina.
 3. **Por cada candidato**, de más valioso a menos (para tras 5 si el usuario no pide más):
@@ -30,3 +32,9 @@ ficheros que `toca`. **Nada se guarda sin confirmación del usuario.** Ejecútal
 
 Sin `--confirmo`, `aprender guardar` solo muestra lo que escribiría: úsalo para enseñar la vista previa.
 Un aprendizaje también puede nacer sin candidato (el usuario lo dicta): mismo comando, sin `--candidato`.
+Si el candidato viene de una conversación, el guardado anota `coste: {minutos, tokens}` de esa sesión
+(solo cifras); los de más coste salen primero en `lista`, `cuidados` y `contexto`.
+
+Antes del PR, `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" aprender comprobar` dice si la rama reintroduce
+algo `descartado` o toca un `cuidado` sin citar su `AP-NNN` en un commit; `validate` y `terminar` lo
+muestran como aviso `[aprender]`. Si el cuidado está atendido, cítalo en el mensaje del commit.

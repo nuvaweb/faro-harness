@@ -1,0 +1,20 @@
+{
+  "_nota": "Banco del grafo FARO (#308). Cada tarea: un prompt real y un comando 'comprobar' que sale 0 si quedó bien. 'ruta' es relativa a este fichero. Copia este fichero, pon tus repos y tareas, y lanza: node bench/grafo/correr.js --tareas <fichero>.",
+  "repos": {
+    "faro": { "ruta": "../.." }
+  },
+  "tareas": [
+    {
+      "id": "explica-empuje",
+      "repo": "faro",
+      "prompt": "Sin modificar nada, escribe en RESPUESTA.md qué fichero decide si el empuje del grafo está encendido y qué clave de configuración lo apaga.",
+      "comprobar": "node -e \"const t=require('fs').readFileSync('RESPUESTA.md','utf8');process.exit(/empuje\\.js/.test(t)&&/grafo\\.empuje|empuje.*false/.test(t)?0:1)\""
+    },
+    {
+      "id": "impacto-indice",
+      "repo": "faro",
+      "prompt": "Sin modificar nada, escribe en RESPUESTA.md la lista de ficheros de plugins/faro/hooks/lib/grafo que importan indice.js, uno por línea.",
+      "comprobar": "node -e \"const t=require('fs').readFileSync('RESPUESTA.md','utf8');process.exit(['cli.js','empuje.js','consultas.js'].every(f=>t.includes(f))?0:1)\""
+    }
+  ]
+}

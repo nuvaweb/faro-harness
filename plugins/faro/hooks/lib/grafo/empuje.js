@@ -72,7 +72,7 @@ function sufijoAprendizajes(root, rel) {
   if (!root) return '';
   try {
     const A = require('./aprendizajes.js');
-    const aps = A.quetocan(root, rel).sort((a, b) => (a.tipo === 'cuidado' ? 0 : 1) - (b.tipo === 'cuidado' ? 0 : 1) || a.num - b.num);
+    const aps = A.quetocan(root, rel).sort((a, b) => (a.tipo === 'cuidado' ? 0 : 1) - (b.tipo === 'cuidado' ? 0 : 1) || A.porCoste(a, b));
     const partes = aps.slice(0, 2).map((a) => `· ${a.tipo === 'cuidado' ? 'ojo ' : ''}${A.linea(a).slice(0, 80)}`);
     if (aps.length > 2) partes.push(`· +${aps.length - 2} AP`);
     return partes.join(' ');
@@ -121,4 +121,4 @@ function avisoLectura(root, abs, toolInput) {
   } catch { return null; }
 }
 
-module.exports = { hayIndice, promptUtil, enIndice, cargarParaHook, lineasPrompt, lineaEdicion, avisoLectura };
+module.exports = { sufijoAprendizajes, hayIndice, promptUtil, enIndice, cargarParaHook, lineasPrompt, lineaEdicion, avisoLectura };

@@ -2793,6 +2793,8 @@ function cmdValidate() {
       const _sb = require('./lib/grafo/sombra.js').leer(ROOT);
       if (_sb && _sb.soloViejo.length + _sb.soloNuevo.length > 0) flowWarns.push(`[grafo] el grafo nuevo difiere en ${_sb.soloViejo.length + _sb.soloNuevo.length} aristas (${_sb.soloViejo.length} solo en el viejo) — harness.js grafo estado`);
     } catch { /* el aviso es opcional */ }
+    // APRENDIZAJES (#310): la rama reintroduce un descartado o toca un cuidado sin citarlo. Avisa, no bloquea.
+    try { require('./lib/grafo/comprobar.js').avisos(ROOT).forEach((w) => flowWarns.push(`[aprender] ${w}`)); } catch { /* el aviso es opcional */ }
     require('./lib/alcance.js').validarConfig(ROOT, { schema: faroSchema() }).forEach((w) => flowWarns.push(`[alcance] ${w}`));
     // FUERA DE ALCANCE del funcional: el contrato del tipo FUN ya lo exige como seccion, pero nadie
     // comprobaba que estuviera RELLENA — un encabezado con nada debajo pasaba. Es el unico criterio
@@ -5258,7 +5260,7 @@ else if (cmd === 'worktrees') process.exitCode = require('./lib/worktrees.js').c
 // grafo de dependencias (#298): construir [--fondo] | estado.
 else if (cmd === 'grafo-hook') cmdGrafoHook(process.argv[3]);
 else if (cmd === 'grafo') process.exitCode = require('./lib/grafo/cli.js').cli(process.argv.slice(3), { root: ROOT });
-// aprendizajes del grafo (#302): lista | ver | minar | guardar --confirmo | descartar | cuidados.
+// aprendizajes del grafo (#302): lista | ver | minar | guardar --confirmo | descartar | cuidados | comprobar (#310).
 else if (cmd === 'aprender') process.exitCode = require('./lib/grafo/aprender-cli.js').cli(process.argv.slice(3), { root: ROOT });
 // arranque del grafo (#303): indice + minado local + forja bajo demanda (comentarios de revision y bugs cerrados).
 else if (cmd === 'conocer') require('./lib/grafo/conocer.js').cli(process.argv.slice(3), { root: ROOT, forja: forjaConocer() }).then((c) => { process.exitCode = c; }, () => { process.exitCode = 0; });

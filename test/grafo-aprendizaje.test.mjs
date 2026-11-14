@@ -34,15 +34,18 @@ function repo(extra = {}) {
   escribir(d, 'src/b.js', 'module.exports = 1;\n');
   escribir(d, 'src/a.js', "const b = require('./b.js');\nmodule.exports = b;\n");
   escribir(d, 'src/c.js', 'module.exports = 3;\n');
-  for (const [rel, txt] of Object.entries(extra)) escribir(d, rel, txt);
+  // Los tests de filtrado miran una sola sesion: umbral de repeticion 1 salvo que el test traiga su config (#309).
+  const conf = { 'faro/config.json': JSON.stringify({ grafo: { aprender: { repeticion: 1 } } }), ...extra };
+  for (const [rel, txt] of Object.entries(conf)) escribir(d, rel, txt);
   commit(d, 'base');
   return d;
 }
+const SIN_UMBRAL = { 'faro/config.json': '{}\n' }; // config por defecto: repeticion 2
 const homeVacio = () => fs.mkdtempSync(path.join(os.tmpdir(), 'faro-home-'));
 const correr = (root, argv, opts = {}) => { const l = []; const code = AC.cli(argv, { root, out: (t) => l.push(t), home: homeVacio(), ...opts }); return { code, out: l.join('\n') }; };
 const dirApr = (d) => path.join(d, 'faro', 'gestion', 'aprendizajes');
 const dirCand = (d) => path.join(d, 'faro', '.cache', 'candidatos');
-const candidatos = (d) => { try { return fs.readdirSync(dirCand(d)).filter((f) => f.endsWith('.json') && f !== '_estado.json').map((f) => JSON.parse(fs.readFileSync(path.join(dirCand(d), f), 'utf8'))); } catch { return []; } };
+const candidatos = (d) => { try { return fs.readdirSync(dirCand(d)).filter((f) => /^[0-9a-f]{12,40}\.json$/.test(f)).map((f) => JSON.parse(fs.readFileSync(path.join(dirCand(d), f), 'utf8'))); } catch { return []; } };
 
 // Conversacion de Claude Code en <home>/.claude/projects/<slug>/<sesion>.jsonl
 function conversacion(home, root, nombre, eventos) {
@@ -143,7 +146,7 @@ test('guardar: --candidato sin --toca hereda su toca; titulo y cuerpo enmascarad
   assert.doesNotMatch(txt, /ana@ejemplo\.com|600 123 456/);
   assert.match(txt, /\[email\]/);
   assert.match(txt, /\[tel\]/);
-  const s = correr(d, ['guardar', '--confirmo', '--tipo', 'cuidado', '--titulo', 'clave', '--cuerpo', 'token ghp_abcdefghijklmnopqrstuvwxyz0123456789AB']);
+  const s = correr(d, ['guardar', '--confirmo', '--tipo', 'cuidado', '--titulo', 'clave', '--cuerpo', `token ghp_${"abcdefghijklmnopqrstuvwxyz0123456789AB"}`]);
   assert.strictEqual(s.code, 2, s.out);
   assert.match(s.out, /secreto/);
 });
@@ -253,6 +256,73 @@ test('conversacion: un comando de tests que falla dos veces y luego pasa es cand
   assert.strictEqual(rv[0].tipo_sugerido, 'cuidado');
   assert.ok(rv[0].toca.includes('test/a.test.mjs'));
   assert.match(rv[0].fragmento, /2/);
+});
+
+// ---------- Requisito: el minado solo propone lo que se repite (#309) ----------
+
+test('repeticion: una correccion en una sola sesion no es candidato; la misma en dos sesiones si, con ambas referencias', () => {
+  const d = repo(SIN_UMBRAL);
+  const home = homeVacio();
+  const edita = asis('Edito src/a.js', [{ type: 'tool_use', id: 'e', name: 'Edit', input: { file_path: path.join(d, 'src', 'a.js') } }]);
+  conversacion(home, d, 'uno.jsonl', [edita, usu('no hagas un singleton en src/a.js, inyecta la dependencia')]);
+  M.minar(d, { home });
+  assert.deepStrictEqual(candidatos(d).filter((c) => c.fuente.tipo === 'conversacion'), [], 'una sola sesion: nada');
+  // otra sesion, otro dia, otras palabras alrededor: la misma correccion
+  conversacion(home, d, 'dos.jsonl', [asis('hecho'), edita, usu('no, otra vez: nada de singleton en src/a.js, la dependencia se inyecta')]);
+  M.minar(d, { home });
+  const conv = candidatos(d).filter((c) => c.fuente.tipo === 'conversacion');
+  assert.strictEqual(conv.length, 1, JSON.stringify(conv));
+  assert.deepStrictEqual(conv[0].ocurrencias.map((r) => r.replace(/#L\d+$/, '')).sort(), ['dos.jsonl', 'uno.jsonl']);
+  assert.ok(conv[0].toca.includes('src/a.js'));
+  // una correccion distinta en una tercera sesion no se suma ni genera otro
+  conversacion(home, d, 'tres.jsonl', [edita, usu('mal, el puerto del servidor es el 8080 en src/c.js')]);
+  M.minar(d, { home });
+  const conv2 = candidatos(d).filter((c) => c.fuente.tipo === 'conversacion');
+  assert.strictEqual(conv2.length, 1, JSON.stringify(conv2));
+  assert.strictEqual(conv2[0].id, conv[0].id, 'id estable');
+  assert.strictEqual(conv2[0].ocurrencias.length, 2);
+});
+
+test('repeticion: la misma racha de tests en dos sesiones es un candidato; en una, no', () => {
+  const d = repo({ ...SIN_UMBRAL, 'test/a.test.mjs': "import 'node:test';\n" });
+  const home = homeVacio();
+  const racha = (p) => [
+    bash(`${p}1`, 'node --test test/a.test.mjs'), resultado(`${p}1`, false, 'not ok 1'),
+    bash(`${p}2`, 'node --test test/a.test.mjs'), resultado(`${p}2`, false, 'not ok 1'),
+    bash(`${p}3`, 'node --test test/a.test.mjs'), resultado(`${p}3`, true, 'ok 1'),
+  ];
+  conversacion(home, d, 'a.jsonl', racha('a'));
+  M.minar(d, { home });
+  assert.strictEqual(candidatos(d).filter((c) => c.fuente.tipo === 'conversacion').length, 0);
+  conversacion(home, d, 'b.jsonl', racha('b'));
+  M.minar(d, { home });
+  const rv = candidatos(d).filter((c) => c.fuente.tipo === 'conversacion');
+  assert.strictEqual(rv.length, 1, JSON.stringify(rv));
+  assert.strictEqual(rv[0].ocurrencias.length, 2);
+});
+
+test('repeticion: lo descartado no vuelve aunque se repita en otra sesion; grafo.aprender.repeticion lo ajusta', () => {
+  const d = repo(SIN_UMBRAL);
+  const home = homeVacio();
+  conversacion(home, d, 'uno.jsonl', [asis('hecho'), usu('no, eso no: src/a.js no se toca nunca')]);
+  conversacion(home, d, 'dos.jsonl', [asis('hecho'), usu('te dije que src/a.js no se toca nunca')]);
+  M.minar(d, { home });
+  const [c] = candidatos(d).filter((x) => x.fuente.tipo === 'conversacion');
+  assert.ok(c);
+  M.marcar(d, c.id, 'descartados');
+  conversacion(home, d, 'tres.jsonl', [asis('hecho'), usu('no, src/a.js no se toca nunca')]);
+  M.minar(d, { home });
+  assert.deepStrictEqual(candidatos(d).filter((x) => x.fuente.tipo === 'conversacion'), [], 'el grupo descartado no vuelve');
+  // umbral configurable: con 3 hacen falta tres sesiones
+  const e = repo({ 'faro/config.json': JSON.stringify({ grafo: { aprender: { repeticion: 3 } } }) });
+  const h2 = homeVacio();
+  conversacion(h2, e, 'uno.jsonl', [asis('hecho'), usu('no, eso no: src/a.js no se toca nunca')]);
+  conversacion(h2, e, 'dos.jsonl', [asis('hecho'), usu('te dije que src/a.js no se toca nunca')]);
+  M.minar(e, { home: h2 });
+  assert.strictEqual(candidatos(e).filter((x) => x.fuente.tipo === 'conversacion').length, 0);
+  conversacion(h2, e, 'tres.jsonl', [asis('hecho'), usu('no, src/a.js no se toca nunca')]);
+  M.minar(e, { home: h2 });
+  assert.strictEqual(candidatos(e).filter((x) => x.fuente.tipo === 'conversacion').length, 1);
 });
 
 test('git: revert -> descartado, co-cambio >=5 -> cuidado con ambos, ADR citado como ref', () => {
@@ -393,7 +463,7 @@ test('conversacion: solo eventos cuyo cwd es este repo o un subdirectorio (slugs
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-slug-'));
   const d = path.join(base, 'repo-v2');
   const otro = path.join(base, 'repo_v2'); // mismo slug que repo-v2
-  for (const r of [d, otro]) { fs.mkdirSync(r); git(r, 'init', '-q', '-b', 'main'); escribir(r, 'src/a.js', '1\n'); commit(r, 'base'); }
+  for (const r of [d, otro]) { fs.mkdirSync(r); git(r, 'init', '-q', '-b', 'main'); escribir(r, 'src/a.js', '1\n'); escribir(r, 'faro/config.json', JSON.stringify({ grafo: { aprender: { repeticion: 1 } } })); commit(r, 'base'); }
   const home = homeVacio();
   const corr = (cwd) => [{ ...asis('hecho'), cwd }, { ...usu('no, eso no: src/a.js no se toca'), cwd }];
   conversacion(home, d, 'otro.jsonl', corr(otro));
@@ -415,6 +485,7 @@ test('conversacion: ruta del repo con espacios o acentos no genera toca falsos',
   fs.mkdirSync(d, { recursive: true });
   git(d, 'init', '-q', '-b', 'main');
   escribir(d, 'src/a.js', '1\n');
+  escribir(d, 'faro/config.json', JSON.stringify({ grafo: { aprender: { repeticion: 1 } } }));
   commit(d, 'base');
   const home = homeVacio();
   const abs = path.join(d, 'src', 'a.js');
@@ -584,4 +655,113 @@ test('grafo construir --fondo mina tras construir, en silencio, y no re-mina en 
   M.minar = () => { throw new Error('boom'); };
   try { t += 20 * 60 * 1000; assert.strictEqual(G.cli(['construir', '--fondo'], { root: d, out: (x) => l.push(x), ahora }), 0); } finally { M.minar = orig; }
   assert.deepStrictEqual(l, []);
+});
+
+// ---------- Requisito: la rama se comprueba contra los aprendizajes (#310) ----------
+
+const ramaCon = (aprendizajes) => {
+  const d = repo();
+  for (const a of aprendizajes) A.guardar(d, { cuerpo: 'x', ...a });
+  commit(d, 'aprendizajes');
+  git(d, 'checkout', '-q', '-b', 'feat/x');
+  return d;
+};
+
+test('comprobar: sin aprendizajes que toquen el diff sale 0 y no dice nada', () => {
+  const d = ramaCon([{ tipo: 'cuidado', titulo: 'C en caliente', toca: ['src/c.js'] }]);
+  escribir(d, 'src/b.js', 'module.exports = 2;\n');
+  commit(d, 'toca b');
+  const r = correr(d, ['comprobar']);
+  assert.strictEqual(r.code, 0);
+  assert.strictEqual(r.out, '');
+});
+
+test('comprobar: un descartado reintroducido en las lineas anadidas sale 1 y lo nombra', () => {
+  const d = ramaCon([{ tipo: 'descartado', titulo: 'Singleton para la conexion del servidor', toca: ['src/a.js'] }]);
+  escribir(d, 'src/a.js', "const b = require('./b.js');\nmodule.exports = b;\n// solo un comentario\n");
+  commit(d, 'toca a sin reintroducir');
+  assert.strictEqual(correr(d, ['comprobar']).code, 0, 'tocar el fichero no basta');
+  escribir(d, 'src/a.js', "const b = require('./b.js');\nconst conexion = Singleton.unico(b);\nmodule.exports = conexion;\n");
+  commit(d, 'vuelve el singleton');
+  const r = correr(d, ['comprobar']);
+  assert.strictEqual(r.code, 1, r.out);
+  assert.match(r.out, /aprender comprobar: 1 conflicto/);
+  assert.match(r.out, /AP-001 \[descartado\] Singleton para la conexion del servidor/);
+  assert.match(r.out, /src\/a\.js/);
+});
+
+test('comprobar: un cuidado tocado sin mencionarlo sale 1; mencionandolo en un commit, 0', () => {
+  const d = ramaCon([{ tipo: 'cuidado', titulo: 'B se recarga en caliente', toca: ['src/b.js'] }]);
+  escribir(d, 'src/b.js', 'module.exports = 2;\n');
+  commit(d, 'toca b');
+  const r = correr(d, ['comprobar']);
+  assert.strictEqual(r.code, 1, r.out);
+  assert.match(r.out, /AP-001 \[cuidado\] B se recarga en caliente/);
+  escribir(d, 'src/b.js', 'module.exports = 3;\n');
+  commit(d, 'ajusta b teniendo en cuenta AP-001');
+  assert.strictEqual(correr(d, ['comprobar']).code, 0);
+  assert.strictEqual(correr(d, ['comprobar', '--base', '-x']).code, 2);
+});
+
+test('validate y terminar muestran el aviso [aprender] sin fallar por el', () => {
+  const d = ramaCon([{ tipo: 'cuidado', titulo: 'B se recarga en caliente', toca: ['src/b.js'] }]);
+  escribir(d, 'faro/ESTADO.md', '---\niniciativa: T\nfases_total: 1\nfase_actual: 1\n---\n### Fase 1 · Una — in_progress\n');
+  escribir(d, 'src/b.js', 'module.exports = 2;\n');
+  commit(d, 'toca b');
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: d, CLAUDE_PLUGIN_DATA: path.join(os.tmpdir(), 'faro-apr-data', path.basename(d)) };
+  const sin = spawnSync(process.execPath, [HARNESS, 'validate'], { cwd: d, encoding: 'utf8', timeout: 120000, windowsHide: true, env });
+  const salida = (sin.stdout || '') + (sin.stderr || '');
+  assert.match(salida, /\[aprender\] AP-001 \[cuidado\] B se recarga en caliente/, salida);
+  escribir(d, 'src/b.js', 'module.exports = 3;\n');
+  commit(d, 'b con AP-001 en cuenta');
+  const con = spawnSync(process.execPath, [HARNESS, 'validate'], { cwd: d, encoding: 'utf8', timeout: 120000, windowsHide: true, env });
+  assert.strictEqual(con.status, sin.status, 'el aviso no cambia el resultado de validate');
+  assert.doesNotMatch((con.stdout || '') + (con.stderr || ''), /\[aprender\]/);
+});
+
+// #311 — coste en aprendizajes: minutos y tokens de la sesion origen, para ordenar los que mas ahorran.
+test('#311 un aprendizaje sin coste se lee y se lista igual', () => {
+  const d = repo();
+  A.guardar(d, { tipo: 'cuidado', titulo: 'sin coste', toca: ['src/a.js'], cuerpo: 'x' });
+  const [a] = A.vigentes(d);
+  assert.strictEqual(a.coste, null);
+  assert.doesNotMatch(fs.readFileSync(path.join(d, a.rel), 'utf8'), /^coste:/m);
+  assert.match(correr(d, ['lista']).out, /AP-001 \[cuidado\] sin coste/);
+});
+
+test('#311 guardar desde un candidato de conversacion escribe minutos y tokens de esa sesion', () => {
+  const d = repo();
+  const home = homeVacio();
+  const ev = (ts, e) => ({ ...e, timestamp: ts });
+  conversacion(home, d, 's.jsonl', [
+    ev('2026-11-01T10:00:00.000Z', usu('arregla src/a.js')),
+    ev('2026-11-01T10:05:00.000Z', { ...asis('hecho'), message: { ...asis('hecho').message, usage: { input_tokens: 1000, output_tokens: 200 } } }),
+    ev('2026-11-01T10:20:00.000Z', usu('no, eso no: src/a.js no se toca')),
+    ev('2026-11-01T10:42:30.000Z', { ...asis('vale'), message: { ...asis('vale').message, usage: { input_tokens: 3000, output_tokens: 300, cache_read_input_tokens: 99999 } } }),
+  ]);
+  M.minar(d, { home });
+  const [c] = candidatos(d);
+  assert.ok(c, 'hay candidato');
+  const r = correr(d, ['guardar', '--confirmo', '--tipo', 'cuidado', '--titulo', 'no tocar a', '--candidato', c.id, '--cuerpo', 'x'], { home });
+  assert.strictEqual(r.code, 0, r.out);
+  const [a] = A.vigentes(d);
+  assert.deepStrictEqual(a.coste, { minutos: 43, tokens: 4500 });
+  const txt = fs.readFileSync(path.join(d, a.rel), 'utf8');
+  assert.match(txt, /^coste: \{minutos: 43, tokens: 4500\}$/m);
+  assert.doesNotMatch(txt, /arregla|hecho|vale/); // solo numeros, nada del texto de la sesion
+});
+
+test('#311 con dos aprendizajes sobre el mismo fichero sale antes el de mas coste', () => {
+  const d = repo();
+  A.guardar(d, { tipo: 'cuidado', titulo: 'barato', toca: ['src/a.js'], cuerpo: 'x', coste: { minutos: 2, tokens: 100 } });
+  A.guardar(d, { tipo: 'cuidado', titulo: 'caro', toca: ['src/a.js'], cuerpo: 'x', coste: { minutos: 90, tokens: 50000 } });
+  A.guardar(d, { tipo: 'cuidado', titulo: 'sin dato', toca: ['src/a.js'], cuerpo: 'x' });
+  const orden = (s) => ['caro', 'barato', 'sin dato'].map((t) => s.indexOf(t));
+  assert.deepStrictEqual(A.quetocan(d, 'src/a.js').map((a) => a.titulo), ['caro', 'barato', 'sin dato']);
+  const l = orden(correr(d, ['lista']).out);
+  assert.ok(l[0] < l[1] && l[1] < l[2], 'lista ordena por coste');
+  escribir(d, 'src/a.js', 'module.exports = 2;\n');
+  const cu = orden(correr(d, ['cuidados']).out);
+  assert.ok(cu[0] >= 0 && cu[0] < cu[1] && cu[1] < cu[2], 'cuidados ordena por coste');
+  assert.match(E.sufijoAprendizajes(d, 'src/a.js'), /^· ojo AP-002 \[cuidado\] caro/);
 });

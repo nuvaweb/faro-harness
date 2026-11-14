@@ -11,6 +11,7 @@
 //     - src/a.js
 //   fuente: manual
 //   sustituye: AP-000-slug   (opcional; el nombre del fichero sin .md, o el id si es unico)
+//   coste: {minutos: 43, tokens: 4500}   (opcional, #311: lo que costo aprenderlo; ordena los que mas ahorran)
 //   ---
 //   cuerpo en llano
 //
@@ -89,7 +90,7 @@ function leer(root) {
       const toca = (Array.isArray(p.datos.toca) ? p.datos.toca : p.datos.toca ? [p.datos.toca] : []).map(norm).filter(Boolean);
       const s0 = String(p.datos.sustituye || '');
       const sus = RE_ID.test(s0) || RE_CLAVE.test(s0) ? s0 : null;
-      out.push({ id, clave: f.slice(0, -3), num, titulo: String(p.datos.titulo || '').replace(/[\r\n\t]+/g, ' ').trim(), tipo, toca, fuente: String(p.datos.fuente || ''), sustituye: sus, vigente: true, rel: `${dirRel(root)}/${f}`, cuerpo: p.cuerpo.trim() });
+      out.push({ id, clave: f.slice(0, -3), num, titulo: String(p.datos.titulo || '').replace(/[\r\n\t]+/g, ' ').trim(), tipo, toca, fuente: String(p.datos.fuente || ''), sustituye: sus, coste: leerCoste(p.datos.coste), vigente: true, rel: `${dirRel(root)}/${f}`, cuerpo: p.cuerpo.trim() });
     } catch { /* ilegible: se ignora */ }
   }
   out.sort((a, b) => a.num - b.num);
@@ -104,6 +105,27 @@ function leer(root) {
   return out;
 }
 
+/** `{minutos: N, tokens: M}` -> { minutos, tokens } (enteros >= 0), o null si falta o no se entiende. */
+function leerCoste(v) {
+  const t = String(v || '').trim();
+  if (!/^\{.*\}$/.test(t)) return null;
+  const num = (k) => { const m = t.match(new RegExp(`(?:^|[{,\\s])${k}\\s*:\\s*(\\d{1,12})(?=\\s*[,}])`)); return m ? Number(m[1]) : null; };
+  const minutos = num('minutos'); const tokens = num('tokens');
+  return minutos === null && tokens === null ? null : { minutos: minutos || 0, tokens: tokens || 0 };
+}
+
+/** Normaliza un coste de entrada: null si no trae ningun numero valido. */
+function costeValido(c) {
+  if (!c || typeof c !== 'object') return null;
+  const n = (x) => (Number.isFinite(x) && x >= 0 ? Math.round(x) : null);
+  const minutos = n(c.minutos); const tokens = n(c.tokens);
+  return minutos === null && tokens === null ? null : { minutos: minutos || 0, tokens: tokens || 0 };
+}
+
+/** Orden por coste (#311): mas minutos, luego mas tokens; sin coste al final; empate por numero. */
+const porCoste = (a, b) => ((b.coste ? b.coste.minutos : -1) - (a.coste ? a.coste.minutos : -1))
+  || ((b.coste ? b.coste.tokens : -1) - (a.coste ? a.coste.tokens : -1)) || a.num - b.num;
+
 const vigentes = (root) => leer(root).filter((a) => a.vigente);
 
 /** true si la entrada `toca` cubre el fichero (igual, o carpeta terminada en /). */
@@ -112,10 +134,10 @@ function cubre(entrada, rel) {
   return !!e && (e === r || (e.endsWith('/') && r.startsWith(e)));
 }
 
-/** Vigentes cuyo `toca` incluye `rel`. Barato: si no hay carpeta de aprendizajes, [] sin mas. */
+/** Vigentes cuyo `toca` incluye `rel`, los de mas coste primero. Barato: sin carpeta de aprendizajes, [] sin mas. */
 function quetocan(root, rel) {
   try { if (!fs.existsSync(dirAbs(root))) return []; } catch { return []; }
-  return vigentes(root).filter((a) => a.toca.some((t) => cubre(t, rel)));
+  return vigentes(root).filter((a) => a.toca.some((t) => cubre(t, rel))).sort(porCoste);
 }
 
 /** `AP-NNN [tipo] titulo` (titulo recortado). */
@@ -167,7 +189,7 @@ function secretosEn(texto) {
 }
 
 /** Valida y compone sin escribir: { id, nombre, rel, abs, texto }. Lanza con un motivo en llano. */
-function preparar(root, { tipo, titulo, toca = [], fuente = 'manual', sustituye, cuerpo = '' } = {}) {
+function preparar(root, { tipo, titulo, toca = [], fuente = 'manual', sustituye, cuerpo = '', coste } = {}) {
   if (!TIPOS.includes(tipo)) throw new Error(`tipo no válido: ${tipo} (decidido | descartado | cuidado)`);
   const t0 = String(titulo || '').replace(/[\r\n\t]+/g, ' ').trim();
   if (!t0) throw new Error('falta el título');
@@ -180,12 +202,14 @@ function preparar(root, { tipo, titulo, toca = [], fuente = 'manual', sustituye,
   const { enmascarar } = require('./minado.js');
   const t = enmascarar(t0);
   const c = enmascarar(c0);
+  const co = costeValido(coste);
   const id = siguienteId(root);
   const nombre = `${id}-${slug(t)}.md`;
   const texto = [
     '---', `id: ${id}`, `titulo: ${JSON.stringify(t)}`, `tipo: ${tipo}`,
     ...(lista.length ? ['toca:', ...lista.map((x) => `  - ${JSON.stringify(x)}`)] : ['toca: []']),
-    `fuente: ${JSON.stringify(f)}`, ...(sus ? [`sustituye: ${sus}`] : []), '---', '', c, '',
+    `fuente: ${JSON.stringify(f)}`, ...(sus ? [`sustituye: ${sus}`] : []),
+    ...(co ? [`coste: {minutos: ${co.minutos}, tokens: ${co.tokens}}`] : []), '---', '', c, '',
   ].join('\n');
   return { id, nombre, rel: `${dirRel(root)}/${nombre}`, abs: path.join(dirAbs(root), nombre), texto };
 }
@@ -201,4 +225,4 @@ function guardar(root, datos) {
   return { id: p.id, rel: p.rel };
 }
 
-module.exports = { TIPOS, leer, vigentes, quetocan, siguienteId, preparar, guardar, linea, parsear, dirRel, cubre };
+module.exports = { TIPOS, leer, vigentes, porCoste, quetocan, siguienteId, preparar, guardar, linea, parsear, dirRel, cubre };

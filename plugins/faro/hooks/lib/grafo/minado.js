@@ -35,7 +35,7 @@ const TOPE_DOC = 1.5 * 1024 * 1024;
 const MAX_CORRECCION = 600; // un mensaje mas largo no es una correccion tecleada, es un pegado o un informe
 const MAX_TOCA_CONV = 5;
 // Version del filtro: al subirla, las conversaciones se releen enteras y los pendientes que ya no pasan se borran.
-const FILTRO = 2;
+const FILTRO = 3; // 3: solo lo que se repite (#309)
 
 // Texto de un mensaje "user" que NO tecleo la persona: harness, compactacion, interrupciones, otros agentes.
 const RE_NO_HUMANO = /^(<|\[Request interrupted|This session is being continued from a previous conversation|Another Claude session sent a message|\[Subagent hand-back\]|Caveat: The messages below were generated)/;
@@ -237,6 +237,31 @@ function leerJsonl(abs) {
   return out;
 }
 
+/**
+ * Coste de la sesion de una ref de conversacion (`<sesion>.jsonl#Lnn`, #311): minutos entre el primer y el
+ * ultimo timestamp y tokens de entrada+salida del asistente. Solo numeros: no se copia texto. null si no se puede.
+ */
+function costeSesion(root, home, ref) {
+  const m = String(ref || '').match(/^([A-Za-z0-9._-]+\.jsonl)#L\d+$/);
+  if (!m || !home) return null;
+  const slugs = new Set([slugRepo(path.resolve(root))]);
+  try { slugs.add(slugRepo(fs.realpathSync(root))); } catch { /* sin realpath */ }
+  for (const s of slugs) {
+    const abs = path.join(home, '.claude', 'projects', s, m[1]);
+    try { if (!fs.lstatSync(abs).isFile()) continue; } catch { continue; }
+    let ini = Infinity; let fin = -Infinity; let tokens = 0;
+    for (const e of leerJsonl(abs)) {
+      const t = Date.parse(e && e.timestamp);
+      if (Number.isFinite(t)) { ini = Math.min(ini, t); fin = Math.max(fin, t); }
+      const u = e && e.type === 'assistant' && e.message && e.message.usage;
+      if (u) for (const k of ['input_tokens', 'output_tokens']) if (Number.isFinite(u[k]) && u[k] > 0) tokens += u[k];
+    }
+    const minutos = fin >= ini ? Math.round((fin - ini) / 60000) : 0;
+    return minutos || tokens ? { minutos, tokens } : null;
+  }
+  return null;
+}
+
 /** true solo si el evento es texto tecleado por la persona (ni harness, ni resumen, ni agentes, ni tool_result). */
 function esHumano(ev, msg, texto) {
   if (ev.isMeta || ev.isCompactSummary || ev.isSidechain || ev.isVisibleInTranscriptOnly) return false;
@@ -294,7 +319,12 @@ function senalesConversacion(root, nombre, eventos, emitir, enIndice) {
   });
 }
 
-function minarConversaciones(root, home, emitir, vistos, enIndice, releidos) {
+/**
+ * Lee las conversaciones del repo. Las sesiones sin cambios (misma firma) no se reabren: sus senales salen de
+ * `guardadas` (las de la ultima lectura, ya filtradas). Devuelve las senales por sesion de las que se miraron.
+ */
+function minarConversaciones(root, home, emitir, vistos, enIndice, guardadas) {
+  const porSesion = {};
   const slugs = new Set([slugRepo(path.resolve(root))]);
   try { slugs.add(slugRepo(fs.realpathSync(root))); } catch { /* sin realpath */ }
   for (const s of slugs) {
@@ -308,11 +338,65 @@ function minarConversaciones(root, home, emitir, vistos, enIndice, releidos) {
     }
     ficheros.sort((a, b) => b.st.mtimeMs - a.st.mtimeMs);
     for (const { f, st } of ficheros.slice(0, MAX_JSONL)) {
+      if (porSesion[f]) continue;
       const firma = `${st.size}:${st.mtimeMs}`;
-      if (vistos[f] === firma) continue; // sin cambios desde el ultimo minado: sus candidatos ya estan
-      try { senalesConversacion(root, f, leerJsonl(path.join(dir, f)), emitir, enIndice); vistos[f] = firma; releidos.add(f); } catch { /* ilegible */ }
+      if (vistos[f] === firma && Array.isArray(guardadas[f])) { porSesion[f] = guardadas[f]; continue; } // sin cambios
+      const xs = [];
+      try { senalesConversacion(root, f, leerJsonl(path.join(dir, f)), (c) => xs.push(c), enIndice); vistos[f] = firma; } catch { continue; /* ilegible */ }
+      // Se guardan ya filtradas: lo que lleva un secreto no se escribe ni en la cache.
+      porSesion[f] = xs.map((c) => ({ ...c, texto: fragmento(c.texto) })).filter((c) => c.texto !== null && !secretosEn(String(c.fuente.ref)).length);
     }
   }
+  for (const xs of Object.values(porSesion)) for (const c of xs) emitir(c);
+  for (const f of Object.keys(vistos)) if (!porSesion[f]) delete vistos[f];
+  return porSesion;
+}
+
+// ---------- repeticion (#309) ----------
+
+// Solo se propone lo que se repite: una correccion o una racha de tests en >= N sesiones, un comentario de
+// revision en >= N PR. Huella determinista (sin modelo): mismo comando de tests, o palabras clave parecidas.
+const MIN_REPETICION = 2;
+const AGRUPABLES = new Set(['conversacion', 'revision']);
+const VACIAS = new Set(('para como esto esta este estos estas pero porque otra otro otras otros nada hagas haces hacer dije '
+  + 'deja dejes sigue vale aqui ahora todo toda todos cuando donde solo tambien entonces quiero mira tienes tiene hace '
+  + 'with that this from have should would there').split(' '));
+
+function palabras(texto) {
+  const t = String(texto || '').replace(/^(usuario|revisi[oó]n en [^:\s]*)\s*:\s*/i, '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return new Set((t.match(/[a-z]{4,}/g) || []).filter((w) => !VACIAS.has(w)));
+}
+const comandoRacha = (texto) => { const m = /^«(.+)» falló \d+ veces/.exec(String(texto)); return m ? m[1] : null; };
+/** Sesion (jsonl) o PR del que viene una senal: dos senales del mismo origen no son repeticion. */
+const origenDe = (s) => (s.fuente.tipo === 'revision' ? String(s.fuente.ref).split('/')[0] : String(s.fuente.ref).replace(/#L\d+$/, ''));
+
+function parecidas(a, b) {
+  if (a.fuente.tipo !== b.fuente.tipo) return false;
+  if (a.cmd || b.cmd) return a.cmd === b.cmd;
+  const cruzan = a.toca.some((t) => b.toca.includes(t));
+  let comun = 0;
+  for (const w of a.pal) if (b.pal.has(w)) comun++;
+  const union = a.pal.size + b.pal.size - comun;
+  if (!union) return cruzan;
+  return comun / union >= (cruzan ? 0.25 : 0.5);
+}
+
+/** Grupos de senales parecidas (enlace simple, en orden de ref: determinista). */
+function agrupar(senales) {
+  const xs = senales.map((s) => ({ s, pal: palabras(s.texto), cmd: comandoRacha(s.texto), toca: s.toca, fuente: s.fuente }))
+    .sort((a, b) => (String(a.fuente.ref) < String(b.fuente.ref) ? -1 : String(a.fuente.ref) > String(b.fuente.ref) ? 1 : 0));
+  const grupos = [];
+  for (const x of xs) {
+    const g = grupos.find((gr) => gr.some((y) => parecidas(x, y)));
+    if (g) g.push(x); else grupos.push([x]);
+  }
+  return grupos.map((g) => g.map((x) => x.s));
+}
+
+const rutaSenales = (root) => path.join(dirCandidatos(root), '_senales.json');
+function leerSenales(root) {
+  try { const j = JSON.parse(fs.readFileSync(rutaSenales(root), 'utf8')); return j && typeof j === 'object' && !Array.isArray(j) ? j : {}; } catch { return {}; }
 }
 
 // ---------- git ----------
@@ -394,7 +478,7 @@ function minar(root, { home = os.homedir(), ahora = Date.now, extra = [] } = {})
   const est = leerEstado(root);
   const fuera = new Set([...est.descartados, ...est.aceptados]);
   const vistos = est.filtro === FILTRO ? { ...est.jsonl } : {}; // filtro nuevo: se releen todas
-  const releidos = new Set();
+  const guardadas = est.filtro === FILTRO ? leerSenales(root) : {};
   let idx = I.cargar(root); // toca y co-cambios solo con ficheros que existen: el indice manda
   // Se reconstruye si no esta fresco, salvo que un fallo reciente (marca .fallo < 24 h) frene al fondo.
   let fallo = false;
@@ -406,44 +490,81 @@ function minar(root, { home = os.homedir(), ahora = Date.now, extra = [] } = {})
   for (const c of Array.isArray(extra) ? extra : []) if (c && c.fuente && Array.isArray(c.toca)) emitir(c);
 
   let conv = true;
-  try { const g = require('../config-repo.js').leer(root).grafo; if (g && g.aprender && g.aprender.conversaciones === false) conv = false; } catch { /* defecto: si */ }
-  if (conv && home) minarConversaciones(root, home, emitir, vistos, enIndice, releidos);
+  let minimo = MIN_REPETICION;
+  try {
+    const a = (require('../config-repo.js').leer(root).grafo || {}).aprender || {};
+    if (a.conversaciones === false) conv = false;
+    if (Number.isInteger(a.repeticion) && a.repeticion >= 1) minimo = a.repeticion;
+  } catch { /* defectos */ }
+  const conversaciones = conv && !!home;
+  const porSesion = conversaciones ? minarConversaciones(root, home, emitir, vistos, enIndice, guardadas) : null;
   minarGit(root, emitir, idx);
+
+  // Filtro primero (secretos fuera, datos personales enmascarados); luego se agrupa lo agrupable.
+  const limpios = [];
+  for (const b of brutos) {
+    const texto = fragmento(b.texto);
+    if (texto === null || secretosEn(String(b.fuente.ref)).length) continue; // contiene un secreto: no se guarda
+    limpios.push({ ...b, texto });
+  }
+  const conRevisiones = limpios.some((b) => b.fuente.tipo === 'revision');
+  const finales = limpios.filter((b) => !AGRUPABLES.has(b.fuente.tipo));
+  for (const g of agrupar(limpios.filter((b) => AGRUPABLES.has(b.fuente.tipo)))) {
+    const ids = g.map((s) => idDe(s.fuente));
+    if (ids.some((id) => fuera.has(id))) continue; // aceptado o descartado: el grupo no vuelve
+    const origenes = new Set(g.map(origenDe));
+    if (origenes.size < minimo) continue;
+    // Representante estable: el que ya tenga fichero; si no, el de ref menor.
+    const existente = g.find((s) => { const abs = rutaCandidato(root, idDe(s.fuente)); try { return !!abs && fs.lstatSync(abs).isFile(); } catch { return false; } });
+    const rep = existente || g[0];
+    finales.push({
+      ...rep, toca: [...new Set(g.flatMap((s) => s.toca))],
+      puntuacion: Math.max(...g.map((s) => s.puntuacion || 0)) + Math.min(origenes.size - 1, 3),
+      ocurrencias: g.map((s) => String(s.fuente.ref)).sort(),
+    });
+  }
 
   let docs = null;
   const cita = require('./historia.js').cita;
   let nuevos = 0;
   const producidos = new Set();
-  const dir = brutos.length ? dirSeguro(root) : null;
-  for (const b of dir ? brutos : []) {
+  const dir = finales.length ? dirSeguro(root) : null;
+  for (const b of dir ? finales : []) {
     const id = idDe(b.fuente);
     if (fuera.has(id)) continue;
     const abs = rutaCandidato(root, id);
     if (!abs) continue;
-    const frag = fragmento(b.texto);
-    if (frag === null) continue; // contiene un secreto: no se guarda
     const ref = String(b.fuente.ref);
-    if (secretosEn(ref).length) continue;
     producidos.add(id);
-    try { fs.lstatSync(abs); continue; } catch { /* nuevo */ }
     const toca = [...new Set(b.toca.map(norm))].filter((t) => !t.includes('@') && !secretosEn(t).length).slice(0, 10);
+    const puntuacion = Math.round(b.puntuacion * 10) / 10;
+    let previo = null;
+    try { fs.lstatSync(abs); previo = JSON.parse(fs.readFileSync(abs, 'utf8')); } catch { /* nuevo o ilegible */ }
+    if (previo) {
+      // Existente: solo se actualiza si el grupo crecio (otra sesion u otro PR con lo mismo).
+      if (b.ocurrencias && previo.id === id && JSON.stringify(previo.ocurrencias) !== JSON.stringify(b.ocurrencias)) {
+        escribirAtomico(root, abs, { ...previo, toca, puntuacion, ocurrencias: b.ocurrencias });
+      }
+      continue;
+    }
     if (docs === null) docs = documentosReferencia(root);
     const refs = docs.filter((d) => toca.some((t) => cita(d.txt, t))).map((d) => d.rel).slice(0, 5);
     const fuente = { tipo: b.fuente.tipo, ref, ...(b.fuente.externa === true ? { externa: true } : {}) };
-    const cand = { id, fuente, tipo_sugerido: b.tipo_sugerido, toca, fragmento: frag, refs, puntuacion: Math.round(b.puntuacion * 10) / 10, creado: new Date(ahora()).toISOString() };
+    const cand = { id, fuente, tipo_sugerido: b.tipo_sugerido, toca, fragmento: b.texto, refs, puntuacion, ...(b.ocurrencias ? { ocurrencias: b.ocurrencias } : {}), creado: new Date(ahora()).toISOString() };
     if (escribirAtomico(root, abs, cand)) nuevos++;
   }
-  // Pendientes de una fuente releida entera que ya no salen (filtro mas estricto o version ruidosa): fuera.
+  // Pendientes de una fuente leida entera que ya no salen (filtro mas estricto, version ruidosa o sin repeticion): fuera.
+  // Las conversaciones se miran enteras (releidas o guardadas); las revisiones, solo si la forja respondio.
   for (const c of pendientes(root)) {
     const t = c.fuente && c.fuente.tipo;
-    const ref = String((c.fuente && c.fuente.ref) || '');
-    const releida = t === 'revert' || t === 'cochange' || (t === 'conversacion' && releidos.has(ref.replace(/#L\d+$/, '')));
-    if (!releida || producidos.has(c.id)) continue;
+    const entera = t === 'revert' || t === 'cochange' || (t === 'conversacion' && conversaciones) || (t === 'revision' && conRevisiones);
+    if (!entera || producidos.has(c.id)) continue;
     const abs = rutaCandidato(root, c.id);
     try { if (abs && fs.lstatSync(abs).isFile()) fs.unlinkSync(abs); } catch { /* ya no estaba */ }
   }
   const actual = leerEstado(root); // otro proceso pudo descartar mientras minabamos
   if (dirSeguro(root)) {
+    if (porSesion) escribirAtomico(root, rutaSenales(root), porSesion);
     guardarEstado(root, { descartados: actual.descartados, aceptados: actual.aceptados, minado: new Date(ahora()).toISOString(), jsonl: vistos, filtro: FILTRO });
     try { require('./cli.js').asegurarGitignore(root); } catch { /* opcional */ }
   }
@@ -467,4 +588,4 @@ function tocaMinar(root, ahora = Date.now) {
   return !Number.isFinite(m) || ahora() - m >= MARGEN_FONDO_MS || ahora() < m;
 }
 
-module.exports = { minar, tocaMinar, pendientes, contarPendientes, rutasEn, marcar, idValido, leerEstado, dirCandidatos, enmascarar, fragmento, slugRepo, idDe };
+module.exports = { palabras, costeSesion, minar, tocaMinar, pendientes, contarPendientes, rutasEn, marcar, idValido, leerEstado, dirCandidatos, enmascarar, fragmento, slugRepo, idDe };

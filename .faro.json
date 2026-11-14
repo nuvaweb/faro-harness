@@ -440,7 +440,8 @@
       "grafo-faro": {
         "descripcion": "Grafo FARO (#298): índice único de imports y referencias, incremental y en segundo plano; resuelve alias y workspaces; modo sombra frente a los lectores actuales",
         "codigo": [
-          "plugins/faro/hooks/lib/grafo/**"
+          "plugins/faro/hooks/lib/grafo/**",
+          "bench/grafo/**"
         ],
         "tests": [
           "test/grafo-extraer.test.mjs",
@@ -452,7 +453,8 @@
           "test/grafo-historia.test.mjs",
           "test/grafo-empuje.test.mjs",
           "test/grafo-aprendizaje.test.mjs",
-          "test/grafo-arranque.test.mjs"
+          "test/grafo-arranque.test.mjs",
+          "test/grafo-banco.test.mjs"
         ]
       }
     }
