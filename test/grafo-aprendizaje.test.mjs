@@ -604,17 +604,14 @@ test('cuidados --rama: desde la base (como consolidar) compara la rama del PR si
   assert.strictEqual(correr(d, ['cuidados', '--rama', '--x']).code, 2);
 });
 
-test('skills: aprender pide confirmacion; pr y consolidar pasan aprender cuidados al revisor', () => {
+test('skills: aprender pide confirmacion; pr pasa aprender cuidados al revisor', () => {
   const s = fs.readFileSync(path.join(SKILLS, 'aprender', 'SKILL.md'), 'utf8');
   assert.match(s, /^---\r?\ndescription: "Úsala/);
   for (const t of ['aprender minar', 'aprender lista', 'aprender ver', 'AskUserQuestion', 'aprender guardar --confirmo', 'aprender descartar']) assert.ok(s.includes(t), t);
   assert.doesNotMatch(s, new RegExp(["frac", "talia"].join(""), "i")); // la marca no va literal: este test se publica
-  for (const k of ['pr', 'consolidar']) {
-    const t = fs.readFileSync(path.join(SKILLS, k, 'SKILL.md'), 'utf8');
-    assert.match(t, /harness\.js" aprender cuidados/, k);
-    assert.match(t, /revisor-code/, k);
-  }
-  assert.match(fs.readFileSync(path.join(SKILLS, 'consolidar', 'SKILL.md'), 'utf8'), /aprender cuidados --rama origin\/<rama-del-PR>/);
+  const t = fs.readFileSync(path.join(SKILLS, 'pr', 'SKILL.md'), 'utf8');
+  assert.match(t, /harness\.js" aprender cuidados/);
+  assert.match(t, /revisor-code/);
   assert.doesNotMatch(fs.readFileSync(path.join(SKILLS, 'pr', 'SKILL.md'), 'utf8'), /aprender cuidados --rama/);
 });
 

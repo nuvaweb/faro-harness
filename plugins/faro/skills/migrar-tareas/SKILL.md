@@ -50,7 +50,7 @@ Hecha la agrupación, para cada BLOQUE (no para cada checkbox):
 | Bloque abierto, sin issue | **Crear** uno amplio con sus `--subtarea` (paso 1.3) |
 | Bloque hecho (`[x]`), sin issue | **Verificar** (1.2b) y luego crear y cerrar — deja rastro en el hito |
 | Parte del bloque ya tiene issue | **No dupliques ni crees hermanos.** AMPLÍA ese issue con las subtareas que faltan y enlaza los checkboxes a `#N` |
-| Con issue, pero estados que no cuadran (`[x]` e issue abierto, o al revés) | **La forja manda**: issue cerrado → `[x]` (lo marca `consolidar`); `[x]` con el issue abierto → pregunta si se cierra o se desmarca |
+| Con issue, pero estados que no cuadran (`[x]` e issue abierto, o al revés) | **La forja manda**: issue cerrado → `[x]` (lo marca el harness al reconciliar con la forja); `[x]` con el issue abierto → pregunta si se cierra o se desmarca |
 
 ### 1.2b Verifica lo que se da por hecho (si el repo tiene código)
 

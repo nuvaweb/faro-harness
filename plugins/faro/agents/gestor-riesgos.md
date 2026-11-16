@@ -75,7 +75,7 @@ Formato de fila (tabla RAID):
    owner) listo para el informe de fase o el presentador-faro.
 
 Reglas:
-- Toda edición de `risks.md` se hace en rama de trabajo (nunca en main/master/develop).
+- Toda edición de `risks.md` se hace en rama de trabajo (nunca en main/master).
 - Un riesgo sin dueño (`Owner`) no se da por registrado: pregunta quién lo asume antes de cerrar
   la fila (sugiere el usuario git de quien lo reporta si nadie más se ofrece).
 - Riesgo que se **materializa**: no lo borres — cámbialo a `materializado` y sugiere registrar el

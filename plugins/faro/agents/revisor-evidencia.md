@@ -1,6 +1,6 @@
 ---
 name: revisor-evidencia
-description: "Usar junto a revisor-code (desde /faro:pr, /faro:consolidar, /faro:publicar) o sobre una spec — dictamina si cada requisito está DEMOSTRADO por su test y propone la evidencia que falte. Solo lectura."
+description: "Usar junto a revisor-code (desde /faro:pr) o sobre una spec — dictamina si cada requisito está DEMOSTRADO por su test y propone la evidencia que falte. Solo lectura."
 tools: Read, Grep, Glob, Bash
 ---
 

@@ -54,7 +54,7 @@ Comprueba que está activo:
 | Cuenta en tu forja (GitHub o GitLab) | Para las operaciones de forja (PRs, issues, rol): `harness.js auth` o el login del wizard |
 
 El repo del plugin es público: descargarlo no pide credenciales. La cuenta de tu forja solo hace
-falta para operar sobre TUS repos (abrir PRs, leer issues, consolidar).
+falta para operar sobre TUS repos (abrir PRs, leer issues, revisar).
 
 ### Activación automática por repo (opcional, recomendado en instancias FARO)
 
@@ -103,10 +103,10 @@ El harness avisa en sesión si a un repo le falta este bloque o el `autoUpdate`.
 
 ## Cómo se usa — comandos `/faro:*`
 
-El flujo central es: **trabajas en tu rama → pides integrar → un responsable consolida a develop → un responsable publica a producción**.
-Consolidar y publicar son actos DISTINTOS: el ciclo se cierra en `develop`, y `main` es el release — puede agrupar
-varios ciclos y se publica **cuando alguien lo decide**, no en cada integración.
-En comandos: `/faro:pr` → `/faro:consolidar` → `/faro:publicar`. Todo lo demás orbita alrededor.
+El flujo central es: **issue → trabajas en tu rama `<tipo>/<N>-<slug>` (desde `origin/main`) → pides integrar con un PR a `main` → el CI valida y, al integrarse, publica**.
+No hay `develop` ni publicación a mano: el PR lleva **auto-merge** y entra solo cuando el CI pasa, y al integrarse el CI
+crea el tag y el release de la versión que marque su título Conventional.
+En comandos: `/faro:pr` (o `harness.js terminar`). Todo lo demás orbita alrededor.
 
 ### Día a día
 
@@ -114,7 +114,7 @@ En comandos: `/faro:pr` → `/faro:consolidar` → `/faro:publicar`. Todo lo dem
 |---|---|
 | `/faro:iniciar` | Arranque guiado de un trabajo nuevo: entrevista → faro/ESTADO.md → clave → brief (BRF) → fuentes → RAID → validate, orquestando los roles (digestión, redacción y riesgos en paralelo como subagentes) |
 | `/faro:estado` | Estado ejecutivo del trabajo: faseo, validación, git y actividad por usuario |
-| `/faro:pendientes` | Panel de promoción: features pendientes de integrar y develop pendiente de aprobar |
+| `/faro:pendientes` | Panel de integración: ramas sin PR y PRs abiertos a main (esperando CI o revisión) |
 | `/faro:documentacion` | Directiva documental: qué es cada artefacto y dónde vive (úsala antes de crear nada) |
 | `/faro:gestion-proyectos` | Directiva de gestión (enfoque AI FDE): aterrizar ideas difusas, fasear, retomar |
 | `/faro:delegacion` | Directiva de delegación: cuándo repartir trabajo entre subagentes (y cuándo no) para no gastar contexto |
@@ -146,15 +146,13 @@ en `estado-json` (bloque `senales`) y en las integraciones que lo consuman.
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/faro:pr` | **cualquiera** | Petición de integración a develop desde tu rama, en lenguaje llano |
-| `/faro:consolidar` | maintainer | Recupera y valida los PRs a develop y aplica lo que procede |
-| `/faro:publicar` | maintainer/owner | **El release** develop → main, bajo demanda: valida el ciclo completo, cierra estados, tagea y publica |
+| `/faro:pr` | **cualquiera** | Petición de integración a main desde tu rama, en lenguaje llano, con auto-merge y título Conventional |
 | `/faro:ramas` | cualquiera | Informe de ramas muertas vs vivas; limpia las muertas con confirmación |
 
-**No hay aviso de "llevas N commits sin publicar"**, y es deliberado: publicar es bajo demanda, así que
-no haber publicado no es una deuda — es el estado normal, y avisar de lo normal es ruido. Lo que sí
-dice `consolidar` al terminar, y solo si el gate está en verde, es `ESTADO: develop LISTO para
-publicar`: te informa de que **puedes** si quieres, no de que deberías.
+**Integrarse en `main` ES publicar.** Una sola nomenclatura Conventional para ramas, commits, título del PR y
+versión: `fix`/`perf`/`refactor` → parche, `feat` → menor, `!` o `BREAKING CHANGE` → mayor; `docs`/`chore`/`test`/`ci`
+no publican. `harness.js consolidar` y `harness.js publicar` se retiraron en 3.0 (solo avisan). La rama principal, el
+auto-merge y el método de merge se configuran en `faro/config.json > "flujo"`.
 
 ### El faseo de faro/ESTADO.md (lo que exige `validate`)
 
@@ -182,7 +180,7 @@ Objetivo: 2026-12-01                                 ← OBLIGATORIA en toda fas
 | Comando | Qué hace |
 |---|---|
 | `/faro:code` | El proyecto **evoluciona a código**: analiza funcional/ESTADO/docs técnicos, pregunta el stack, investiga el tooling vigente, presenta plan de validación (tests) para tu OK, scaffoldea `src/` con arquitectura sólida (SOLID/modular) y deja `ARCHITECTURE.md` (manifiesto del código: mapa de módulos, invariantes, estándares de API/datos/seguridad, testing) — reclasificando el repo sin ceremonia |
-| `/faro:tests` | **Tests por dominio**: define con el usuario las funcionalidades (dominios) del repo para que el agente corra solo los tests afectados y deje la suite completa para CI y `/faro:publicar`; migra un repo existente (`harness.js tests-dominios --proponer` y `--aplicar --confirmo`) |
+| `/faro:tests` | **Tests por dominio**: define con el usuario las funcionalidades (dominios) del repo para que el agente corra solo los tests afectados y deje la suite completa para el CI; migra un repo existente (`harness.js tests-dominios --proponer` y `--aplicar --confirmo`) |
 
 ### Documentos e informes
 
@@ -202,7 +200,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 |---|---|
 | `forge` | Qué forja hay detrás de `origin` (GitHub, GitLab, autoalojada o desconocida), la ruta del proyecto y qué sabe hacer el harness ahí. **GitHub y GitLab tienen adaptador**; el harness elige uno u otro por el remoto |
 | `auth` | Conecta con la forja del repo actual. GitHub: login por código de 6 dígitos. GitLab: el mismo login si la instancia tiene aplicación OAuth registrada (`git config faro.gitlabClientId`), o `auth --token <token personal>` si no. La credencial queda en `~/.faro.json` **por host** (`tokens`), así que puedes tener sesión a la vez en GitHub, en `gitlab.com` y en el GitLab de un cliente |
-| `pr crear` | Abre la petición de integración **por intención**, en la forja que sea: `pr crear --base develop --titulo "…" [--cuerpo "…"] [--revisor <login>]`. Ninguna skill necesita saber la forma de la API |
+| `pr crear` | Abre la petición de integración **por intención**, en la forja que sea: `pr crear --titulo "<tipo>: …" [--cuerpo "…"] [--revisor <login>] [--sin-auto-merge]` (base `main` por defecto; activa el auto-merge). Ninguna skill necesita saber la forma de la API |
 | `codigo` | Salud del código en tres señales: **ciclos de dependencia** (un defecto real: ningún módulo del ciclo se entiende por separado), **atomicidad** (ficheros por encima del umbral) y **módulos que nadie importa** (posible código muerto) |
 | `atomico` | Solo la señal de atomicidad, si quieres el listado a secas. El umbral vive en `faro-schema.json` (`enums.atomicidad`), así que cada repo puede declarar el suyo |
 | `grafo` | Índice único de imports del repo, incremental, en `faro/.cache/grafo.json` (gitignorado). `grafo construir` lo genera; `grafo estado` dice si está al día. La sesión lo reconstruye en segundo plano salvo `faro/config.json > grafo.fondo: false` |
@@ -231,7 +229,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 
 | Pieza | Ruta en el repo | Qué es |
 |---|---|---|
-| Skills `/faro:*` (31) | `plugins/faro/skills/` | Flujos: `/faro:iniciar`, `/faro:pr`, `/faro:cambio`, `/faro:publicar`, `/faro:estado`, `/faro:tareas`… |
+| Skills `/faro:*` (31) | `plugins/faro/skills/` | Flujos: `/faro:iniciar`, `/faro:pr`, `/faro:cambio`, `/faro:estado`, `/faro:tareas`… |
 | Skills-directiva (3) | `skills/documentacion` · `skills/gestion-proyectos` · `skills/delegacion` | Las invoca el agente: qué es cada artefacto y dónde vive · gestión con enfoque Forward Deployed AI Engineer (etapas, requerimientos, riesgos PMBOK, tareas en GitHub) · cuándo delegar en subagentes para no gastar contexto |
 | Agentes (15) | `plugins/faro/agents/` | revisor-spec, auditor-faro, gestor-forja, gestor-requisitos, adoptador-faro, redactor-tecnico… |
 | Harness | `plugins/faro/hooks/` | Motor determinista por eventos, de SessionStart a Stop, vía `hooks.json` |
@@ -252,7 +250,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
    plugin se inhibe en los hooks (gobierna la copia) y guía la migración. Nada se rompe.
    **El ciclo git es RÍGIDO y aplica SIEMPRE** (también en modo plugin, desde 0.9.1): un repo con
    `faro/ESTADO.md`, `faro/config.json` o el plugin faro declarado en su settings tiene bloqueado el commit
-   directo en `main`/`master`/`develop` — el trabajo va en rama `<tipo>/<slug>` y llega por PR/merge.
+   directo en `main`/`master` — el trabajo va en rama `<tipo>/<N>-<slug>` y llega por PR.
    Desde 0.38.0 el bloqueo actúa **al editar**, no solo al commitear, y aplica **también al repo del
    propio motor**: lo único que el motor no hereda es el gobierno de instancia (faro/ESTADO.md/onboarding),
    no la protección de ramas. Solo los repos `template-*` quedan exentos, por diseño. Las ramas
@@ -286,14 +284,14 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 
 El plugin vive en `plugins/faro/` y el wizard en `cli/`. Todo cambio de
 comportamiento sube la versión en `plugins/faro/.claude-plugin/plugin.json` + entrada en
-`CHANGELOG.md` + tag `v<version>`. Tests: mientras trabajas, `npm run test:afectados` (solo los dominios que
-tocas, deducidos de `git diff`) o `npm run test:dominio -- <nombre>`; `npm test` es la suite completa, para CI y
-`/faro:publicar` (una vez al final, no en cada iteración). Node ≥ 18.
+`CHANGELOG.md` (el tag `v<version>` y el release los pone el CI al integrarse en `main`). Tests: mientras trabajas, `npm run test:afectados` (solo los dominios que
+tocas, deducidos de `git diff`) o `npm run test:dominio -- <nombre>`; `npm test` es la suite completa, para el CI
+(corre en cada PR, no en cada iteración). Node ≥ 18.
 
 Para no dejarse la mitad (el CHANGELOG llegó a quedarse 24 versiones atrás mientras el manifiesto
 avanzaba), usa **`/faro:changelog`**: decide el salto major/minor/patch por impacto, escribe la
 entrada y valida que versión, CHANGELOG y mensaje de commit digan lo mismo. Con `--check` solo
-diagnostica —útil antes de publicar—. Y antes de un release, `claude plugin validate ./plugins/faro`:
+diagnostica —útil antes de abrir el PR—. Y antes de un release, `claude plugin validate ./plugins/faro`:
 un `description` con `": "` sin comillas rompe el frontmatter entero y la skill carga sin metadata
 (el modelo deja de saber cuándo usarla).
 

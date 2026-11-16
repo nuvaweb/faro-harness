@@ -146,7 +146,7 @@ module.exports = function (g) {
       const tocados = [];
       try {
         for (const l of String(git('status', '--porcelain') || '').split(/\r?\n/)) { const f = l.slice(3).trim().replace(/^.* -> /, ''); if (f) tocados.push(f); }
-        for (const f of String(git('diff', '--name-only', 'develop...HEAD') || '').split(/\r?\n/)) if (f.trim()) tocados.push(f.trim());
+        for (const f of String(git('diff', '--name-only', `origin/${require('./flujo.js').config({ root: raiz }).rama_principal}...HEAD`) || '').split(/\r?\n/)) if (f.trim()) tocados.push(f.trim());
       } catch { /* sin git: se propone la lista */ }
       const av = af.avisoSinApp(raiz, tocados, { schema: esquema });
       if (av) console.log(av);

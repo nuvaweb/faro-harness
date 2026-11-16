@@ -44,6 +44,6 @@ Repite el dry-run: el plan se valida solo y no repregunta lo que ya está respon
 
 ## 4. Aplica
 
-Con la confirmación del usuario: el mismo comando con `--confirmo`. `init` deja los cambios en el índice de git; `importar` crea sus commits (si la firma falla, **no la saltes**: avisa al usuario). Después ejecuta `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" validate` y `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps`, regenera el CI con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" ci` si no existe, y abre el PR con `/faro:pr`. **Nunca sobre `develop` ni `main`.** Ante la duda, detente.
+Con la confirmación del usuario: el mismo comando con `--confirmo`. `init` deja los cambios en el índice de git; `importar` crea sus commits (si la firma falla, **no la saltes**: avisa al usuario). Después ejecuta `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" validate` y `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" apps`, regenera el CI con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" ci` si no existe, y abre el PR con `/faro:pr`. **Nunca sobre `main`.** Ante la duda, detente.
 
 Instrucciones adicionales del usuario: $ARGUMENTS.

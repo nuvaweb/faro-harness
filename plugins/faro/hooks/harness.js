@@ -266,6 +266,11 @@ const isNoWrite = (b) => NO_WRITE_BRANCHES.includes(b);
 // (feat/fix/bug/hotfix/chore/docs/refactor/perf/test/spike). Todas son "en flujo" y mergean a develop.
 const BRANCH_TYPES = ['feat', 'fix', 'bug', 'bugfix', 'hotfix', 'chore', 'docs', 'refactor', 'perf', 'test', 'spike', 'feature'];
 const WORK_BRANCH_RE = new RegExp('^(' + BRANCH_TYPES.join('|') + ')/');
+// POLITICA DEL FLUJO (FARO 3.0, lib/flujo.js): rama principal, auto-merge, metodo de merge y tipos
+// Conventional en UN sitio, configurable por faro/config.json > flujo y por entorno (FARO_*).
+const FLUJO = require('./lib/flujo.js');
+const CFG_FLUJO = FLUJO.config({ root: ROOT });
+const RAMA_PRINCIPAL = CFG_FLUJO.rama_principal;
 // slug corto y seguro para nombres de rama/carpeta a partir de texto libre.
 function slugify(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -878,7 +883,7 @@ function ghResumenLines() {
   if (!partes.length) return ['Tareas (Issues en GitHub): no tienes nada pendiente asignado en esta repo. 👍', ...out];
   return [
     `TUS PENDIENTES en GitHub (${c.login}) — el harness lo sabe y te ayuda proactivamente: ${partes.join(' · ')}.`,
-    `  Detalle: node .claude/hooks/harness.js mis-tareas (tus Tareas/Issues) · /faro:pr (pedir integrar) · /faro:publicar (develop -> main, si tienes permiso). Una "Tarea" es un "Issue" de GitHub.`,
+    `  Detalle: node .claude/hooks/harness.js mis-tareas (tus Tareas/Issues) · /faro:pr (PR a main con auto-merge; el CI publica al integrarse). Una "Tarea" es un "Issue" de GitHub.`,
     ...out,
   ];
 }
@@ -956,7 +961,7 @@ function responsabilidadLines() {
 function engineDirective() {
   return [
     `MODO MOTOR: este repo es la FUENTE del plugin faro (marketplace + plugins/faro). NO crear ${ESTADO_FILE} ni pedir onboarding: el gobierno de instancia aplica a los repos de TRABAJO, no al motor.`,
-    'Flujo de desarrollo (FUNDAMENTAL, tambien en el motor — igual que en los repos de trabajo): ISSUE primero (un fallo detectado se declara como bug: harness.js asignar-tarea ... --tipo bug) -> rama de cambio anclada, <tipo>/<N>-<slug> (harness.js rama <tipo> "<desc>" --issue <N>) -> TDD con `npm run test:afectados` como red de seguridad (solo los dominios que tocas; la suite completa `npm test` NO la lances: la corren CI y /faro:publicar, salvo que el usuario la pida expresamente) -> bump de version en plugins/faro/.claude-plugin/plugin.json + entrada en CHANGELOG.md (sin bump, las caches de los usuarios NO se actualizan) -> PR a develop (harness.js gh repos/<org>/<repo>/pulls POST, base develop) -> /faro:consolidar integra a develop -> /faro:publicar (develop -> main, solo quien puede aprobar) valida el ciclo completo, tagea y publica. NUNCA commit directo a main NI a develop (el harness lo bloquea).',
+    'Flujo de desarrollo (FUNDAMENTAL, tambien en el motor — igual que en los repos de trabajo): ISSUE primero (un fallo detectado se declara como bug: harness.js asignar-tarea ... --tipo bug) -> rama de cambio anclada, <tipo>/<N>-<slug> (harness.js rama <tipo> "<desc>" --issue <N>) -> TDD con `npm run test:afectados` como red de seguridad (solo los dominios que tocas; la suite completa `npm test` NO la lances: la corre el CI en el PR, salvo que el usuario la pida expresamente) -> bump de version en plugins/faro/.claude-plugin/plugin.json + entrada en CHANGELOG.md (sin bump, las caches de los usuarios NO se actualizan) -> PR a ' + RAMA_PRINCIPAL + ' con auto-merge (harness.js pr crear --titulo "<tipo>(<alcance>): <desc>"; titulo Conventional: feat=minor, fix/perf/refactor=patch, "!" o BREAKING CHANGE=major, docs/chore/test no publican) -> el CI corre la suite completa y, al integrarse, publica tag + release (scripts/release-ci.js). Sin develop, sin consolidar, sin publicar a mano. NUNCA commit directo a ' + RAMA_PRINCIPAL + ' (el harness lo bloquea).',
     'Coherencia a mantener al tocar el motor: harness.js ↔ hooks.json ↔ faro-schema.json ↔ skills/agentes que citan sus comandos.',
   ];
 }
@@ -1063,7 +1068,7 @@ function onboardingDirective() {
     // FINAL EXPLICITO. Sin esto el agente encadena de largo: escribe el faseo y sigue hasta abrir un
     // cambio con 'fase: N' cuando esa fase aun no existe como hito en la forja ('hito sync' no ha
     // corrido). El cambio nace anclado a algo que no esta, y nadie lo nota.
-    `AQUI TERMINA EL ONBOARDING: ${ESTADO_FILE} + ${SP}/risks.md + el andamiaje, todo en la rama de arranque, y PR a develop. ` +
+    `AQUI TERMINA EL ONBOARDING: ${ESTADO_FILE} + ${SP}/risks.md + el andamiaje, todo en la rama de arranque, y PR a ${RAMA_PRINCIPAL}. ` +
     'NO crees cambios, specs, tasks.md ni issues todavia: las fases NO existen como hitos hasta que el arranque se integre y corras `hito sync`. ' +
     "Despues de eso: `hito sync` -> `asignar-tarea ... --hito <N>` (y cambia el estado de la fase de 'draft' a 'pending' en el mismo commit) -> `rama <tipo> \"<tema>\" --issue <N>`, y el primer cambio nace AHI.",
   );
@@ -1201,7 +1206,7 @@ function publishReminderLines() {
   return [
     `Publicacion: en '${g.branch}' (todo mergeado = APROBADO) hay ${pend.length} documento(s) con status != 'approved': ` +
     `${pend.slice(0, 6).map((d) => d.id + ' (' + d.status + ')').join(', ')}${pend.length > 6 ? ' …' : ''}. ` +
-    'Al publicarse a main (/faro:publicar) queda aprobado: actualiza su frontmatter a "approved" (+ version y Control de versiones si cambio el contenido).',
+    'Al integrarse en main (PR con auto-merge) queda aprobado: actualiza su frontmatter a "approved" (+ version y Control de versiones si cambio el contenido).',
   ];
 }
 // ---------- plugin: settings del repo (distribucion por clon) ----------
@@ -1254,7 +1259,7 @@ function reanclaLines() {
     out.push(
       `Rama '${g.branch}'${g.user ? ` · ${g.user}` : ''}: ${sinEscritura
         ? 'NO se escribe aqui (ni tu, ni owner/admin). Antes de CREAR o EDITAR nada, abre rama de trabajo: node .claude/hooks/harness.js rama <tipo> "<tema>".'
-        : 'rama de trabajo: OK para editar y commitear; al terminar, /faro:pr hacia develop.'}`,
+        : `rama de trabajo: OK para editar y commitear; al terminar, /faro:pr (PR a ${RAMA_PRINCIPAL} con auto-merge).`}`,
     );
   }
   const ini = parseEstado();
@@ -1348,7 +1353,7 @@ function seccionesPrompt() {
     radar.push(
       `⚠ RAMA ${donde}: NO se escribe/genera aqui (ni tu, ni owner/admin/maintainer). Si esta peticion va a CREAR o EDITAR algo ` +
       `(presentacion, informe, one-pager, documento, spec, codigo...), ANTES de generar nada abre una rama de trabajo: ` +
-      `node .claude/hooks/harness.js rama <tipo> "<tema>" (tipos: ${BRANCH_TYPES.filter((t) => t !== 'feature').join('/')}), genera ahi y entra por PR a develop (/faro:pr). ` +
+      `node .claude/hooks/harness.js rama <tipo> "<tema>" (tipos: ${BRANCH_TYPES.filter((t) => t !== 'feature').join('/')}), genera ahi y entra por PR a ${RAMA_PRINCIPAL} (/faro:pr). ` +
       `Si es solo consulta/lectura, continua sin cambiar de rama.`,
     );
   }
@@ -1947,19 +1952,17 @@ function cmdPreDoc() {
         deny(
           `'develop' es la INTEGRACION: NADIE la edita a mano (tampoco owner/admin/maintainer). NO se lo traslades al usuario como bloqueo: ` +
           `CREA TU la rama adecuada AHORA y continua -> ejecuta \`node .claude/hooks/harness.js rama ${tipoSugerido} "${slugSugerido}"\` ` +
-          `(crea ${tipoSugerido}/${slugSugerido} desde develop y cambia a ella) y DESPUES REPITE ESTA MISMA EDICION. ` +
-          `Cuando termines el trabajo, envialo a develop con /faro:pr. Es la mecanica normal, la ejecutas tu en este turno.`,
+          `(crea ${tipoSugerido}/${slugSugerido} desde ${RAMA_PRINCIPAL} y cambia a ella) y DESPUES REPITE ESTA MISMA EDICION. ` +
+          `Cuando termines el trabajo, envialo con /faro:pr (PR a ${RAMA_PRINCIPAL} con auto-merge). Es la mecanica normal, la ejecutas tu en este turno.`,
           'PreToolUse',
           `Estas en 'develop' (la zona comun de integracion, no se edita directamente): preparo un espacio de trabajo aparte para tus cambios y sigo. Al terminar te ayudo a enviarlos para revision.`,
         );
       } else {
-        // main/master: archivo de lo aprobado. Cambiar a develop y crear rama de trabajo.
-        const arr = flow && flow.develop
-          ? `git switch develop && node .claude/hooks/harness.js rama ${tipoSugerido} "${slugSugerido}"`
-          : `git switch -c develop && node .claude/hooks/harness.js rama ${tipoSugerido} "${slugSugerido}"`;
+        // main/master: archivo de lo aprobado. La rama de trabajo nace de origin/<principal> (harness.js rama).
+        const arr = `node .claude/hooks/harness.js rama ${tipoSugerido} "${slugSugerido}"`;
         deny(
           `'${g.branch}' es el archivo de lo APROBADO (solo lectura), aplica a TODOS tambien owner/admin. ` +
-          `CREA TU la rama de trabajo AHORA y continua -> ${arr}, luego REPITE ESTA EDICION. Al terminar, /faro:pr para enviarlo a develop.`,
+          `CREA TU la rama de trabajo AHORA y continua -> ${arr}, luego REPITE ESTA EDICION. Al terminar, /faro:pr (PR a ${RAMA_PRINCIPAL} con auto-merge).`,
           'PreToolUse',
           `Estas en '${g.branch}' (la version ya aprobada y publicada, no se edita directamente): preparo un espacio de trabajo aparte y sigo. Al terminar te ayudo a enviarlo para revision.`,
         );
@@ -1970,7 +1973,7 @@ function cmdPreDoc() {
     if (g && !NO_INSTANCIA && !isNoWrite(g.branch) && !WORK_BRANCH_RE.test(g.branch)) {
       avisar(
         `Estas en la rama '${g.branch}', que NO sigue la convencion <tipo>/<slug> (tipos: ${BRANCH_TYPES.filter((t) => t !== 'feature').join('/')}). ` +
-        `Renombrala conservando el trabajo: git branch -m <tipo>/<slug>. Al terminar el trabajo, envialo a develop con /faro:pr.`,
+        `Renombrala conservando el trabajo: git branch -m <tipo>/<slug>. Al terminar el trabajo, envialo con /faro:pr (PR a ${RAMA_PRINCIPAL}).`,
         'PreToolUse',
       );
       // no return: es aviso, la escritura continua (estas en una rama de trabajo, aunque mal nombrada).
@@ -2161,7 +2164,7 @@ function preBashPlataformaIssue(cmd) {
     motivo:
       `BLOQUEADO: ${usaGh ? 'el binario `gh`' : '`curl` contra api.github.com'} NO es la via. Puede no estar instalado y, si lo esta, usa una credencial DISTINTA a la del harness — el resultado depende de como tenga su maquina cada persona. ` +
       `Usa SIEMPRE \`${H} gh <ruta> [METODO] [json]\`, que YA lleva el token del harness (~/.faro.json). Ejemplos: ` +
-      `ver PRs -> \`${H} pr\` · abrir PR -> \`${H} gh repos/${f.owner || '<org>'}/${f.project || '<repo>'}/pulls POST '{"title":"..","head":"<rama>","base":"develop","body":".."}'\` · tu rol -> \`${H} role\`. ` +
+      `ver PRs -> \`${H} pr\` · abrir PR -> \`${H} pr crear --titulo "<tipo>: <desc>"\` (PR a ${RAMA_PRINCIPAL} con auto-merge) · tu rol -> \`${H} role\`. ` +
       `Si responde SIN_TOKEN, la UNICA accion correcta es \`${H} auth\` (device-flow, codigo de 6 digitos) y reintentar. NUNCA pidas instalar \`gh\` ni un token a mano.`,
     alerta: '⛔ Usa `harness.js gh` (lleva el token), no el CLI de GitHub',
   };
@@ -2345,7 +2348,7 @@ function cmdPreBash() {
     if (branch === 'develop' && gitCommitAny && !gitMergeAny) {
       deny(
         `BLOQUEADO: 'git commit' directo en 'develop'${root !== ROOT ? ` (repo: ${path.basename(root)})` : ''} — develop es la INTEGRACION y NO se edita a mano (ni tu, ni owner/admin/maintainer). ` +
-        `El trabajo va en una rama <tipo>/<slug> (node .claude/hooks/harness.js rama <tipo> "<tema>") y entra por PR/merge (via /faro:consolidar). Cambiate a una rama de cambio y commitea alli.`,
+        `El trabajo va en una rama <tipo>/<slug> (node .claude/hooks/harness.js rama <tipo> "<tema>") y entra por PR a ${RAMA_PRINCIPAL} (/faro:pr). Cambiate a una rama de cambio y commitea alli.`,
         'PreToolUse',
         '⛔ git commit bloqueado en develop — trabaja en <tipo>/<slug> y consolida por PR',
       );
@@ -2355,9 +2358,9 @@ function cmdPreBash() {
     // Repo objetivo DISTINTO al de la sesion en rama principal: mismo veto/confirmacion (generico, sin rol).
     if (root !== ROOT) {
       if (gitCommitAny && !gitMergeAny) {
-        deny(`BLOQUEADO: 'git commit' directo en '${branch}' del repo ${path.basename(root)} (rama principal de solo-integracion). Cambia alli a develop/feature y commitea; a la principal se llega SOLO por merge.`, 'PreToolUse', `⛔ git commit bloqueado en '${branch}' (${path.basename(root)})`);
+        deny(`BLOQUEADO: 'git commit' directo en '${branch}' del repo ${path.basename(root)} (rama principal de solo-integracion). Crea alli una rama <tipo>/<slug> y commitea; a la principal se llega SOLO por PR.`, 'PreToolUse', `⛔ git commit bloqueado en '${branch}' (${path.basename(root)})`);
       } else if (gitMergeAny || /(^|[\s;&|(])git\b[\s\S]*?\bpush\b/.test(cmd)) {
-        ask(`Merge/push sobre '${branch}' del repo ${path.basename(root)} (rama principal): a main se llega con /faro:publicar. Confirma solo si eres tu y sabes lo que publicas.`, 'PreToolUse', `⚠ Publicacion sobre '${branch}' (${path.basename(root)})`);
+        ask(`Merge/push sobre '${branch}' del repo ${path.basename(root)} (rama principal): a main se llega por PR con auto-merge (/faro:pr). Confirma solo si eres tu y sabes lo que publicas.`, 'PreToolUse', `⚠ Publicacion sobre '${branch}' (${path.basename(root)})`);
       }
       return;
     }
@@ -2369,10 +2372,10 @@ function cmdPreBash() {
     if (gitCommit && !gitMerge) {
       deny(
         `BLOQUEADO: 'git commit' directo en '${g.branch}' (rama principal de solo-integracion). ` +
-        `main/master NUNCA se commitean directo: cambia a develop o feature (git switch develop) y commitea alli; ` +
-        `a la principal se llega SOLO publicando (/faro:publicar).`,
+        `main/master NUNCA se commitean directo: crea una rama de trabajo (node .claude/hooks/harness.js rama <tipo> "<tema>") y commitea alli; ` +
+        `a la principal se llega SOLO por PR con auto-merge (/faro:pr); el CI publica al integrarse.`,
         'PreToolUse',
-        `⛔ git commit bloqueado en '${g.branch}' — commitea en develop/feature`,
+        `⛔ git commit bloqueado en '${g.branch}' — commitea en una rama <tipo>/<slug>`,
       );
       return;
     }
@@ -2386,15 +2389,15 @@ function cmdPreBash() {
       if (rol === 'developer') {
         deny(
           `BLOQUEADO: rol DEVELOPER de '${g.user || '(sin user.name)'}' segun ${rr.via}${maints.length ? ` (maintainers: ${maints.join(', ')})` : ''}. ` +
-          `Un developer trabaja en feature/develop; publicar a '${g.branch}' (/faro:publicar) lo hace un MAINTAINER (GitLab lo refuerza en servidor).`,
+          `Un developer trabaja en <tipo>/<slug> y entra por PR; integrar a mano en '${g.branch}' lo hace un MAINTAINER (GitLab lo refuerza en servidor).`,
           'PreToolUse', `⛔ ${gitMerge ? 'Merge' : 'Push'} a '${g.branch}': rol developer`,
         );
         return;
       }
       ask(
         rol === 'maintainer'
-          ? `Rol MAINTAINER (${g.user}). ${gitMerge ? 'Merge' : 'Push'} sobre '${g.branch}': la via es /faro:publicar (valida el ciclo, version y tag). Si aun asi lo haces a mano, revisa antes /faro:pendientes (QUE entra y de quien). Confirma para aplicarlo.`
-          : `${gitMerge ? 'Merge' : 'Push'} sobre '${g.branch}' (rama principal): a main se llega con /faro:publicar. Confirma solo si eres tu (declara 'maintainers:' en el frontmatter de ${ESTADO_FILE} para control por rol).`,
+          ? `Rol MAINTAINER (${g.user}). ${gitMerge ? 'Merge' : 'Push'} sobre '${g.branch}': la via es un PR con auto-merge (/faro:pr): el CI valida y publica tag y release. Si aun asi lo haces a mano, revisa antes /faro:pendientes (QUE entra y de quien). Confirma para aplicarlo.`
+          : `${gitMerge ? 'Merge' : 'Push'} sobre '${g.branch}' (rama principal): a main se llega por PR con auto-merge (/faro:pr). Confirma solo si eres tu (declara 'maintainers:' en el frontmatter de ${ESTADO_FILE} para control por rol).`,
         'PreToolUse',
         `⚠ ${gitMerge ? 'Merge' : 'Push'} de publicacion sobre '${g.branch}'`,
       );
@@ -2550,7 +2553,7 @@ function cmdStopCheck() {
     }
     process.stdout.write(JSON.stringify({
       suppressOutput: true,
-      systemMessage: `\u26a0 ${dirtyDocs.length} documento(s) sin commitear: ${shown} — convencion: commit por cambio documental (rama feature -> develop -> main)${avisoProc ? ' · ' + avisoProc : ''}`,
+      systemMessage: `\u26a0 ${dirtyDocs.length} documento(s) sin commitear: ${shown} — convencion: commit por cambio documental (rama <tipo>/<slug> -> PR a main)${avisoProc ? ' · ' + avisoProc : ''}`,
     }) + "\n");
   });
 }
@@ -2687,7 +2690,7 @@ function cmdValidate() {
     // --todas o --app <id>. consolidar y publicar piden --todas; `harness.js gates` los corre sueltos.
     const _og = opcionesGates();
     const _pidenGates = _og.gates || _og.todas || _og.apps.length > 0;
-    if (!_pidenGates) notaGates = 'Gates: no ejecutados (validate no los corre por defecto). Pídelos con `validate --gates` (apps afectadas), `--todas` o `--app <id>`; consolidar y publicar corren la batería completa.\n';
+    if (!_pidenGates) notaGates = 'Gates: no ejecutados (validate no los corre por defecto). Pídelos con `validate --gates` (apps afectadas), `--todas` o `--app <id>`; el CI corre la batería completa en cada PR.\n';
     const _gr = _pidenGates ? _cm.gateResults(_og) : [];
     if (_gr.alcance) notaGates = `Gates por app: ${_gr.alcance.resumen}\n`;
     for (const [name, r] of _gr) {
@@ -2720,9 +2723,8 @@ function cmdValidate() {
   // Git-flow: avisos NO bloqueantes (un template recien copiado aun no tiene develop; no debe romper CI).
   const flowWarns = [...avisosDeps];
   const flow = NO_INSTANCIA ? null : gitFlow(); // en modo template el ciclo develop/feature no aplica
-  if (flow && !flow.develop) flowWarns.push("no existe la rama 'develop' (integracion) — crea el ciclo: git switch -c develop && git push -u origin develop.");
-  if (flow && flow.onProtected) flowWarns.push(`estas en '${flow.branch}' (rama principal de solo-integracion): trabaja en develop o feature/<tema>; a la principal se llega por merge.`);
-  if (flow && flow.unmerged && flow.unmerged.length) flowWarns.push(`features sin integrar en develop: ${flow.unmerged.join(', ')}.`);
+  if (flow && flow.onProtected) flowWarns.push(`estas en '${flow.branch}' (rama principal de solo-integracion): trabaja en una rama <tipo>/<slug>; a la principal se llega por PR con auto-merge.`);
+  if (flow && flow.unmerged && flow.unmerged.length) flowWarns.push(`ramas sin integrar en ${flow.mainName || RAMA_PRINCIPAL}: ${flow.unmerged.join(', ')}.`);
   // NO se avisa de "develop lleva N commit(s) sin pasar a main": publicar es BAJO DEMANDA (main es el
   // RELEASE y puede agrupar varios ciclos), asi que no haber publicado NO es una deuda — es el estado
   // normal. El aviso venia del modelo viejo, cuando aprobar iba pegado a cada ciclo, y su lenguaje de
@@ -2962,25 +2964,25 @@ function cmdPendientes() {
   const flow = gitFlow();
   if (!flow) { process.stdout.write('Sin repo git.\n'); return; }
   const lines = ['PANEL DE PROMOCION (para quien tiene permisos de merge):'];
-  if (!flow.develop) lines.push("- No existe 'develop' todavia (crea el ciclo primero).");
-  else if (!flow.unmerged.length) lines.push('- Features pendientes de integrar en develop: ninguna.');
+  if (!flow.develop) lines.push("- No existe la rama principal todavia.");
+  else if (!flow.unmerged.length) lines.push(`- Ramas pendientes de integrar en ${flow.mainName}: ninguna.`);
   else {
-    lines.push('Features SIN integrar en develop:');
+    lines.push(`Ramas SIN integrar en ${flow.mainName} (cada una entra por su PR con auto-merge):`);
     for (const f of flow.unmerged) {
       const who = git('log', '-1', '--format=%an', f) || '?';
-      const n = git('rev-list', '--count', `develop..${f}`) || '?';
-      const subs = (git('log', '--format=%s', '-3', `develop..${f}`) || '').split('\n').filter(Boolean).join(' · ');
+      const n = git('rev-list', '--count', `${flow.integracion}..${f}`) || '?';
+      const subs = (git('log', '--format=%s', '-3', `${flow.integracion}..${f}`) || '').split('\n').filter(Boolean).join(' · ');
       lines.push(`- ${f} · responsable: ${who} · ${n} commit(s)${subs ? ` · ${subs}` : ''}`);
     }
   }
   if (flow.mainName && flow.aheadOfMain > 0) {
-    lines.push('', `Develop pendiente de PUBLICAR a ${flow.mainName} (${flow.aheadOfMain} commit(s)) — por autor:`);
+    lines.push('', `develop (heredada) lleva ${flow.aheadOfMain} commit(s) que no estan en ${flow.mainName} — por autor:`);
     const raw = git('log', '--format=%an|%s', `${flow.mainName}..develop`) || '';
     const byAuthor = new Map();
     raw.split('\n').filter(Boolean).forEach((l) => { const p = l.indexOf('|'); const an = l.slice(0, p); if (!byAuthor.has(an)) byAuthor.set(an, []); byAuthor.get(an).push(l.slice(p + 1)); });
     for (const [an, subs] of byAuthor) lines.push(`- ${an} (${subs.length}): ${subs.slice(0, 4).join(' · ')}${subs.length > 4 ? ` (+${subs.length - 4} mas)` : ''}`);
-    lines.push(`Publicar (quien tenga permiso): /faro:publicar — valida el ciclo, propone version, tagea y publica.`);
-  } else if (flow.mainName) lines.push('', `Develop -> ${flow.mainName}: al dia (nada pendiente de publicar).`);
+    lines.push(`develop es del flujo anterior a FARO 3.0: integra lo que quede con un PR develop -> ${flow.mainName} y retirala.`);
+  }
   process.stdout.write(lines.join('\n') + '\n');
 }
 
@@ -3512,7 +3514,7 @@ function ymlValor(v) {
 }
 // MONOREPO (#130): en una peticion, solo las apps cambiadas (+ dependientes) con el filtro de pnpm;
 // en push a develop/main la variable queda vacia y corren todas.
-const NOTA_FILTRO_CI = '# Monorepo: en cada peticion corren solo las apps cambiadas y sus dependientes (pnpm --filter "...[origin/<destino>]"); en push a develop/main, todas.';
+const NOTA_FILTRO_CI = '# Monorepo: en cada peticion corren solo las apps cambiadas y sus dependientes (pnpm --filter "...[origin/<destino>]"); en push a main, todas.';
 function gitlabCiYaml(plan, gates) {
   const img = plan.runtime.gitlabImage || 'TODO: pon aqui la imagen de tu stack (ej. python:3.12-slim, golang:1.23) — el harness no la pudo inferir';
   const filtro = plan.filtroCambios
@@ -3552,7 +3554,6 @@ function gitlabCiYaml(plan, gates) {
     '  rules:',
     '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"',
     '    - if: $CI_COMMIT_BRANCH == "main"',
-    '    - if: $CI_COMMIT_BRANCH == "develop"',
     '',
   ].join('\n');
 }
@@ -3587,7 +3588,7 @@ function githubCiYaml(plan, gates) {
     'on:',
     '  pull_request:',
     '  push:',
-    '    branches: [main, develop]',
+    '    branches: [main]',
     'jobs:',
     '  gates:',
     '    runs-on: ubuntu-latest',
@@ -3674,10 +3675,16 @@ async function cmdPrCrear(m) {
   const a = process.argv.slice(4);
   const val = (k) => { const i = a.indexOf(k); return i >= 0 ? (a[i + 1] || '') : null; };
   const revisores = []; for (let i = 0; i < a.length; i++) if (a[i] === '--revisor' && a[i + 1]) revisores.push(a[i + 1]);
-  const base = val('--base') || 'develop';
-  const titulo = val('--titulo'); const cuerpo = val('--cuerpo') || '';
+  const base = val('--base') || RAMA_PRINCIPAL;
+  const tituloPedido = val('--titulo'); const cuerpo = val('--cuerpo') || '';
   const head = git('rev-parse', '--abbrev-ref', 'HEAD');
-  if (!titulo) { console.log('Uso: node .claude/hooks/harness.js pr crear --base <rama-destino> --titulo "<titulo>" [--cuerpo "<texto>"] [--revisor <login>]...'); process.exit(1); }
+  const autoMerge = CFG_FLUJO.auto_merge && !a.includes('--sin-auto-merge');
+  if (!tituloPedido) { console.log(`Uso: node .claude/hooks/harness.js pr crear --titulo "<tipo>: <que hace>" [--base <rama>, por defecto ${RAMA_PRINCIPAL}] [--cuerpo "<texto>"] [--revisor <login>]... [--sin-auto-merge]`); process.exit(1); }
+  // UNA nomenclatura (FARO 3.0): el titulo del PR es el commit que entra en main (squash) y decide la
+  // version que publica el CI. Si no viene en Conventional, se normaliza desde el tipo de la rama.
+  const titulo = FLUJO.tituloConventional(head, tituloPedido);
+  if (titulo !== tituloPedido) console.log(`ⓘ Titulo en Conventional: "${titulo}" (era "${tituloPedido}"). Es el commit que entra en ${RAMA_PRINCIPAL} y decide la version.`);
+  if (base === 'develop') console.log(`⚠ FARO 3.0 ya no usa develop: lo normal es --base ${RAMA_PRINCIPAL}. Sigo con develop porque lo has pedido.`);
   if (!head || isNoWrite(head)) { console.log(`No se abre una peticion desde '${head}': crea antes una rama de trabajo (harness.js rama <tipo> "<tema>").`); process.exit(1); }
   // SIN ISSUE NO HAY PETICION (#71), salvo que el cambio sea solo de gestion (ESTADO.md, CHANGELOG,
   // informes): decide lo que CAMBIA, no el prefijo de la rama. La referencia valida es la MISMA que
@@ -3719,6 +3726,13 @@ async function cmdPrCrear(m) {
   if (r.sinToken) { console.log(`SIN_TOKEN: conectate -> node .claude/hooks/harness.js auth`); process.exit(2); }
   if (!r.ok) { console.log(`No pude abrir la peticion${r.status ? ` (HTTP ${r.status})` : ''}${r.msg ? `: ${r.msg}` : ''}.`); process.exit(1); }
   console.log(`✅ Peticion abierta: ${head} -> ${base}  ·  ${r.url}${revisores.length ? `  ·  revisor(es): ${revisores.join(', ')}` : ''}`);
+  // AUTO-MERGE: la peticion entra sola en cuanto el CI (y la revision, si la rama la exige) pasa.
+  // No rompe si la forja o el repo no lo permiten: se dice como activarlo y la peticion sigue abierta.
+  if (autoMerge && base === RAMA_PRINCIPAL && typeof m.activarAutoMerge === 'function') {
+    const am = await m.activarAutoMerge({ numero: r.numero || r.iid, nodeId: r.nodeId, metodo: CFG_FLUJO.metodo_merge, titulo });
+    if (am.ok) console.log(`  Auto-merge (${CFG_FLUJO.metodo_merge}) activado: entra en ${base} cuando el CI pase, y el CI publica la version.`);
+    else console.log(`  ⚠ No pude activar el auto-merge${am.msg ? `: ${am.msg}` : ''}. Activalo en la forja (GitHub: Settings > Allow auto-merge) o integra a mano cuando el CI pase.`);
+  }
   if (soloRef) console.log(`  ⓘ La peticion dice 'Refs #${nIssue}': al fusionarse la tarea #${nIssue} sigue ABIERTA (se avanza, no se termina). Cuando un PR la deje hecha, que diga "Closes #${nIssue}".`);
   else if (nIssue && cuerpoFinal !== cuerpo) console.log(`  Cierra la tarea #${nIssue} al fusionarse ("Closes #${nIssue}", anadido por el harness).`);
   else if (!nIssue) console.log(`  ⚠ La rama '${head}' no esta anclada a ninguna tarea: al fusionarse NO cerrara nada. Si corresponde a una, cierrala tu (harness.js cerrar-tarea <N>).`);
@@ -3749,7 +3763,7 @@ async function cmdTerminar() {
   for (const p of plan.pasos) {
     if (p.tipo === 'commit') console.log(`  1. Commitear ${p.ficheros.length} fichero(s) sin guardar.`);
     if (p.tipo === 'validate') console.log('  2. Validar el ciclo (si falla, no se abre nada).');
-    if (p.tipo === 'pr') console.log(`  3. Abrir la peticion hacia develop${p.issue ? ` — cerrara la tarea #${p.issue} al integrarse` : ''}.`);
+    if (p.tipo === 'pr') console.log(`  3. Abrir la peticion hacia ${RAMA_PRINCIPAL}${CFG_FLUJO.auto_merge ? ' con auto-merge' : ''}${p.issue ? ` — cerrara la tarea #${p.issue} al integrarse` : ''}.`);
   }
   for (const a of plan.avisos) console.log(`  ⚠ ${a}`);
   if (!confirmo) {
@@ -3760,7 +3774,7 @@ async function cmdTerminar() {
   for (const p of plan.pasos) {
     if (p.tipo === 'commit') {
       gitWrite('add', '-A');
-      gitWrite('commit', '-m', `feat: ${plan.pasos.find((x) => x.tipo === 'pr').titulo}`);
+      gitWrite('commit', '-m', FLUJO.tituloConventional(rama, plan.pasos.find((x) => x.tipo === 'pr').titulo));
       console.log(`✅ Commiteados ${p.ficheros.length} fichero(s).`);
     }
     if (p.tipo === 'validate') {
@@ -3768,12 +3782,16 @@ async function cmdTerminar() {
       if (v.status !== 0) { console.log('\nCANCELADO: la validacion falla. Arreglalo y reintenta; no he abierto ninguna peticion.'); return; }
     }
     if (p.tipo === 'pr') {
-      const titulo = p.titulo.charAt(0).toUpperCase() + p.titulo.slice(1);
-      const r = require('child_process').spawnSync(process.execPath, [__filename, 'pr', 'crear', '--base', 'develop', '--titulo', titulo], { windowsHide: true, cwd: ROOT, stdio: 'inherit' });
+      // FARO 3.0: sin consolidar ni publicar, el cierre de tareas se reconcilia AQUI, en la rama de trabajo:
+      // cierra lo ya integrado en la forja que se quedo abierto y marca sus [x] con commit propio, que entra
+      // en main con este mismo PR. Lo nuevo lo cierra la forja con el 'Closes #N' del PR al integrarse.
+      try { await reconciliarTareas(gh, { cerrar: true, marcar: true }); } catch { /* sin red: el PR sigue */ }
+      const titulo = FLUJO.tituloConventional(rama, p.titulo);
+      const r = require('child_process').spawnSync(process.execPath, [__filename, 'pr', 'crear', '--base', RAMA_PRINCIPAL, '--titulo', titulo], { windowsHide: true, cwd: ROOT, stdio: 'inherit' });
       if (r.status !== 0) { console.log('\nNo pude abrir la peticion (ver arriba). El trabajo esta commiteado y validado.'); return; }
     }
   }
-  console.log('\nCiclo cerrado. Queda integrarlo: /faro:consolidar (quien pueda) y despues /faro:publicar para publicarlo.');
+  console.log(`\nCiclo cerrado. ${CFG_FLUJO.auto_merge ? `La peticion entra sola en ${RAMA_PRINCIPAL} cuando el CI pase` : `Queda integrar la peticion en ${RAMA_PRINCIPAL} cuando el CI pase`}, y el CI publica la version.`);
 }
 
 // 'release' — el REGISTRO: que hay acumulado sin publicar, desde que punto, y que version tocaria.
@@ -3834,7 +3852,7 @@ function cmdReleaseAnalisis() {
     // En un monorepo la raiz solo se analiza si declara version propia (si no, no se le exige).
     if (releaseMod().versionActual()) console.log(r.hayQuePublicar ? `Raiz: acumulado desde ${r.desde}: ${r.ciclos} cambio(s); version sugerida ${r.sugerida} — ${r.razon}.\n` : `Raiz: nada que publicar. ${r.motivo}\n`);
     console.log(apps.join('\n'));
-    console.log(`\nPublicar a produccion (NO se automatiza, se invoca): node .claude/hooks/harness.js publicar --confirmo`);
+    console.log(`\nPublicar: sube la version en el PR; el CI etiqueta y publica al integrarse en ${RAMA_PRINCIPAL}.`);
     return;
   }
   if (!r.hayQuePublicar) { console.log(`Nada que publicar. ${r.motivo}`); return; }
@@ -3843,7 +3861,7 @@ function cmdReleaseAnalisis() {
   if ((r.commits || []).length > 12) console.log(`  · (+${r.commits.length - 12} mas)`);
   console.log(`\nVersion sugerida: ${r.sugerida} — ${r.razon}.`);
   if (r.acumulado) console.log(`\nNotas acumuladas en [Unreleased]:\n${r.acumulado.split('\n').slice(0, 10).map((l) => `  ${l}`).join('\n')}`);
-  console.log(`\nPublicar a produccion (NO se automatiza, se invoca): node .claude/hooks/harness.js publicar --confirmo`);
+  console.log(`\nPublicar: sube la version en el PR; el CI etiqueta y publica al integrarse en ${RAMA_PRINCIPAL}.`);
 }
 
 const cmd = process.argv[2];
@@ -3929,9 +3947,12 @@ function cmdRama() {
   if (git('rev-parse', '--verify', '--quiet', `refs/heads/${nombre}`) !== null) {
     git('switch', nombre); console.log(`Rama '${nombre}' ya existia -> cambiado a ella.`); return;
   }
-  const flow = gitFlow();
-  const base = flow && flow.develop ? 'develop' : g.branch;
-  git('switch', '-c', nombre, base);
+  // FARO 3.0: toda rama nace de lo ULTIMO de la principal en el remoto (sin develop). Se trae antes
+  // para no arrancar desde un main local viejo; sin remoto o sin red, se usa el main local.
+  if (git('remote', 'get-url', 'origin')) git('fetch', '--quiet', 'origin', RAMA_PRINCIPAL);
+  const base = git('rev-parse', '--verify', '--quiet', `refs/remotes/origin/${RAMA_PRINCIPAL}`) !== null ? `origin/${RAMA_PRINCIPAL}`
+    : (git('rev-parse', '--verify', '--quiet', `refs/heads/${RAMA_PRINCIPAL}`) !== null ? RAMA_PRINCIPAL : g.branch);
+  git('switch', '--no-track', '-c', nombre, base);
   const ahora = git('rev-parse', '--abbrev-ref', 'HEAD');
   if (ahora !== nombre) { console.log(`No pude crear '${nombre}' desde '${base}'. Hazlo a mano: git switch -c ${nombre} ${base}`); process.exit(1); }
   // PUBLICAR la rama al crearla (no dejarla solo local): -u para trackear origin y que el trabajo sea visible/seguible.
@@ -3977,56 +3998,11 @@ function cmdRama() {
   } else {
   }
   console.log(`  Al terminar NO integres a ciegas: VALIDA primero (node .claude/hooks/harness.js validate + revisor-code/auditor).`);
-  console.log(`  Luego integra CON confirmacion: PR a develop (recomendado, validado) o merge validado a develop (git switch develop && git merge --no-ff ${nombre}); a main solo se llega publicando (/faro:publicar, quien tenga permiso). Aplica a TODOS, tambien owner/admin.`);
+  console.log(`  Luego integra: PR a ${RAMA_PRINCIPAL} (harness.js pr crear --titulo "${FLUJO.tituloConventional(nombre, desc)}")${CFG_FLUJO.auto_merge ? ' con auto-merge: entra solo cuando el CI pasa' : ''}. Commits y titulo en Conventional (feat/fix/...; '!' o BREAKING CHANGE = version mayor): al integrarse, el CI publica la version.`);
   if (['feat', 'fix', 'bug', 'bugfix', 'refactor', 'perf'].includes(tipo) && fs.existsSync(path.join(ROOT, '.claude/hooks/code.js')))
     console.log('  Recuerda: tocar src/ EXIGE un cambio spec-driven APROBADO (/faro:cambio -> aprobar). Nada "a la ligera".');
 }
 
-// consolidar: para owner/admin/maintainer, AYUDA a consolidar develop -> main (= la aprobacion):
-// CONSOLIDAR (trabajo -> develop): integracion ACTIVA con criterio. Valida el ROL, analiza las ramas de
-// trabajo <tipo>/<slug> sin integrar (o los PRs abiertos a develop), valida el GATE (validate) y mergea a
-// develop las que pasan. NO toca main (eso es /faro:publicar). develop deja de ser zona de edicion a mano.
-// FALLO 4 reportado: 'consolidar --help' ejecutaba la validacion REAL (con su gate y sus efectos)
-// en vez de mostrar ayuda — pedir ayuda nunca debe disparar la operacion.
-const pidioAyuda = () => process.argv.slice(3).some((a) => a === '--help' || a === '-h' || a === 'help');
-
-function ayudaConsolidar() {
-  console.log([
-    'USO: harness.js consolidar [<PR|issue|rama>...] [--todas] [--todas-las-ramas]',
-    '',
-    'Consolida (integra) en develop SOLO lo pedido. Solo admin/owner/maintainer.',
-    '  consolidar 65            -> la rama del PR #65 (o del issue #65, o una rama por su nombre).',
-    '  consolidar               -> solo las ramas con PR abierto a develop; las demas, se avisan y no entran.',
-    '  --todas-las-ramas        -> todas las ramas de trabajo sin integrar (comportamiento anterior).',
-    '  --todas                  -> valida con la bateria completa en vez de solo lo que tocan las ramas.',
-    'Que hace, en orden:',
-    '  1. Valida tu ROL contra GitHub (si no puedes consolidar, para y te dice que lances /faro:pr).',
-    '  2. Gate: ejecuta `validate` solo de lo que tocan las ramas (en un monorepo, sus apps) — si falla, NO integra nada.',
-    '  3. Cambia a develop, commitea lo que hubiera suelto y mergea cada rama elegida (--no-ff).',
-    '  4. Sube develop y avisa si quedo trabajo local sin subir de pasadas anteriores.',
-    '',
-    'Un conflicto REAL se aborta solo y se te dice cual; si el proceso git no termina (repo enorme),',
-    'se PARA y te pide revisar a mano en vez de dejar el repositorio a medias.',
-    '',
-    'Relacionados: /faro:pr (pedir integracion) · /faro:publicar (develop -> main) · /faro:pendientes.',
-  ].join('\n'));
-}
-
-function ayudaPublicar() {
-  console.log([
-    'USO: harness.js publicar [--confirmo]',
-    '',
-    'Aprueba develop -> main (la publicacion de lo aprobado). Solo admin/owner/maintainer.',
-    'SIN --confirmo: solo MUESTRA que se aprobaria (commits incluidos) y NO toca nada.',
-    'CON --confirmo: valida rol + gate `validate`, archiva los cambios implementados, mergea',
-    'develop -> main, crea el tag vX.Y.Z de la version y sube todo.',
-    '',
-    'El --confirmo lo pasa la skill /faro:publicar SOLO despues de que TU confirmes: el rol decide',
-    'quien PUEDE aprobar, no sustituye tu confirmacion.',
-    '',
-    'Relacionados: /faro:consolidar (a develop) · /faro:pr · /faro:pendientes.',
-  ].join('\n'));
-}
 
 // CERRAR UNA FASE: la ceremonia que faltaba. Todo el ciclo estaba cableado punta a punta (rama ->
 // terminar -> consolidar -> publicar) menos esto, que eran cuatro pasos manuales — marcar checkbox,
@@ -4101,168 +4077,6 @@ async function cmdCerrarFase() {
   console.log(`\nLa fase queda cerrada. El trabajo que venga despues NO reabre esta fase: va a la fase actual (con '--origen-fase ${num}' si viene de aqui) o al Backlog.`);
 }
 
-async function cmdConsolidar() {
-  const flow = gitFlow();
-  if (!flow) { console.log('Sin repo git.'); return; }
-  if (!flow.develop) { console.log("No hay rama 'develop'. Crea el ciclo: git switch -c develop && git push -u origin develop."); return; }
-  // Rol: integrar a develop es operacion de admin/owner/maintainer (develop bloqueado a escritura directa).
-  const gh = forjaMod();
-  if (gh) {
-    const ri = await gh.roleInfo();
-    if (ri && ri.sinToken) { console.log('SIN_TOKEN: conectate -> node .claude/hooks/harness.js auth (codigo de 6 digitos).'); return; }
-    if (ri && !ri.puedeAprobar) { console.log(`NO puedes consolidar a 'develop' (rol '${ri.perm}'). Quien trabaja lanza /faro:pr; un owner/admin/maintainer consolida.`); return; }
-  }
-  const sinIntegrar = (flow.unmerged || []);
-  // Aunque no haya ramas que integrar, develop puede llevar trabajo SIN SUBIR de una pasada
-  // anterior (fallo 2 reportado): hay que decirlo, no callar.
-  if (!sinIntegrar.length) { console.log("Nada que consolidar: no hay ramas de trabajo <tipo>/<slug> sin integrar en develop."); avisarDevelopSinSubir(); return; }
-  // SOLO LO PEDIDO (#226): `consolidar <PR|issue|rama>...` integra eso; sin argumentos, solo las ramas con
-  // PR abierto a develop. `--todas-las-ramas` recupera el comportamiento anterior.
-  const argv = process.argv.slice(3);
-  const pedidas = argv.filter((a) => !a.startsWith('--'));
-  const todasLasRamas = argv.includes('--todas-las-ramas');
-  let prs = null;
-  if (!todasLasRamas && gh && gh.prsDeRama) {
-    prs = new Map();
-    for (const r of sinIntegrar) {
-      let l = null;
-      try { l = await gh.prsDeRama(r); } catch { l = null; }
-      if (l === null) { prs = null; break; }
-      prs.set(r, l);
-    }
-  }
-  const sel = require('./lib/consolidar.js').seleccionarRamas({ ramas: sinIntegrar, pedidas, prs, issueDeRama, todasLasRamas });
-  if (sel.noEncontradas.length) console.log(`⚠ No encuentro entre las ramas sin integrar: ${sel.noEncontradas.join(', ')}.`);
-  if (sel.sinConsultar) { console.log(`No pude consultar los PRs abiertos, y sin ellos no integro a ciegas. Nombra lo que quieres integrar: harness.js consolidar <PR|issue|rama>. Ramas sin integrar: ${sinIntegrar.join(', ')}`); return; }
-  if (sel.sinPr.length) console.log(`ⓘ Sin PR abierto a develop, NO se integran: ${sel.sinPr.join(', ')} (nómbralas para integrarlas).`);
-  let unmerged = sel.ramas;
-  if (!unmerged.length) { console.log('Nada que consolidar con lo pedido.'); return; }
-  // CI DE LA FORJA (#289): con faro/config.json > validacion = ci|ambos se lee el CI del PR/MR de cada rama.
-  // Rojo o en curso no entra; verde (modo ci) no repite la suite; sin CI o sin minutos, suite completa local.
-  const eci = require('./lib/estado-ci.js');
-  let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { meta = null; }
-  const modoV = eci.modoValidacion(meta);
-  const estadosCi = [];
-  for (const rama of unmerged) {
-    if (!eci.consultaCi(modoV) || !gh || !gh.estadoCi) { estadosCi.push({ rama, estado: null, fallidos: [] }); continue; }
-    let lista = prs && prs.get(rama);
-    if (!lista && gh.prsDeRama) { try { lista = await gh.prsDeRama(rama); } catch { lista = null; } }
-    const abierto = (lista || []).find((p) => p && (p.state === 'open' || p.state === 'opened'));
-    const e = abierto ? await gh.estadoCi(abierto.number) : null;
-    estadosCi.push({ rama, estado: e && e.ok ? e.estado : 'sin-ci', fallidos: (e && e.fallidos) || [] });
-  }
-  // GATE: validar el estado del ciclo ANTES de integrar. Si falla, NO se integra nada. Los gates, solo de
-  // lo que tocan las ramas que entran (#226): en un monorepo, sus apps; `consolidar --todas` pide la bateria completa.
-  const ap = require('./lib/apps.js');
-  const monorepo = ap.esMonorepo(ROOT);
-  const argsLocal = (ramas) => {
-    const tocados = [...new Set(ramas.flatMap((r) => (git('diff', '--name-only', `develop...${r}`) || '').split(/\r?\n/).filter(Boolean)))];
-    return require('./lib/consolidar.js').argsValidate({ monorepo, apps: monorepo ? ap.appsAfectadas(ROOT, tocados).apps.map((a) => a.id) : [], todas: argv.includes('--todas') });
-  };
-  const dCi = eci.decidirConsolidar({ modo: modoV, ramas: estadosCi, argsLocal });
-  for (const a of dCi.avisos) console.log(a);
-  if (!dCi.args) { console.log('Nada que consolidar ahora: el CI de lo pedido está en rojo o en curso.'); return; }
-  unmerged = dCi.integrar;
-  console.log(`Consolidar a 'develop' (${unmerged.length} rama[s]): ${unmerged.join(', ')}`);
-  const argsV = argv.includes('--todas') ? argsLocal(unmerged) : dCi.args;
-  console.log(`Validacion: harness.js ${argsV.join(' ')}`);
-  const v = require('child_process').spawnSync(process.execPath, [__filename, ...argsV], { windowsHide: true, cwd: ROOT, stdio: 'inherit' });
-  if (v.status !== 0) { console.log('\nCONSOLIDACION CANCELADA: la validacion falla. Arregla el ciclo (tasks/specs/estados) antes de integrar.'); return; }
-  const cur = git('rev-parse', '--abbrev-ref', 'HEAD') || 'develop';
-  git('switch', 'develop');
-  if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'develop') { console.log('No pude cambiar a develop (¿cambios sin commitear?). Resuelve y reintenta.'); return; }
-  // Salvaguarda 'nada suelto': si develop trae cambios sin commitear, los commiteamos ANTES de integrar
-  // (mismo cuidado que /faro:publicar) — asi develop queda limpio y coherente, sin estados a medias.
-  // Pero SOLO lo ya versionado ('add -u'): un fichero SIN VERSIONAR no entra solo (#117: con 'add -A'
-  // unos exports locales de n8n acabaron en develop y en main). Si hay alguno, se para y se dice.
-  const porcelain = git('status', '--porcelain') || '';
-  const sueltos = require('./lib/git.js').ficherosSinVersionar(porcelain);
-  if (sueltos.length) { console.log(require('./lib/git.js').avisoSinVersionar(sueltos, 'CONSOLIDACION')); return; }
-  const sucio = porcelain.trim();
-  if (sucio) {
-    git('add', '-u');
-    git('commit', '-m', 'chore: cambios pendientes en develop antes de consolidar');
-    console.log(`Commit previo en develop: ${sucio.split('\n').length} fichero(s) pendientes incluidos.`);
-  }
-  const done = [];
-  for (const rama of unmerged) {
-    limpiarIndexLockHuerfano(); // basura de un git muerto anterior bloquearia el merge con un error opaco
-    const r = gitWrite('merge', '--no-ff', rama, '-m', `merge ${rama} -> develop: consolidacion (integracion)`);
-    if (r.ok) { done.push(rama); console.log(`  ✅ ${rama} integrada en develop`); continue; }
-    // DISTINGUIR los dos casos (antes se confundian comparando HEAD, y todo era "conflicto"):
-    if (r.matado) {
-      // El proceso git NO termino por si mismo (timeout/kill): el repo puede estar A MEDIAS.
-      // NO se hace 'merge --abort' a ciegas — con el indice a medias suele fallar y enmascara el
-      // problema real. Se informa con precision para que se revise a mano.
-      console.log(`  ⛔ ${rama}: el proceso 'git merge' NO termino (posible cuelgue o repo muy grande). El repositorio puede haber quedado A MEDIAS.`);
-      console.log(`     Revisa a mano ANTES de reintentar:  git -C "${ROOT}" status  ·  si hay un merge a medias: git merge --abort  ·  si sobra .git/index.lock (sin git vivo): borralo.`);
-      break; // no se sigue con mas ramas sobre un estado incierto
-    }
-    // exit != 0 con proceso terminado = conflicto REAL (o merge rechazado): abortable con seguridad.
-    const ab = gitWrite('merge', '--abort');
-    console.log(`  ⚠ ${rama} NO integrada (conflicto real): resuelvela a mano.${ab.ok ? ' (merge abortado, develop intacto)' : ' (ATENCION: el abort tambien fallo — revisa git status)'}`);
-    if (r.salida) console.log(`     git dijo: ${r.salida.split('\n').slice(0, 3).join(' | ')}`);
-  }
-  if (cur !== 'develop' && cur) git('switch', cur);
-  if (done.length) {
-    console.log(`\n✅ Consolidadas ${done.length} rama[s] en develop. Subiendo develop...`);
-    // DEVELOP PROTEGIDA en la forja (#194): subirOIntegrar sube develop local (merges + commit previo) a
-    // una rama temporal, la integra por peticion con el token del harness, verifica y alinea develop.
-    const p = await require('./lib/subir.js').subirOIntegrar('develop', { ROOT, gh, titulo: `Consolidar en develop: ${done.join(', ')}` });
-    console.log(p.ok ? `✅ develop subido${p.via === 'token' ? ' (con el token del harness)' : p.via === 'api' ? ' (por peticion)' : ''}.` : `⚠ No pude subir develop: ${p.msg}`);
-    console.log('Estados actualizados por la validacion. Cuando develop este listo para publicar a main: /faro:publicar.');
-    // CIERRE ACTIVO de las tareas integradas. El 'Closes #N' solo cierra la de SU peticion: una rama
-    // integrada por merge directo, o varias consolidadas de golpe, dejan tareas vivas cuyo trabajo ya
-    // esta en develop. Aqui se cierran de verdad, no se confia en que la forja lo hiciera.
-    if (gh && gh.issueEstado && gh.cerrarIssue) {
-      const cl = require('./lib/ciclo.js');
-      const tareaLib = require('./lib/tarea.js');
-      for (const rama of done) {
-        const n = issueDeRama(rama);
-        let est = null;
-        if (n) { try { est = await gh.issueEstado(n); } catch { est = null; } }
-        // Si su PR dice 'Refs #N' (#91), la rama avanza la tarea sin terminarla: no se cierra. Sin PR
-        // (merge directo) o sin poder consultarlo, manda el numero de la rama, como siempre.
-        let soloRef = false;
-        if (n && est === 'open' && gh.prsDeRama) {
-          try { soloRef = ((await gh.prsDeRama(rama)) || []).some((p) => tareaLib.soloReferencia(p, n)); } catch { soloRef = false; }
-        }
-        // 'no pude consultar' NO es 'ya esta cerrada': antes las dos caian en el mismo 'continue'
-        // silencioso y la tarea se quedaba abierta para siempre sin que nadie se enterara.
-        const plan = cl.planCierreDeTarea({ issue: n, estado: est, rama, soloReferencia: soloRef });
-        if (plan.nota) console.log(`  ⓘ ${plan.nota}`);
-        if (plan.accion === 'avisar') { console.log(`  ⚠ ${plan.aviso}`); continue; }
-        if (plan.accion !== 'cerrar') continue;
-        const r = await gh.cerrarIssue(n, plan.motivo);
-        console.log(r ? `  ✅ Tarea #${n} cerrada (su trabajo ya esta en develop).` : `  ⚠ No pude cerrar la tarea #${n}: cierrala con 'harness.js cerrar-tarea ${n}'.`);
-      }
-    }
-    // DETECCION TEMPRANA de la ligadura cambio <-> tarea. El trabajo se cumple AQUI, en develop: al
-    // integrar, el 'Closes #N' cierra la tarea. Si un cambio 'implementada' la tiene todavia abierta,
-    // decirlo AHORA (barato de arreglar) y no en /faro:publicar, que ya es el ultimo cierre.
-    if (gh && gh.issueEstado) {
-      const cl = require('./lib/ciclo.js');
-      for (const s of listSpecs().filter((x) => x.fm.estado === 'implementada' && x.fm.issue)) {
-        let est = null;
-        try { est = await gh.issueEstado(String(s.fm.issue)); } catch { est = null; }
-        // Sin poder consultar no se puede afirmar que la ligadura este bien NI que este mal: se dice
-        // que no se comprobo, en vez de dejar creer que se comprobo y salio limpia.
-        if (est === null) { console.log(`\n⚠ no pude consultar la tarea #${s.fm.issue} del cambio '${s.name}' (¿sin red o token?): su ligadura NO queda comprobada.`); continue; }
-        const msg = cl.coherenciaCambioIssue({ slug: s.name, estado: s.fm.estado, issue: String(s.fm.issue), issueEstado: est, archivando: false });
-        if (msg) console.log(`\n⚠ ${msg}`);
-      }
-    }
-    // CIERRE DETERMINISTA (#71): ademas de las ramas de esta pasada, cualquier tarea cuyo PR ya este
-    // integrado (por la web, la API o una consolidacion anterior) se cierra aqui, y su [x] se marca.
-    await reconciliarTareas(gh, { cerrar: true, marcar: true });
-    await avisarDesajusteConLaForja(gh);
-  } else {
-    console.log('\nNada integrado (conflictos). Resuelvelos y reintenta.');
-  }
-  avisarDevelopSinSubir();
-  avisarListoParaPublicar();
-}
-
 // ESTADO.md dice una cosa y la forja dice otra: un checkbox marcado [x] cuyo issue sigue ABIERTO es
 // trabajo que se dio por hecho sin salir; un issue CERRADO sin marcar es trabajo hecho que el faseo
 // no refleja. Las dos direcciones enganan a quien lee el estado.
@@ -4291,25 +4105,12 @@ function avisosTareasDeCache() {
   const c = leerCacheTareas();
   if (!c) return [];
   const out = [];
-  if ((c.hechasSinCerrar || []).length) out.push(`${c.hechasSinCerrar.length} tarea(s) HECHAS sin cerrar (su PR ya esta integrado): ${c.hechasSinCerrar.map((n) => `#${n}`).join(', ')} — el proximo 'consolidar' o 'publicar' las cierra (las del Backlog, muevelas antes a su fase).`);
+  if ((c.hechasSinCerrar || []).length) out.push(`${c.hechasSinCerrar.length} tarea(s) HECHAS sin cerrar (su PR ya esta integrado): ${c.hechasSinCerrar.map((n) => `#${n}`).join(', ')} — cierralas con 'harness.js cerrar-tarea <N>' (las del Backlog, muevelas antes a su fase); en adelante, 'Closes #N' en el PR.`);
   if ((c.mencionadas || []).length) out.push(`${c.mencionadas.length} tarea(s) ABIERTAS que un PR integrado menciona sin cerrarlas: ${c.mencionadas.map((n) => `#${n}`).join(', ')} — si estan hechas, 'harness.js cerrar-tarea <N>'; en adelante, 'Closes #N' en el PR.`);
   // BANDEJA DE ENTRADA (#84): sin hito no es un fallo, es lo pendiente de triar (lo que llega de fuera).
   if ((c.bandeja || []).length) out.push(`${c.bandeja.length} en la BANDEJA DE ENTRADA sin triar (sin hito o 'reporte'): ${c.bandeja.slice(0, 8).map((n) => `#${n}`).join(', ')}${c.bandeja.length > 8 ? '…' : ''} — /faro:triaje (lista: harness.js triaje --bandeja).`);
   if ((c.sinEvidencia || []).length) out.push(`${c.sinEvidencia.length} tarea(s) cerradas SIN evidencia (ningun PR integrado las referencia): ${c.sinEvidencia.map((n) => `#${n}`).join(', ')} — confirma que se hicieron, o reabrelas.`);
   return out;
-}
-
-// 'Publicada en vX' en las tareas hechas cuyo commit de merge entra en este tag y no en el anterior.
-// 'texto' (opcional, #131): en un monorepo un mismo merge publica varios tags de app; la tarea se
-// anota UNA vez con todos ('api@1.3.0, web@0.4.0'), midiendo con el primero.
-async function comentarPublicadas(gh, rec, tag, texto = tag) {
-  if (!rec || !gh || !gh.comentarIssue) return;
-  const previo = git('describe', '--tags', '--abbrev=0', `${tag}^`);
-  const dentro = (sha) => sha && gitWrite('merge-base', '--is-ancestor', sha, tag).ok && !(previo && gitWrite('merge-base', '--is-ancestor', sha, previo).ok);
-  const nuevas = rec.evaluaciones.filter((e) => e.estado === 'hecha' && e.evidencia && dentro(e.evidencia.commit));
-  let n = 0;
-  for (const e of nuevas) if (await gh.comentarIssue(e.numero, `Publicada en ${texto} (PR #${e.evidencia.pr}).`)) n++;
-  if (n) console.log(`\n🏷  ${n} tarea(s) anotadas como publicadas en ${texto}: ${nuevas.map((e) => `#${e.numero}`).join(', ')}.`);
 }
 
 async function reconciliarTareas(gh, { cerrar = false, marcar = false, version = null, silencioso = false } = {}) {
@@ -4345,25 +4146,22 @@ async function reconciliarTareas(gh, { cerrar = false, marcar = false, version =
   return r;
 }
 
-// [x] en ESTADO.md de lo cerrado, con commit propio en develop. Se escribe en develop (donde vive la
-// integracion) y se vuelve a la rama en la que se estaba. Si no hay ESTADO.md (motor) o nada que
-// marcar, no hace nada.
+// [x] en ESTADO.md de lo cerrado, con commit propio EN LA RAMA DE TRABAJO actual (FARO 3.0: no hay
+// develop y main no se commitea): entra en main con el PR de esa rama. En una rama principal no escribe:
+// lo dice y sigue. Si no hay ESTADO.md (motor) o nada que marcar, no hace nada.
 function marcarTareasEnEstado(cerradas, log) {
   const ruta = path.join(ROOT, ESTADO_FILE);
   if (!cerradas.size || !fs.existsSync(ruta)) return;
   const cur = git('rev-parse', '--abbrev-ref', 'HEAD');
-  if (cur !== 'develop') { git('switch', 'develop'); if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'develop') { log(`  ⚠ No pude cambiar a develop para marcar ${ESTADO_FILE}: marca los [x] a mano.`); return; } }
-  try {
+  if (!cur || isNoWrite(cur)) { log(`  ⓘ Estas en '${cur}': los [x] de ${ESTADO_FILE} (${[...cerradas].map((n) => `#${n}`).join(', ')}) se marcan en tu proxima rama de trabajo.`); return; }
+  {
     const { texto, marcadas } = require('./lib/tarea.js').marcarEnEstado(fs.readFileSync(ruta, 'utf8'), cerradas);
     if (!marcadas.length) return;
     fs.writeFileSync(ruta, texto, 'utf8');
     gitWrite('add', ESTADO_FILE);
     const c = gitWrite('commit', '-m', `chore(estado): [x] de tareas cerradas en la forja (${marcadas.map((n) => `#${n}`).join(', ')})`);
-    if (c.ok) {
-      const p = require('./lib/subir.js')(['develop'], { ROOT });
-      log(`  ✅ ${ESTADO_FILE}: marcadas [x] ${marcadas.map((n) => `#${n}`).join(', ')}${p.ok ? ' (subido)' : p.rechazado ? ' — develop esta protegida: sube con el proximo /faro:publicar (por peticion)' : ` — no pude subir develop: ${p.msg}`}.`);
-    }
-  } finally { if (cur && cur !== 'develop') git('switch', cur); }
+    if (c.ok) log(`  ✅ ${ESTADO_FILE}: marcadas [x] ${marcadas.map((n) => `#${n}`).join(', ')} en '${cur}' (entran con su PR).`);
+  }
 }
 
 async function calcularDesajustes(gh) {
@@ -4396,7 +4194,7 @@ async function avisarDesajusteConLaForja(gh) {
   console.log(`\n⚠ ${ESTADO_FILE} y la forja NO dicen lo mismo (${desajustes.length}; no bloquea):`);
   for (const d of desajustes.slice(0, 8)) console.log(`  - ${d}`);
   if (desajustes.length > 8) console.log(`  (+${desajustes.length - 8} mas)`);
-  console.log(`  La forja manda: el proximo 'consolidar' cierra lo hecho y marca sus [x]. Un [x] con la tarea abierta: cierrala (harness.js cerrar-tarea <N>) o desmarcala.`);
+  console.log(`  La forja manda: 'Closes #N' en el PR cierra la tarea al integrarse. Un [x] con la tarea abierta: cierrala (harness.js cerrar-tarea <N>) o desmarcala.`);
 }
 
 // CONTRATO (capa 2 de verificacion): ¿lo que el codigo EXPONE sigue siendo lo que el documento dice
@@ -4731,7 +4529,7 @@ async function cmdVigilar() {
     }
     console.log(`${ESTADO_FILE} y la forja NO dicen lo mismo (${desajustes.length}):`);
     for (const d of desajustes) console.log(`  - ${d}`);
-    console.log(`\nLa forja manda: el proximo 'consolidar' cierra lo hecho y marca sus [x] en ${ESTADO_FILE}. Un [x] con la tarea abierta: cierrala (harness.js cerrar-tarea <N>) o desmarcala.`);
+    console.log(`\nLa forja manda: 'Closes #N' en el PR cierra la tarea al integrarse. Un [x] con la tarea abierta: cierrala (harness.js cerrar-tarea <N>) o desmarcala.`);
     process.exit(0);
   }
 
@@ -4812,335 +4610,6 @@ async function cmdVigilar() {
   process.stderr.write(lineas.join('\n'));
   process.exit(2);   // 2 = despierta al agente con lo de arriba
 }
-
-// El unico rastro de "develop esta listo para publicar" era una linea de texto perdida en medio de
-// mucho output ("Estados actualizados... /faro:publicar."), facil de saltarse en una consolidacion
-// ruidosa o en un loop autonomo. Esta linea declara el ESTADO sin ambiguedad, al final, siempre que
-// haya algo que publicar y el gate este en verde -- NO pregunta ni ejecuta publicar (eso sigue siendo
-// bajo demanda, decision del usuario): solo hace el aviso imposible de pasar por alto.
-function avisarListoParaPublicar() {
-  invalidarFlow(); // el merge/push de arriba cambio el estado de las ramas: gitFlow() cacheado mentiria
-  const flow = gitFlow();
-  if (!flow || !flow.mainName || !(flow.aheadOfMain > 0)) return;
-  const v = require('child_process').spawnSync(process.execPath, [__filename, 'validate', '--todas'], { windowsHide: true, cwd: ROOT, encoding: 'utf8' });
-  if (v.status !== 0) return;   // si el gate no esta en verde, no se declara "listo"
-  console.log(`\nESTADO: develop LISTO para publicar (${flow.aheadOfMain} commit(s) sin pasar a ${flow.mainName}, validate OK). Cuando quieras: /faro:publicar.`);
-}
-
-// FALLO 2 reportado: el push de develop vivia DENTRO de 'if (done.length)'. Si el merge ya se habia
-// completado en una invocacion anterior, la siguiente decia "Nada que consolidar" y NUNCA empujaba:
-// develop se quedaba N commits por delante en LOCAL, en silencio (caso real: 51 commits). Ahora se
-// comprueba SIEMPRE, se integre algo en esta pasada o no.
-function avisarDevelopSinSubir() {
-  const local = git('rev-parse', '--verify', '--quiet', 'refs/heads/develop');
-  if (!local) return;
-  const remoto = git('rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop');
-  if (!remoto) { console.log("\nAVISO: 'develop' no existe en origin — subela: git push -u origin develop"); return; }
-  const pendientes = git('rev-list', '--count', 'origin/develop..develop');
-  const n = pendientes === null ? null : Number(pendientes);
-  if (n === null) { console.log("\nAVISO: no pude comparar 'develop' con 'origin/develop' (¿sin fetch?). Comprueba a mano: git fetch origin && git status."); return; }
-  if (n > 0) {
-    console.log(`\n⚠ develop LOCAL va ${n} commit(s) por delante de origin/develop — SIN SUBIR (el trabajo integrado no ha salido de tu maquina).`);
-    console.log('   Subelo:  git push origin develop');
-  }
-}
-
-// PUBLICAR (develop -> main, el RELEASE; se llamaba 'aprobar' hasta 0.37.0, nombre ya retirado sin
-// alias): valida el ROL (API) y que develop este por delante; luego, EN ESTE ORDEN
-// (critico para que main quede COMPLETO y sin cambios sueltos):
-//   1) ARCHIVA primero los changes 'implementada' (aplica deltas a specs vivas + mueve a archive/).
-//      Si alguno falla -> CANCELA sin tocar main (nada a medias).
-//   2) COMMITEA en develop TODO lo pendiente (el archivado + cualquier cambio suelto de trabajo).
-//   3) VALIDA el gate con todo ya dentro.
-//   4) merge develop -> main -> vuelve -> push. Asi el archivado entra en el MISMO main que se aprueba.
-// CONFIRMACION EXPLICITA (0.9.5): el rol de GitHub decide QUIEN PUEDE aprobar, pero por si solo NO
-// es la aprobacion — un agente con rol de maintainer podia antes invocar este comando y mergear a
-// main sin que el USUARIO hubiera confirmado en la conversacion (el comentario historico "invocarlo
-// ES tu aprobacion" asumia que solo llegabas aqui tras decidirlo). Ahora, SIN --confirmo, el comando
-// se PARA tras mostrar que se aprobaria (no ejecuta el merge); la skill /faro:publicar pasa --confirmo
-// SOLO tras el AskUserQuestion explicito al usuario (paso 4 de la skill).
-async function cmdPublicar() {
-  // REGISTRO antes de tocar produccion: desde que release, cuanto lleva acumulado y que version
-  // tocaria. Publicar a ciegas es justo lo que esto evita.
-  const info = releaseInfo();
-  if (info.hayQuePublicar) console.log(`Acumulado desde ${info.desde}: ${info.ciclos} cambio(s). Version sugerida ${info.sugerida} (${info.razon}).
-`);
-  const confirmado = process.argv.includes('--confirmo');
-  const gh = forjaMod(); if (!gh) { SIN_FORJA('publicar'); return; }
-  const flow = gitFlow();
-  if (!flow || !flow.develop) { console.log("No hay rama 'develop'. Crea el ciclo: git switch -c develop && git push -u origin develop."); return; }
-  const main = flow.mainName || 'main';
-  // Issue #2: distinguir "0 = al dia" de "-1 = no pude comparar" — el -1 avisa en vez de callar.
-  if (flow.aheadOfMain < 0) { console.log(`No pude comparar develop con '${main}' (¿falta la rama? ¿remoto sin fetch?). Ejecuta: git fetch origin ${main}:${main}  y reintenta.`); return; }
-  if (flow.aheadOfMain === 0) { console.log(`Nada que aprobar: '${main}' ya esta al dia con develop.`); return; }
-  // Monorepo (#131): que app se publicara, con que version y tag, y cuales no se tocan.
-  const releaseApps = lineasReleaseApps('develop');
-  if (releaseApps.length) console.log(`${releaseApps.join('\n')}\n`);
-  const ri = await gh.roleInfo();
-  if (!ri) { console.log('No detecto el repo remoto (origin).'); return; }
-  if (ri.sinToken) { console.log('SIN_TOKEN: conectate primero -> node .claude/hooks/harness.js auth (codigo de 6 digitos).'); return; }
-  if (!ri.puedeAprobar) { console.log(`NO puedes publicar a '${main}' (rol '${ri.perm}'). Abre el PR a develop (/faro:pr) y pide la publicacion a un owner/admin/maintainer (harness.js pendientes).`); return; }
-  if (!confirmado) {
-    const subs = (git('log', '--format=%s', `${main}..develop`) || '').split('\n').filter(Boolean);
-    console.log(
-      `Se APROBARIA develop -> ${main} (${flow.aheadOfMain} commit(s)) como ${ri.perm}:\n` +
-      subs.slice(0, 15).map((s) => `  - ${s}`).join('\n') + (subs.length > 15 ? `\n  (+${subs.length - 15} mas)` : '') +
-      `\n\nEsto NO se ha aprobado todavia. Confirma con el usuario (AskUserQuestion) y, si dice que si, reinvoca: node "\${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" publicar --confirmo`,
-    );
-    return;
-  }
-  const cur = git('rev-parse', '--abbrev-ref', 'HEAD') || 'develop';
-  console.log(`Aprobar develop -> ${main} (${flow.aheadOfMain} commit(s)) como ${ri.perm}.`);
-
-  // CI DE LA FORJA (#289): con validacion = ci|ambos, el CI de develop en rojo bloquea ANTES de tocar nada.
-  // La suite local completa del paso 3 se mantiene: lleva el commit de archivado que el CI no ha visto.
-  {
-    const eci = require('./lib/estado-ci.js');
-    let meta = null; try { meta = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { meta = null; }
-    const modoV = eci.modoValidacion(meta);
-    if (eci.consultaCi(modoV) && gh.estadoCiCommit) {
-      const sha = git('rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop');
-      const e = sha ? await gh.estadoCiCommit(sha) : null;
-      const dp = eci.decidirPublicar({ modo: modoV, estado: e && e.ok ? e.estado : 'sin-ci', fallidos: (e && e.fallidos) || [] });
-      if (dp.aviso) console.log(dp.aviso);
-      if (dp.bloquear) { console.log(`\nAPROBACION CANCELADA: arregla el CI de develop y reintenta. No he tocado '${main}'.`); return; }
-    }
-  }
-
-  // Debemos operar sobre develop (el archivado y su commit se hacen ANTES del merge, sobre develop).
-  // Issue #2: develop puede no existir en LOCAL (repo clonado tras trabajar en feature/*, o recien
-  // clonado); se crea la rama de tracking desde origin/develop antes de intentar el switch.
-  if (cur !== 'develop') {
-    if (!flow.developLocal && flow.developRemote) {
-      git('fetch', 'origin', 'develop');
-      git('switch', '-c', 'develop', '--track', 'origin/develop');
-    } else {
-      git('switch', 'develop');
-    }
-    if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'develop') { console.log(`No pude cambiar a 'develop' (¿cambios sin commitear en '${cur}'?). Commitea/guarda y reintenta.`); return; }
-  }
-
-  // SIN VERSIONAR (#117): se comprueba AQUI, antes de archivar. El archivado crea ficheros nuevos a
-  // proposito (specs vivas, archive/) y el commit de aprobacion los recoge con 'add -A'; lo que hubiera
-  // suelto de antes acabaria en main sin que nadie lo decidiera.
-  const sueltosPub = require('./lib/git.js').ficherosSinVersionar(git('status', '--porcelain'));
-  if (sueltosPub.length) { console.log(require('./lib/git.js').avisoSinVersionar(sueltosPub, 'PUBLICACION')); return; }
-
-  // 0) CIERRE DETERMINISTA (#71): lo que tiene su PR integrado se cierra AHORA, con evidencia. Asi la
-  //    ligadura cambio <-> tarea de abajo solo cancela por lo que de verdad no ha salido.
-  const recPublicar = await reconciliarTareas(gh, { cerrar: true, marcar: true });
-
-  // 1) CIERRE DE ESTADOS ANTES DEL MERGE: archiva los changes 'implementada' (deltas -> specs vivas + archive/).
-  //    Si ALGUNO falla, cancelamos: nada de medio-archivar ni de mergear un main incompleto.
-  const sm = specsMod();
-  if (sm) {
-    const cerrables = listSpecs().filter((s) => s.fm.estado === 'implementada');
-    // LIGADURA cambio <-> tarea, justo antes de archivar (que es DECLARAR el trabajo terminado).
-    // Al integrar en develop, el 'Closes #N' ya cerro la tarea; si sigue abierta aqui, es que ese
-    // trabajo NO paso por el flujo. No se archiva a ciegas algo que la forja dice que sigue vivo.
-    if (cerrables.length && gh && gh.issueEstado) {
-      const incoherentes = [];
-      const sinComprobar = [];
-      for (const s of cerrables) {
-        if (!s.fm.issue) continue;
-        let est = null;
-        try { est = await gh.issueEstado(String(s.fm.issue)); } catch { est = null; }
-        // Aqui NO se cancela por no poder consultar: dejaria sin publicar a quien esta sin red, y
-        // publicar es la accion que mas cuesta reintentar. Pero tampoco se calla: se dice que esa
-        // ligadura quedo SIN COMPROBAR, para que quien aprueba sepa que garantia tiene y cual no.
-        if (est === null) { sinComprobar.push(`#${s.fm.issue} (cambio '${s.name}')`); continue; }
-        const msg = require('./lib/ciclo.js').coherenciaCambioIssue({
-          slug: s.name, estado: s.fm.estado, issue: String(s.fm.issue), issueEstado: est, archivando: true,
-        });
-        if (msg) incoherentes.push(msg);
-      }
-      if (sinComprobar.length) {
-        console.log(`\n⚠ No pude consultar ${sinComprobar.length} tarea(s) (¿sin red, token caducado o limite de la API?): ${sinComprobar.join(', ')}.`);
-        console.log('   Su ligadura cambio <-> tarea NO queda comprobada: sigo, pero no lo des por verificado.');
-      }
-      if (incoherentes.length) {
-        console.log(`\nAPROBACION CANCELADA: ${incoherentes.length} cambio(s) con su tarea sin cerrar. No he tocado '${main}'.`);
-        for (const m of incoherentes) console.log(`  - ${m}`);
-        return;
-      }
-    }
-    if (cerrables.length) {
-      console.log(`\nArchivando ${cerrables.length} cambio(s) 'implementada' ANTES de consolidar:`);
-      const fallidos = [];
-      for (const s of cerrables) {
-        const r = sm.archiveChange(s.name, {});
-        console.log(r.ok ? `  ✅ ${s.name}: ${String(r.msg).split('\n')[0]}` : `  ✖ ${s.name} NO archivado — ${String(r.msg).split('\n')[0]}`);
-        if (!r.ok) fallidos.push(s.name);
-      }
-      if (fallidos.length) { console.log(`\nAPROBACION CANCELADA: no pude archivar ${fallidos.join(', ')}. No he tocado '${main}'. Arregla los deltas y reintenta.`); return; }
-    }
-  }
-
-  // 2) COMMIT DE APROBACION en develop: incluye el archivado + cualquier cambio suelto -> nada queda fuera del main.
-  const sucio = (git('status', '--porcelain') || '').trim();
-  if (sucio) {
-    git('add', '-A');
-    git('commit', '-m', `chore: cierre de ciclo (archivado + cambios pendientes) para aprobar -> ${main}`);
-    console.log(`\nCommit de aprobacion en develop: ${sucio.split('\n').length} fichero(s) incluidos (archivado + pendientes).`);
-  }
-
-  // 3) VALIDAR el gate con TODO ya dentro de develop.
-  console.log(`\nValido el gate antes de aprobar...\n`);
-  // '--todas': publicar ejecuta los gates de TODAS las apps del monorepo, no solo las del ultimo cambio.
-  const v = require('child_process').spawnSync(process.execPath, [__filename, 'validate', '--todas'], { windowsHide: true, cwd: ROOT, stdio: 'inherit' });
-  if (v.status !== 0) { console.log('\nAPROBACION CANCELADA: la validacion falla. Arregla lo anterior y reintenta (el archivado ya quedo commiteado en develop).'); return; }
-
-  // ULTIMO momento util para ver si el faseo y la forja se contradicen: despues de esto ya es main.
-  // Avisa, no cancela — lo que se publica es el CODIGO, y un checkbox sin marcar no lo invalida.
-  await avisarDesajusteConLaForja(gh);
-
-  // 3.5) COHERENCIA CHANGELOG <-> version, ANTES de tocar main: sin esto se podia tagear una
-  // version que el CHANGELOG no documenta (el tag, la version y el CHANGELOG dejan de decir lo
-  // mismo). Se comprueba aqui, no despues del merge, para no dejar 'main' a medias si falta.
-  const chg = changelogTieneVersion();
-  if (!chg.ok) { console.log(`\nAPROBACION CANCELADA: ${chg.msg}`); return; }
-  // POR APP (#131): en un monorepo, cada app CAMBIADA debe tener su version en SU CHANGELOG. Una app
-  // sin cambios no se mira; una con cambios pero version ya tageada, se avisa (no se publica).
-  const esMono = require('./lib/apps.js').esMonorepo(ROOT);
-  if (esMono) {
-    const coh = releaseMod().coherenciaApps('HEAD');
-    if (!coh.ok) { console.log(`\nAPROBACION CANCELADA: ${coh.errores.length} app(s) sin su version en su CHANGELOG. No he tocado '${main}'.`); for (const e of coh.errores) console.log(`  - ${e}`); return; }
-    for (const a of coh.avisos) console.log(`\n⚠ ${a}`);
-  }
-  // Sin version el ciclo SIGUE (no se puede exigir lo que el repo no declara), pero se avisa: sin
-  // ella no hay tag ni Release, y el trabajo se publica sin dejar un punto al que volver. Todo
-  // trabajo deberia versionarse — tambien el de gestion, cuyos entregables son informes y
-  // funcionales. Se dice como activarlo en vez de dejarlo en silencio.
-  if (chg.version === null && esMono) {
-    console.log(`\nⓘ La raiz del monorepo no declara version: se versiona y se publica por app (sin tag de raiz).`);
-  } else if (chg.version === null) {
-    console.log(`\n⚠ Este repo no declara version (sin package.json ni .claude-plugin/plugin.json en la raiz): se aprueba igual, pero SIN tag ni Release — no quedara un punto concreto al que volver.`);
-    console.log(`   Para versionarlo: crea un package.json con {"name","version"} (basta con eso, no hace falta que sea un paquete npm) y documenta cada version en CHANGELOG.md. El harness tageara y publicara el Release solo a partir de la proxima aprobacion.`);
-  }
-
-  // 4) MERGE develop -> main -> vuelve -> push. El main aprobado incluye el archivado (mismo commit).
-  // Issue #2: '${main}' puede no existir como rama LOCAL (repo clonado y trabajado solo desde develop) —
-  // sin esto 'git switch main' fallaba. Se crea la rama de tracking local desde origin/${main} si falta.
-  if (!flow.mainLocal) {
-    git('fetch', 'origin', main);
-    git('switch', '-c', main, '--track', `origin/${main}`);
-  } else {
-    git('switch', main);
-  }
-  if (git('rev-parse', '--abbrev-ref', 'HEAD') !== main) { console.log(`No pude cambiar a '${main}'. Consolida a mano tras resolver.`); return; }
-  limpiarIndexLockHuerfano(); // basura de un git muerto anterior bloquearia el merge con un error opaco
-  const mainAntes = git('rev-parse', main);   // para deshacer el merge local si hay que ir por peticion (#194)
-  const mr = gitWrite('merge', '--no-ff', 'develop', '-m', `merge develop -> ${main}: consolidacion aprobada (${ri.perm})`);
-  const back = (cur === main || !cur) ? 'develop' : cur;
-  if (mr.matado) {
-    // El proceso git NO termino (timeout/kill) — el repo puede estar A MEDIAS. No se aborta a ciegas.
-    console.log(`\n⛔ El proceso 'git merge' NO termino (posible cuelgue o repo muy grande): '${main}' puede haber quedado A MEDIAS.`);
-    console.log(`   Revisa a mano ANTES de reintentar:  git -C "${ROOT}" status  ·  si hay un merge a medias: git merge --abort  ·  si sobra .git/index.lock (sin git vivo): borralo.`);
-    return;
-  }
-  if (mr.ok) {
-    git('switch', back);
-    console.log(`\n✅ Aprobado en '${main}' (tu aprobacion), con el ciclo cerrado. Subiendo develop + '${main}'...`);
-    // SUBIDA (#194) por lib/subir.js: push normal y, si falla por credenciales/red, con el token del
-    // harness. develop primero: lleva el commit de aprobacion, y la peticion por API lo necesita.
-    const subir = require('./lib/subir.js');
-    // develop primero: lleva el commit de cierre de ciclo. Si develop tambien esta protegida en la forja,
-    // entra por peticion desde una rama temporal (subirOIntegrar) y develop local se alinea con la forja.
-    const subeDev = await subir.subirOIntegrar('develop', { ROOT, gh, titulo: `Cierre de ciclo para publicar -> ${main}` });
-    if (subeDev.via === 'api') {
-      console.log(`\n'develop' esta protegida: el cierre de ciclo entro por peticion${subeDev.numero ? ` #${subeDev.numero}` : ''}.`);
-      // develop local es ahora el merge commit de la forja: el merge de main se rehace sobre ESE develop.
-      // Si no, develop quedaria un commit por delante de main y el proximo publicar sugeriria una version vacia.
-      if (mainAntes && subir.moverRama(main, mainAntes, { ROOT }).ok && git('switch', main) !== null) {
-        gitWrite('merge', '--no-ff', 'develop', '-m', `merge develop -> ${main}: consolidacion aprobada (${ri.perm})`);
-        git('switch', back);
-      }
-    }
-    let subeMain = subeDev.ok ? subir([main], { ROOT }) : { ok: false, msg: `develop no llego a la forja (${subeDev.msg}), y '${main}' no se publica sin ella.` };
-    // RAMA PROTEGIDA (#194): la forja rechaza el push directo a main pero admite la PETICION. Se integra
-    // develop -> main por la API con el token del harness, se VERIFICA el resultado en la forja y solo
-    // entonces main local pasa a ese commit (sobre el que se tagea).
-    if (!subeMain.ok && subeMain.rechazado) {
-      console.log(`\n'${main}' esta protegida: la integro por peticion (API) con el token del harness...`);
-      const ip = await subir.integrar({ ROOT, gh, head: 'develop', base: main, titulo: `Publicar develop -> ${main}${info.sugerida ? ` (${info.sugerida})` : ''}`, cuerpo: `Publicacion aprobada (${ri.perm}) con /faro:publicar.`, debeContener: git('rev-parse', 'develop') });
-      if (ip.ok) {
-        const mv = subir.moverRama(main, ip.sha, { ROOT });
-        subeMain = mv.ok ? { ok: true, via: 'api', msg: '' } : { ok: false, fusionada: true, msg: `fusionada por peticion, pero ${mv.msg}` };
-        console.log(`✅ Peticion ${ip.numero ? `#${ip.numero} ` : ''}fusionada en '${main}'${ip.url ? ` · ${ip.url}` : ''}.`);
-      } else subeMain = { ok: false, fusionada: ip.fusionada, msg: ip.msg };
-    }
-    const publicado = subeMain.ok;
-    // Si main NO llego a la forja se deshace SIEMPRE el merge local: si no, main local quedaria por
-    // delante, el reintento compararia main..develop = 0 y diria "nada que aprobar" sin haber publicado.
-    // Excepcion: la forja YA fusiono pero no se pudo comprobar o alinear. Ahi main SI esta publicada y lo
-    // que falta es traerla y tagear, no repetir la publicacion.
-    let deshecho = false;
-    if (!publicado && !subeMain.fusionada && mainAntes && git('rev-parse', main) !== mainAntes) deshecho = subir.moverRama(main, mainAntes, { ROOT }).ok;
-    // TAG de version (0.9.4) sobre la rama PRINCIPAL ya publicada (no sobre HEAD: aqui ya se volvio a
-    // 'back', #78). Va DESPUES de subir main: si main entro por peticion, el commit es el de la forja.
-    // Monorepo sin version en la raiz (#131): no hay tag de raiz que crear ni que avisar.
-    const tagRes = (!publicado || (esMono && chg.version === null)) ? { ok: false, tag: null, msg: null } : tagVersionSiProcede(main);
-    if (tagRes.msg) console.log(tagRes.ok ? `\n🏷  ${tagRes.msg}` : `\n⚠ ${tagRes.msg}`);
-    // UN TAG POR APP CAMBIADA (#131), sobre main. Las apps sin cambios no se tocan.
-    const tagsApps = (publicado && esMono) ? releaseMod().tagearApps(main) : [];
-    for (const t of tagsApps) console.log(t.ok ? `\n🏷  ${t.app.id}: ${t.msg}` : `\n⚠ ${t.app.id}: ${t.msg}`);
-    const tagsOk = tagsApps.filter((t) => t.ok && t.tag);
-    const subidos = [...(tagRes.ok && tagRes.tag ? [tagRes.tag] : []), ...tagsOk.map((t) => t.tag)];
-    const subeTags = subidos.length ? subir(subidos, { ROOT }) : { ok: true };
-    const pr = { status: publicado && subeTags.ok ? 0 : 1 };   // las releases necesitan main y tags en la forja
-    if (publicado) {
-      console.log(`\n✅ SUBIDO (${main}${subeDev.ok ? ' + develop' : ''}${subidos.length && subeTags.ok ? ` + ${subidos.join(' + ')}` : ''})${subeMain.via === 'api' ? ' — por peticion' : subeMain.via === 'token' ? ' — con el token del harness' : ''}. Estas en '${git('rev-parse', '--abbrev-ref', 'HEAD')}'. Dispara el CI.`);
-      if (!subeTags.ok) console.log(`\n⚠ No pude subir los tags (${subidos.join(', ')}): ${subeTags.msg}`);
-    } else {
-      const sigueMerge = mainAntes && git('rev-parse', main) !== mainAntes;
-      if (subeMain.fusionada) console.log(`\n⚠ '${main}' YA esta fusionada en la forja, pero ${subeMain.msg}\n   NO relances /faro:publicar: trae '${main}' (/faro:sincronizar) y crea el tag de la version sobre ella (harness.js release te dice cual falta).`);
-      else console.log(`\n⚠ '${main}' NO llego a la forja: ${subeMain.msg}${deshecho ? ` He deshecho el merge local de '${main}': cuando se resuelva, /faro:publicar lo reintenta entero.` : sigueMerge ? ` OJO: '${main}' local conserva el merge sin publicar — devuelvelo a ${mainAntes.slice(0, 7)} antes de reintentar.` : ''} Estas en '${git('rev-parse', '--abbrev-ref', 'HEAD')}'.`);
-    }
-    // Release POR APP en la forja, con las notas del CHANGELOG de CADA app (#131).
-    if (pr.status === 0 && tagsOk.length) {
-      const fm = forjaMod();
-      for (const t of tagsOk) {
-        try {
-          const notas = releaseMod().notasDeVersion(t.version, t.app);
-          if (!fm || !fm.publicarRelease) break;
-          const res = await fm.publicarRelease(t.tag, notas || `Version ${t.version} de ${t.app.id}.`);
-          if (res.ok) console.log(res.yaExistia ? `\nRelease ${t.tag}: ya estaba publicado.` : `\n✅ Release ${t.tag} publicado con las notas de ${t.app.ruta}/CHANGELOG.md${res.url ? ` · ${res.url}` : ''}.`);
-          else console.log(`\n⚠ El tag ${t.tag} esta subido pero NO pude publicar su Release (${res.msg}). Reintentalo cuando puedas.`);
-        } catch (e) { console.log(`\n⚠ El tag ${t.tag} esta subido pero fallo la publicacion de su Release (${(e && e.message) || e}).`); }
-      }
-      if (!(tagRes.ok && tagRes.tag)) await comentarPublicadas(gh, recPublicar, tagsOk[0].tag, tagsOk.map((t) => t.tag).join(', '));
-    }
-    // RELEASE en la forja, con las notas del CHANGELOG. Paso OBLIGATORIO del ciclo, no opcional: sin
-    // el, el tag existe pero la pagina de Releases queda vacia y las notas escritas no llegan a nadie.
-    // Solo si el PUSH fue bien: un release necesita un tag que la forja ya tenga. Si falla, se avisa
-    // con el comando para retomarlo — el tag ya esta creado, que es lo irreversible.
-    if (pr.status === 0 && tagRes.ok && tagRes.tag) {
-      try {
-        const fm = forjaMod();
-        const rel = releaseMod();
-        const notas = rel.notasDeVersion ? rel.notasDeVersion(tagRes.version || String(tagRes.tag).replace(/^v/, '')) : null;
-        if (fm && fm.publicarRelease) {
-          const res = await fm.publicarRelease(tagRes.tag, notas || `Version ${tagRes.tag}.`);
-          if (res.ok) console.log(res.yaExistia ? `\nRelease ${tagRes.tag}: ya estaba publicado.` : `\n✅ Release ${tagRes.tag} publicado con las notas del CHANGELOG${res.url ? ` · ${res.url}` : ''}.`);
-          else console.log(`\n⚠ El tag ${tagRes.tag} esta subido pero NO pude publicar el Release (${res.msg}). Reintentalo cuando puedas; el resto del ciclo esta completo.`);
-        }
-      } catch (e) { console.log(`\n⚠ El tag ${tagRes.tag} esta subido pero fallo la publicacion del Release (${(e && e.message) || e}).`); }
-    }
-    // TRAZABILIDAD de la release: cada tarea hecha cuyo merge entra en este tag lo lleva escrito.
-    if (pr.status === 0 && tagRes.ok && tagRes.tag) await comentarPublicadas(gh, recPublicar, tagRes.tag);
-    // Hitos de la forja = fases de ESTADO.md: se sincronizan al aprobar (crea/cierra/reabre). Best-effort.
-    try { const fm = forjaMod(); if (fm && fm.syncHitos) { const ls = await fm.syncHitos(); if (ls.length) console.log(`\nHitos de la forja sincronizados con las fases:\n${ls.join('\n')}`); } } catch {}
-    console.log(`Los [x] de ${ESTADO_FILE} los marca el harness al reconciliar con la forja. Si una fase queda completa, cierrala (/faro:cerrar-fase: informe + estado done + tag fase-N).`);
-  } else {
-    // exit != 0 con proceso terminado = conflicto REAL: abortable con seguridad (a diferencia del
-    // caso 'matado', ya tratado arriba, donde el estado es incierto y NO se aborta a ciegas).
-    const ab = gitWrite('merge', '--abort');
-    git('switch', back);
-    console.log(`\n⚠ CONFLICTOS reales al mergear develop -> ${main}.${ab.ok ? ` Merge abortado ('${main}' intacto) y te devolvi a '${back}'.` : ' ATENCION: el abort tambien fallo — revisa git status antes de seguir.'} Resuelvelo por /faro:pr o a mano.`);
-    if (mr.salida) console.log(`   git dijo: ${mr.salida.split('\n').slice(0, 3).join(' | ')}`);
-  }
-}
-
 // ---------- One-pager / Roadmap: logica extraida a lib/onepager.js (modularizacion) ----------
 let _opMod = null;
 function opMod() {
@@ -5298,10 +4767,9 @@ else if (cmd === 'exigir-pipeline') { const m = forjaMod(); if (!m || !m.cmdExig
 else if (cmd === 'reglas-push') { const m = forjaMod(); if (!m || !m.cmdReglasPush) SIN_FORJA('reglas-push (funcion propia de GitLab Premium/Ultimate: reglas de push del proyecto)'); else m.cmdReglasPush(); }
 else if (cmd === 'bloquear-pr') { const m = forjaMod(); if (!m || !m.cmdBloquearMr) SIN_FORJA('bloquear-pr (funcion propia de GitLab Premium/Ultimate: enlaces de bloqueo entre peticiones)'); else m.cmdBloquearMr(); }
 else if (cmd === 'terminar') { cmdTerminar(); }
-else if (cmd === 'consolidar') { if (pidioAyuda()) ayudaConsolidar(); else cmdConsolidar(); }
-// 'publicar' = sacar a produccion (develop -> main). Es un RELEASE bajo demanda, no el cierre de
-// cada ciclo: eso ocurre en develop.
-else if (cmd === 'publicar') { if (pidioAyuda()) ayudaPublicar(); else cmdPublicar(); }
+// FARO 3.0: 'consolidar' (rama -> develop) y 'publicar' (develop -> main) se retiran. Cada rama entra
+// por PR a main con auto-merge y el CI publica (scripts/release-ci.js). Se responde con el camino nuevo.
+else if (cmd === 'consolidar' || cmd === 'publicar') { console.log(FLUJO.avisoRetirado(cmd, RAMA_PRINCIPAL)); }
 else if (cmd === 'release') { cmdReleaseAnalisis(); }
 else if (cmd === 'specs') { const sm = specsMod(); if (!sm) { console.log('Falta .claude/hooks/specs.js (motor de specs nativo).'); process.exit(1); } sm.cmdSpecs(); }
 else if (cmd === 'ramas') { const mod = path.join(__dirname, 'lib', 'ramas.js'); if (!fs.existsSync(mod)) { console.log('Falta .claude/hooks/ramas.js (modulo de ramas).'); process.exit(1); } require('child_process').spawnSync(process.execPath, [mod, ...process.argv.slice(3)], { windowsHide: true, stdio: 'inherit' }); }

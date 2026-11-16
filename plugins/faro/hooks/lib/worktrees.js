@@ -39,7 +39,7 @@ function entradas(root) {
 }
 
 function baseDe(cwd) {
-  return ['develop', 'main', 'master'].find((b) => ok(cwd, ['rev-parse', '--verify', '--quiet', `refs/heads/${b}`])) || null;
+  return require('./flujo.js').basesCandidatas(cwd).find((b) => ok(cwd, ['rev-parse', '--verify', '--quiet', `refs/heads/${b}`])) || null;
 }
 
 /** ¿El HEAD ya esta en la base? Merge normal (ancestro) o squash/rebase (fusionar no cambiaria el arbol de la base). */

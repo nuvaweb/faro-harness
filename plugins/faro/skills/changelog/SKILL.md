@@ -12,7 +12,7 @@ el MISMO cambio**. Si los tres no coinciden, el historial miente y deja de servi
 
 Si `faro/config.json` tiene la clave `monorepo` (`harness.js apps` las lista), **cada app se versiona por
 separado**: su versión es la de `apps/<x>/package.json`, su registro es `apps/<x>/CHANGELOG.md` y su
-tag es `{app}@{version}` (o la plantilla de `faro/config.json > monorepo.tag`). No hay un CHANGELOG común
+tag es `{app}@{version}` (o la plantilla de `faro/config.json > monorepo.tag`), que pone el CI al integrarse. No hay un CHANGELOG común
 que valga por todas.
 
 - **Qué apps tocaste**: las que tengan ficheros en el diff (`git diff --name-only`, por carpeta). Si
@@ -47,7 +47,11 @@ Elige por el IMPACTO EN QUIEN CONSUME, no por lo que te costó hacerlo ni por lo
 |---|---|---|
 | **major** (`X`) | Rompe a quien ya lo usa | Se elimina/renombra un comando o flag · cambia el contrato de salida · una ruta o formato deja de ser compatible · hay que migrar algo a mano |
 | **minor** (`Y`) | Capacidad NUEVA, compatible | Comando/flag/skill nuevo · un flujo hace algo que antes no hacía · nuevo campo opcional |
-| **patch** (`Z`) | Ni rompe ni añade | Corrección de un fallo · mensajes y textos · documentación · refactor sin cambio observable · rendimiento |
+| **patch** (`Z`) | Ni rompe ni añade | Corrección de un fallo · mensajes y textos · refactor sin cambio observable · rendimiento |
+
+El salto tiene que cuadrar con el **tipo Conventional** del título del PR, que es lo que el CI lee para
+publicar: `fix`/`perf`/`refactor` → **patch**, `feat` → **minor**, `!` o `BREAKING CHANGE:` → **major**.
+`docs`/`chore`/`test`/`ci` **no publican**: si el cambio es solo de eso, no subas versión ni escribas entrada.
 
 Criterios que evitan el desajuste típico:
 
@@ -55,9 +59,9 @@ Criterios que evitan el desajuste típico:
 - **Si un flujo pasa a hacer algo que antes no hacía, es `minor`, aunque el diff sea de 3 líneas.**
 - **Ante la duda entre dos, elige el MENOR** y explica el porqué en la entrada. Inflar versiones hace
   ilegible el historial.
-- **Un solo salto por publicación**: agrupa todo el trabajo pendiente en UNA versión. No encadenes
-  0.8.4 → 0.8.5 → 0.8.6 en la misma tanda; si ya hay varios cambios sin publicar, van juntos y el
-  salto lo decide el de mayor impacto (un `minor` absorbe a los `patch` que lo acompañan).
+- **Un solo salto por PR**: cada PR a `main` publica UNA versión. No encadenes 0.8.4 → 0.8.5 → 0.8.6
+  en la misma rama; si la rama lleva varios cambios, van juntos y el salto lo decide el de mayor
+  impacto (un `minor` absorbe a los `patch` que lo acompañan).
 - **`0.x`**: se sigue el mismo criterio (no se sube a `1.0.0` por acumulación). Romper algo en `0.x`
   sube `minor`, porque el major está reservado a la estabilización.
 
@@ -92,45 +96,43 @@ dilo explícitamente.
 ## 5. Commit y rama
 
 Mensaje: `<tipo>(<ámbito>): <version> — <resumen en una línea>`
-(`feat` si es minor · `fix` si es patch · `docs` si solo es documentación).
+(`feat` si es minor · `fix` si es patch · `!` si es major; el mismo tipo que llevará el título del PR).
 Ejemplo: `feat(cli): 0.32.0 — el CLI instala los plugins, no solo los declara`
 
-**Rama**: se commitea en `develop` (o `feature/<tema>`), NUNCA directo en `main`. `main` es el
-archivo de lo publicado y recibe el trabajo con `/faro:publicar`, que lo lanza quien tenga
-permiso. Si estás en `main`, cámbiate tú (`git switch develop`) y commitea ahí — es la mecánica
+**Rama**: se commitea en tu rama de trabajo `<tipo>/<N>-<slug>`, NUNCA directo en `main`. `main` es el
+archivo de lo publicado y recibe el trabajo por PR con auto-merge (`/faro:pr`). Si estás en `main`,
+crea tú la rama (`harness.js rama <tipo> "<tema>" --issue <N>`) y commitea ahí — es la mecánica
 normal, no un bloqueo que trasladar al usuario.
 
-## 6. Tag de versión (SIEMPRE, salvo `--check`)
+## 6. Tag de versión (lo pone el CI, no tú)
 
 El tag es lo que deja trazable en git "qué commit exacto es cada versión publicada" — sin él, el
 CHANGELOG dice una fecha pero nadie puede ir directo al punto del historial. **Todo salto de
-versión termina en un tag anotado**, sea plugin o CLI:
+versión termina en un tag anotado**, sea plugin o CLI, y **lo crea el CI** al integrarse el PR en
+`main`, junto con el release de la forja, cuyo texto es la entrada del CHANGELOG que escribiste en el
+paso 3. En la rama **no etiquetes**: un tag puesto sobre el commit de la rama no es lo que quedó en
+`main` (squash).
 
-```
-git tag -a v<version> -m "<version> — <resumen de una línea, el mismo del CHANGELOG>"
-git push origin v<version>
-```
-
-Reglas:
+Reglas (las que sigue el CI, y las que sigues tú si completas a mano un hueco del historial):
 
 - **Formato del nombre: `v<version>`** (`v0.9.3`, nunca `0.9.3` a secas ni `version-0.9.3`) —
   consistente con el historial existente del repo (revísalo con `git tag -l` antes del primero).
-  **En un monorepo, `<app>@<version>`** (la plantilla de `faro/config.json > monorepo.tag`): `publicar` crea
+  **En un monorepo, `<app>@<version>`** (la plantilla de `faro/config.json > monorepo.tag`): el CI crea
   uno por cada app cambiada, con su propio Release.
 - **Se etiqueta el commit de MERGE a la rama principal** (main/master), no el commit de la rama de
-  trabajo — el tag marca lo que quedó publicado, no lo que se propuso. Si el flujo es
-  PR→merge, etiqueta después del merge, sobre `main`.
+  trabajo — el tag marca lo que quedó publicado, no lo que se propuso.
 - **Antes de crear el tag, comprueba que no exista ya** (`git tag -l v<version>`): si existe y
   apunta a otro commit, PARA y pregunta al usuario — nunca lo fuerces (`-f`) sin confirmación
   explícita, reescribir un tag ya publicado rompe a quien ya lo referenciaba.
 - **Si hay versiones publicadas sin tag en el historial** (detectable comparando `git tag -l` contra
-  las cabeceras del CHANGELOG), complétalas sobre su commit de merge real
-  (`git log --oneline --all | grep "<version>"` para localizarlo) antes o junto con la nueva — no
-  dejes huecos que luego cuesta reconstruir.
+  las cabeceras del CHANGELOG), propón completarlas sobre su commit de merge real
+  (`git log --oneline --all | grep "<version>"` para localizarlo) con
+  `git tag -a v<version> -m "<version> — <resumen>"` + `git push origin v<version>`, con la
+  confirmación del usuario — no dejes huecos que luego cuesta reconstruir.
 
 ## `--check` (solo diagnostica, no escribe)
 
 Informa y para: versión actual · última del CHANGELOG · **entradas que faltan** (con la lista de
 commits sin registrar) · si hay cambios sin commitear que exigirían versión · salto que
 recomendarías y por qué · **tags que faltan** (versiones en el CHANGELOG sin `git tag` equivalente).
-Útil antes de publicar y para detectar a tiempo que el CHANGELOG se está quedando atrás.
+Útil antes de abrir el PR y para detectar a tiempo que el CHANGELOG se está quedando atrás.

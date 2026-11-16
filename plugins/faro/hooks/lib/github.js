@@ -237,7 +237,23 @@ module.exports = function (ctx) {
     const yo = (await ensureUser()) || {};
     const revs = revisores.filter((l) => l && l.toLowerCase() !== String(yo.login || '').toLowerCase());
     if (revs.length) await ghApi(`repos/${R.org}/${R.repo}/pulls/${r.body.number}/requested_reviewers`, { method: 'POST', body: { reviewers: revs } });
-    return { ok: true, numero: r.body.number, url: r.body.html_url };
+    return { ok: true, numero: r.body.number, url: r.body.html_url, nodeId: r.body.node_id };
+  }
+
+  // activarAutoMerge({numero, nodeId, metodo, titulo}) -> {ok, msg} (FARO 3.0). La peticion entra sola
+  // en cuanto pasan los checks obligatorios. Solo existe en GraphQL. Si el repo no lo permite
+  // (Settings > Allow auto-merge) o la rama no exige checks, GitHub lo rechaza y se dice por que.
+  async function activarAutoMerge({ numero, nodeId = null, metodo = 'squash', titulo = null }) {
+    const R = ghRepo(); if (!R) return { ok: false, msg: 'sin remoto de GitHub' };
+    let id = nodeId;
+    if (!id) { const p = await ghApi(`repos/${R.org}/${R.repo}/pulls/${numero}`); id = p.ok && p.body ? p.body.node_id : null; }
+    if (!id) return { ok: false, msg: `no encuentro la peticion #${numero}` };
+    const query = 'mutation($id: ID!, $m: PullRequestMergeMethod!, $t: String) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: $m, commitHeadline: $t}) { pullRequest { number } } }';
+    const r = await ghApi('graphql', { method: 'POST', body: { query, variables: { id, m: String(metodo).toUpperCase(), t: titulo } } });
+    if (r.sinToken) return { ok: false, msg: 'SIN_TOKEN' };
+    const err = r.body && Array.isArray(r.body.errors) && r.body.errors[0];
+    if (!r.ok || err) return { ok: false, msg: (err && err.message) || `HTTP ${r.status}` };
+    return { ok: true };
   }
 
   // integrarPorPeticion({head, base, titulo, cuerpo}) -> {ok, numero, url, sha, msg, sinToken} (#194).
@@ -318,8 +334,8 @@ module.exports = function (ctx) {
     // Cache para el gate sincrono de merge/push (lib/git.js): misma clave host/ruta que forge-gitlab.js.
     try { const j = readCfg(); j.rol_cache = j.rol_cache || {}; j.rol_cache[`${ghHost()}/${ri.org}/${ri.repo}`] = { rol: ri.puedeAprobar ? 'maintainer' : 'developer', forja: 'GitHub', detalle: ri.perm, login: (cachedUser() || {}).login || null, ts: Date.now() }; writeCfg(j); } catch {}
     console.log(ri.puedeAprobar
-      ? `PUEDES PUBLICAR (eres ${ri.perm === 'admin' ? 'admin/owner' : ri.perm} de ${ri.org}/${ri.repo}). Flujo: traer trabajo a develop con node .claude/hooks/harness.js consolidar; publicar develop->main con node .claude/hooks/harness.js publicar.`
-      : `NO puedes publicar (rol '${ri.perm}'). Tu lanzas el PR con /faro:pr; el merge a develop (/faro:consolidar) y a main (/faro:publicar) los aplica un admin/owner/maintainer.`);
+      ? `PUEDES PUBLICAR (eres ${ri.perm === 'admin' ? 'admin/owner' : ri.perm} de ${ri.org}/${ri.repo}). Flujo FARO 3.0: cada rama entra por PR a main con auto-merge y el CI publica al integrarse; tu puedes aprobar PRs y fusionar a mano si hace falta.`
+      : `NO puedes publicar (rol '${ri.perm}'). Tu lanzas el PR con /faro:pr (a main con auto-merge): se integra solo cuando el CI y la revision lo permiten.`);
   }
 
   // approvers: logins de los que PUEDEN aprobar en el repo (admin/maintain) via token del harness.
@@ -421,5 +437,5 @@ module.exports = function (ctx) {
   // ghApi/ghRepo salen tambien hacia fuera: otros modulos (el planificador, los comandos de
   // tareas) LEEN la forja con el mismo token del harness.
   const contrato = require('./github-contrato.js')({ ghApi, ghRepo, ghToken, ghHost, ensureUser });
-  return { CRED, crearPr, integrarPorPeticion, prAbiertoDe, prsDeRama,issueEstado, cerrarIssue, comentarIssue, hechosTareas, ghApi, ghRepo, ...ident, ghToken, cmdGh, cmdPr, cmdRole, roleInfo, collaborators, approvers, cmdEquipo, ...tareas, cachedUser, ensureUser, ...clave, cmdProteger, ...gestion, ...contrato };
+  return { CRED, crearPr, activarAutoMerge, integrarPorPeticion, prAbiertoDe, prsDeRama,issueEstado, cerrarIssue, comentarIssue, hechosTareas, ghApi, ghRepo, ...ident, ghToken, cmdGh, cmdPr, cmdRole, roleInfo, collaborators, approvers, cmdEquipo, ...tareas, cachedUser, ensureUser, ...clave, cmdProteger, ...gestion, ...contrato };
 };

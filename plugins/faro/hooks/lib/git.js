@@ -158,16 +158,6 @@ function gitFlow() {
   const developLocal = existe('refs/heads/develop');
   const developRemote = existe('refs/remotes/origin/develop');
   const features = [...refs].filter((r) => r.startsWith('refs/heads/')).map((r) => r.slice(11)).filter((b) => WORK_BRANCH_RE.test(b));
-  let merged = [];
-  let unmerged = features;
-  if (developLocal && features.length) {
-    const mergedRaw = git('branch', '--merged', 'develop') || '';
-    const mergedSet = new Set(mergedRaw.split('\n').map((l) => l.replace(/^[*+ ]+/, '').trim()));
-    // Ancestro directo (merge normal) O contenido ya presente (squash/rebase merge).
-    const integrada = (f) => mergedSet.has(f) || integradaPorContenido(f, 'develop');
-    merged = features.filter(integrada);
-    unmerged = features.filter((f) => !integrada(f));
-  }
   // Pendiente de aprobacion: commits de develop que aun no estan en la rama principal (main/master).
   // Issue #2: 'main' puede no existir como rama LOCAL (repo clonado y trabajado solo desde develop/feature) —
   // sin esto, mainName salia null y "aprobar" respondia "nada que aprobar" aunque el remoto llevara commits
@@ -180,6 +170,19 @@ function gitFlow() {
   }
   const mainRef = mainName ? (mainLocal ? mainName : `origin/${mainName}`) : null;
   const developRef = developLocal ? 'develop' : (developRemote ? 'origin/develop' : null);
+  // FARO 3.0: las ramas de trabajo se integran en la PRINCIPAL (PR a main con auto-merge), no en develop.
+  // develop* se conserva solo para avisar en repos heredados que aun la tengan.
+  const integracion = mainRef;
+  let merged = [];
+  let unmerged = features;
+  if (integracion && features.length) {
+    const mergedRaw = git('branch', '--merged', integracion) || '';
+    const mergedSet = new Set(mergedRaw.split('\n').map((l) => l.replace(/^[*+ ]+/, '').trim()));
+    // Ancestro directo (merge normal) O contenido ya presente (squash/rebase merge).
+    const integrada = (f) => mergedSet.has(f) || integradaPorContenido(f, integracion);
+    merged = features.filter(integrada);
+    unmerged = features.filter((f) => !integrada(f));
+  }
   let aheadOfMain = 0;
   // -1 = NO se pudo comparar (rev-list fallo): jamas confundirlo con 0 (nada pendiente) — es la
   // direccion peligrosa del issue #2 (el usuario cree que aprobo/publico y no ocurrio nada).
@@ -193,6 +196,7 @@ function gitFlow() {
     mainLocal,
     mainRef,
     developRef,
+    integracion,
     aheadOfMain,
     onProtected: isProtected(g.branch),
     onFeature: WORK_BRANCH_RE.test(g.branch),
@@ -291,9 +295,10 @@ function gitLines(compact, opts = {}) {
     if (f && f.tipo === 'timeout') return [`Git: NO PUDE LEER EL REPO — ${f.detalle}. NO significa que falte git: es lentitud (antivirus de endpoint, disco o red). Reintenta; si se repite, mide con: node -e "console.time('g');require('child_process').execFileSync('git',['status']);console.timeEnd('g')".`];
     if (f && f.tipo === 'sin-git-instalado') return ['Git: el ejecutable git NO esta en el PATH. Instalalo o anadelo al PATH; el repo puede estar perfectamente.'];
     if (f && f.tipo === 'error-git') return [`Git: ${f.detalle}. Revisa a mano con: git -C "${ROOT}" status.`];
-    return ['Git: repo sin git (recomendado: git init + rama develop + commit por cambio documental).'];
+    return ['Git: repo sin git (recomendado: git init -b main + commit por cambio documental).'];
   }
   const flow = gitFlow();
+  const P = (flow && flow.mainName) || 'main';   // la rama principal (lib/flujo.js): todo entra aqui por PR
   const docsTxt = g.dirtyDocs.length ? ` (${g.dirtyDocs.length} documental/es)` : '';
   const lines = [`Git: rama '${g.branch}'${g.user ? ` · usuario: ${g.user}` : ''} · ${g.dirty} cambio(s) sin commitear${docsTxt}.`];
   // IDENTIDAD + ROL — se emite en el ARRANQUE, no en cada turno: el rol de una persona no cambia
@@ -301,20 +306,11 @@ function gitLines(compact, opts = {}) {
   // completo. Medido: este bloque + los tres siguientes eran el 94% de la inyeccion por prompt.
   const rr0 = !compact ? resolveRole(true) : null;
   if (compact) { /* el arranque ya lo dijo */ } else if (rr0) {
-    lines.push(`Identidad: ${g.user || '(sin user.name)'} · Rol: ${rr0.rol.toUpperCase()} (${rr0.via}) — main/master/develop vetados a TODOS (tambien owner/admin): se TRABAJA en <tipo>/<slug> y todo entra por PR a develop.${rr0.rol === 'maintainer' ? ' Tu rol NO te exime del flujo: te habilita a CONSOLIDAR (/faro:consolidar -> develop) y APROBAR (/faro:publicar -> main).' : ' Tu solo lanzas /faro:pr; consolidar/aprobar los aplica un admin/owner/maintainer.'}`);
-  } else if (indice) {
-    lines.push(
-      `Identidad: ${g.user || '(sin user.name — fija git config user.name)'} · Rol: SIN DETERMINAR — antes de CONSOLIDAR o PUBLICAR consulta el rol real: ` +
-      'node .claude/hooks/harness.js role (si SIN_TOKEN -> node .claude/hooks/harness.js auth). main/master/develop vetados a escritura directa para TODOS; ' +
-      '/faro:consolidar y /faro:publicar solo si puedeAprobar (admin/owner/maintainer); el resto lanza /faro:pr.',
-    );
+    lines.push(`Identidad: ${g.user || '(sin user.name)'} · Rol: ${rr0.rol.toUpperCase()} (${rr0.via}) — ${P} vetada a escritura directa para TODOS: se TRABAJA en <tipo>/<slug> y todo entra por PR a ${P} con auto-merge (/faro:pr); el CI valida y publica.${rr0.rol === 'maintainer' ? ' Tu rol te habilita a revisar y aprobar PRs, no a saltarte el flujo.' : ''}`);
   } else {
-    // Sin lista 'maintainers:' declarada: el rol REAL se resuelve por el TOKEN DEL HARNESS (no CLI gh).
     lines.push(
-      `Identidad: ${g.user || '(sin user.name — fija git config user.name)'} · Rol: SIN DETERMINAR aun en contexto. ` +
-      `ANTES de cualquier CONSOLIDACION o APROBACION (o si dudas de quien eres), CONSULTA el rol REAL: node .claude/hooks/harness.js role ` +
-      `(usa el token del harness ~/.faro.json y devuelve org/repo/perm/puedeAprobar; si SIN_TOKEN -> node .claude/hooks/harness.js auth, codigo de 6 digitos). ` +
-      `Regla: main/master/develop vetados a escritura directa para TODOS; /faro:consolidar y /faro:publicar solo si puedeAprobar (admin/owner/maintainer); el resto lanza /faro:pr.`,
+      `Identidad: ${g.user || '(sin user.name — fija git config user.name)'} · Rol: SIN DETERMINAR (consultalo con node .claude/hooks/harness.js role; si SIN_TOKEN -> harness.js auth). ` +
+      `${P} vetada a escritura directa para TODOS; cualquiera abre su PR con /faro:pr y entra solo con auto-merge cuando el CI pasa.`,
     );
   }
   // PLATAFORMA: todo lo que sigue depende de QUE FORJA hay detras de origin. Antes se afirmaba
@@ -340,78 +336,44 @@ function gitLines(compact, opts = {}) {
   if (!compact) lines.push(_forge.reglaPlataforma(f));
 
   if (NO_INSTANCIA) {
-    lines.push(`MODO TEMPLATE: commit directo en '${g.branch}' permitido (el ciclo feature->develop->main aplica a las instancias).`);
+    lines.push(`MODO TEMPLATE: commit directo en '${g.branch}' permitido (el ciclo rama -> PR a main aplica a las instancias).`);
     return lines;
   }
   if (!compact) {
   if (isProtected(g.branch)) {
-    // En el TURNO no se repite: cmdPromptContext emite su propio "radar de rama" (una linea, el
-    // aviso de seguridad) y esto es su desarrollo largo, que ya se dio al arrancar la sesion.
+    // En el TURNO no se repite: cmdPromptContext emite su propio radar de rama.
     lines.push(
-      `PROTECCION '${g.branch}': es el ARCHIVO DE LO APROBADO (solo LECTURA/APROBACION), NO un sitio de trabajo — NADIE escribe aqui, tampoco tu (el harness lo BLOQUEA). Se llega SOLO por merge de un PR aprobado (= la aprobacion, la aplica el usuario/maintainer).`,
+      `PROTECCION '${g.branch}': es lo INTEGRADO y publicado, NO un sitio de trabajo — NADIE commitea aqui, tampoco tu (el harness lo BLOQUEA). Se llega SOLO por PR con auto-merge cuando el CI pasa.`,
     );
     lines.push(
-      `Si te piden GENERAR o ESCRIBIR algo estando en '${g.branch}' (informe, one-pager, documento, codigo): NO es un problema ni "va por encima" de develop, y NO se lo traslades al usuario como bloqueo — CAMBIATE TU a develop (git switch develop), generalo ahi, y llegara a '${g.branch}' con la proxima aprobacion. Es la mecanica normal, la resuelves tu.`,
-    );
-    lines.push(
-      `Lo que SI se hace en '${g.branch}' (solo lectura): consultar estado y VALIDAR PRs pendientes. OFRECE analizarlos ('hay PRs hacia ${g.branch}, ¿los reviso?') con /faro:pr -> detecta los PRs con 'node .claude/hooks/harness.js pr ${g.branch}' (formateado; sin node -e) (si SIN_TOKEN, OFRECE conectar: node .claude/hooks/harness.js auth -> codigo de 6 digitos para el navegador), EXPLICA en llano, VALIDA (cobertura, riesgos, gaps frente a codigo/fuentes) y recomienda; el merge (=aprobacion) lo confirma un maintainer.`,
-    );
-    lines.push(
-      flow && flow.develop
-        ? 'Cambia ahora: git switch develop (integracion) · git switch -c feature/<tema> (trabajo aislado).'
-        : 'Falta develop: crea el ciclo -> git switch -c develop (luego git push -u origin develop), despues git switch -c feature/<tema>.',
+      `Si te piden GENERAR o ESCRIBIR algo estando en '${g.branch}': NO es un bloqueo que trasladar al usuario — abre TU una rama de cambio (node .claude/hooks/harness.js rama <tipo> "<tema>"), hazlo ahi y entra con /faro:pr.`,
     );
   } else if (g.branch === 'develop') {
-    lines.push(`Estas en develop (INTEGRACION): NO se edita a mano aqui (ni tu, ni owner/admin/maintainer). Para trabajar, abre una rama de cambio: node .claude/hooks/harness.js rama <tipo> "<tema>" (tipos: ${BRANCH_TYPES.filter((t) => t !== 'feature').join('/')}). El trabajo entra a develop por /faro:consolidar (rol) y develop->main por /faro:publicar (rol).`);
+    lines.push(`Estas en develop, rama HEREDADA del flujo anterior a FARO 3.0: ya no se integra aqui. Abre una rama de cambio desde ${P} (node .claude/hooks/harness.js rama <tipo> "<tema>") y lo que quede en develop llevalo a ${P} con un PR develop -> ${P}.`);
   } else if (WORK_BRANCH_RE.test(g.branch)) {
-    // RAMA DE TRABAJO valida <tipo>/<slug>: aqui SI se trabaja. Al terminar -> enviar a develop con /faro:pr.
-    lines.push(`Estas en '${g.branch}' (rama de trabajo): OK para editar/commitear aqui. Cuando el trabajo este listo, ENVIALO a develop abriendo el PR con /faro:pr (cualquiera puede lanzarlo). NO mergees a develop a mano: eso lo hace un rol con /faro:consolidar.`);
-  } else if (!WORK_BRANCH_RE.test(g.branch)) {
-    // Rama que NO encaja en el ciclo git-flow FARO (ni main/master, ni develop, ni <tipo>/*): avisa y reconduce.
+    lines.push(`Estas en '${g.branch}' (rama de trabajo): OK para editar/commitear aqui. Cuando este listo, /faro:pr abre el PR a ${P} con auto-merge: entra solo cuando el CI pasa y el CI publica tag y release.`);
+  } else {
     lines.push(
-      `ATENCION rama '${g.branch}': NO sigue la convencion del flujo FARO. El trabajo aislado va en una rama de cambio ` +
-      `<tipo>/<slug> (tipos: ${BRANCH_TYPES.filter((t) => t !== 'feature').join('/')}) y la integracion en develop — no trabajes suelto en una rama fuera del ciclo.`,
+      `ATENCION rama '${g.branch}': NO sigue la convencion del flujo FARO. El trabajo va en una rama <tipo>/<slug> (tipos: ${BRANCH_TYPES.filter((t) => t !== 'feature').join('/')}) que entra por PR a ${P}.`,
     );
-    lines.push(
-      flow && flow.develop
-        ? `Reconducelo (confirma con el usuario): node .claude/hooks/harness.js rama <tipo> "<tema>" (crea <tipo>/<slug> desde develop) · git branch -m <tipo>/<slug> (renombra ESTA, conserva el trabajo) · o git switch develop.`
-        : `Falta develop: crea el ciclo -> git switch -c develop (luego git push -u origin develop) y abre la rama de cambio con node .claude/hooks/harness.js rama <tipo> "<tema>".`,
-    );
+    lines.push(`Reconducelo (confirma con el usuario): git branch -m <tipo>/<slug> (renombra ESTA, conserva el trabajo) · o node .claude/hooks/harness.js rama <tipo> "<tema>" (nueva desde ${P}).`);
   }
 
   }   // fin del envoltorio !compact de la clasificacion de rama
 
-  if (flow && !flow.develop && !compact) {
-    lines.push("ATENCION git-flow: no existe la rama 'develop' (integracion), que el flujo feature->develop->main necesita. Crearla (con confirmacion del usuario): git switch -c develop && git push -u origin develop.");
-  }
-  // Integrar una rama de cambio: NUNCA a ciegas. Vale para TODOS (tambien owner/admin): todo entra por PR a develop.
-  if (flow && flow.onFeature && !compact && !indice) {
-    lines.push(
-      `Integrar '${g.branch}' -> develop: NO a ciegas. 1) VALIDA (node .claude/hooks/harness.js validate + revisor-code/auditor). ` +
-      `2) Entra por PR a develop (recomendado: /faro:pr / gestor-forja abre el PR con base=develop) o, sin revision formal, merge VALIDADO que ejecuta el USUARIO: git switch develop && git merge --no-ff ${g.branch} && git push. ` +
-      `Aplica a TODOS, tambien owner/admin (el rol solo decide quien aprueba). Luego limpia: git branch -d ${g.branch}.`,
-    );
-  }
   if (flow && flow.merged && flow.merged.length && !compact && !indice) {
-    lines.push(`Features ya integradas en develop (candidatas a borrado): ${flow.merged.map((f) => `git branch -d ${f}`).join(' · ')}.`);
+    lines.push(`Ramas ya integradas en ${P} (candidatas a borrado): ${flow.merged.map((f) => `git branch -d ${f}`).join(' · ')}.`);
   }
   if (flow && flow.aheadOfMain > 0) {
-    lines.push(
-      `PENDIENTE DE VALIDACION: develop ⇡${flow.aheadOfMain} commit(s) sobre ${flow.mainName}. ` +
-      `¿Preparo la "peticion de validacion" (en llano; "(PR)" para el que sepa)? -> /faro:pr analiza los commits vs ${flow.mainName} CON CONTEXTO (que se ha hecho, agrupado por item legible) y redacta la peticion AMIGABLE para quien aprueba (no tecnico), dejandole elegir el alcance (todo o parte). ` +
-      `El merge (=aprobacion/validacion) lo confirma un maintainer: git switch ${flow.mainName} && git merge --no-ff develop && git push.`,
-    );
+    lines.push(`develop (heredada) lleva ${flow.aheadOfMain} commit(s) que no estan en ${P}: llevalos con un PR develop -> ${P} y retira develop (FARO 3.0 integra directo en ${P}).`);
   }
   if (flow && flow.unmerged && flow.unmerged.length && !compact && !indice) {
-    lines.push(`Features SIN integrar en develop: ${flow.unmerged.join(', ')} — integralas con merge parcial cuando esten listas.`);
+    lines.push(`Ramas SIN integrar en ${P}: ${flow.unmerged.join(', ')} — cada una entra con su PR (/faro:pr, auto-merge).`);
   }
-
   if (!compact && !indice) {
     lines.push(
-      'Protocolo de ramas: feature/<tema> (trabajo) -> develop (integracion) -> main/master (validacion/aprobacion). ' +
-      'REGLAS del ciclo: Claude PUEDE commitear en develop/feature Y mergear feature->develop; ' +
-      'las ramas principales (main/master) NUNCA se commitean directo (el harness lo bloquea) y su merge/push es la APROBACION -> ' +
-      'Claude PREPARA el comando exacto y AVISA para que lo aplique el usuario. Commit por cambio documental · tag fase-<N> al cerrar fase.',
+      `Protocolo de ramas (FARO 3.0): <tipo>/<slug> (trabajo, nace de ${P}) -> PR a ${P} con auto-merge (titulo Conventional) -> el CI valida, integra y publica tag + release. ` +
+      `${P} NUNCA se commitea directo (el harness lo bloquea). Commit por cambio documental · tag fase-<N> al cerrar fase.`,
     );
   }
   return lines;
@@ -477,7 +439,7 @@ function soloCambiaVersion(base, fichero) {
   const lineas = d.split('\n').filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)\s/.test(l));
   return lineas.length > 0 && lineas.every((l) => /^[+-]\s*"version"\s*:\s*"[^"]*"\s*,?\s*$/.test(l));
 }
-function ramaEsSoloGestion(base = 'develop') {
+function ramaEsSoloGestion(base = 'main') {
   const salida = git('diff', '--name-only', `${base}...HEAD`);
   if (!salida) return false;                       // sin diff (o git fallo): no se exime
   const ficheros = salida.split('\n').map((s) => s.trim()).filter(Boolean);

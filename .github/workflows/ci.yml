@@ -6,14 +6,19 @@
 # multiplicaba el gasto por ~13 sin aportar: el 99% de los fallos salen en cualquiera de los tres.
 #
 # Reparto: Ubuntu en cada PR (red rápida y barata, es donde se trabaja) y la matriz COMPLETA solo
-# al entrar en develop/main, que es cuando de verdad importa que funcione en las tres — el equipo
+# al entrar en main, que es cuando de verdad importa que funcione en las tres — el equipo
 # mezcla Windows y macOS, y hay guardarraíles específicos de Windows (windowsHide) que hay que
 # seguir probando allí antes de publicar.
+#
+# FARO 3.0 — flujo directo a main: cada PR va a main con auto-merge; este CI es la puerta. Al
+# integrarse, el job 'release' publica tag + release si plugin.json trae version nueva (sin
+# /faro:publicar). La regla de que version pide cada tipo de commit vive en plugins/faro/hooks/lib/flujo.js.
 name: ci
 on:
   pull_request:
+  merge_group:
   push:
-    branches: [main, develop]
+    branches: [main]
 #
 # TROZOS (#178): la suite completa (~1.100 tests, en serie a proposito) se reparte en 4 trozos que corren en
 # paralelo, repartidos por tamaño de fichero (test/run.js --trozo=i/n, determinista). Mismo gasto de minutos
@@ -23,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # En un PR: solo Ubuntu. Al integrar (push a develop/main): los tres.
+        # En un PR: solo Ubuntu. Al integrar (push a main / cola de merge): los tres.
         os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest","windows-latest","macos-latest"]') }}
         trozo: [1, 2, 3, 4]
     name: test (${{ matrix.os }}, trozo ${{ matrix.trozo }}/4)
@@ -36,3 +41,40 @@ jobs:
       # node directo (no `npm test --`): en Windows el shim de npm para PowerShell puede comerse el `--` y cada
       # job correria la suite entera. Mismos flags que `npm test`.
       - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4
+
+  # Aviso (no rompe): la version de plugin.json sube lo que piden los commits Conventional del PR.
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/release-ci.js comprobar --base origin/${{ github.base_ref }}
+        env:
+          PR_TITULO: ${{ github.event.pull_request.title }}
+
+  # Publicacion automatica: tras la matriz verde en main, tag vX.Y.Z + release con su CHANGELOG si la
+  # version es nueva. Un merge de docs/chore no cambia la version y no publica nada.
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/release-ci.js publicar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

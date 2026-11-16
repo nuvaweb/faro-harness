@@ -129,23 +129,23 @@ test('sincronizar: rama DIVERGIDA no se toca sola — se propone (no es fast-for
   assert.ok(/diverg|ambas direcciones|tuyo.*sin subir|sin subir/i.test(r.stdout), `deberia avisar de la divergencia:\n${r.stdout}`);
 });
 
-test('sincronizar: detecta EN SECO que la rama de trabajo chocaria con develop (antes del PR)', () => {
+test('sincronizar: detecta EN SECO que la rama de trabajo chocaria con main (antes del PR)', () => {
   const { dir, bare } = repoConRemoto('sync-conflicto');
   // Los dos tocan LA MISMA linea del MISMO fichero -> conflicto real al integrar.
-  git(dir, 'switch', 'develop');
+  git(dir, 'switch', 'main');
   commit(dir, 'compartido.txt', 'version original', 'base compartida');
-  git(dir, 'push', 'origin', 'develop');
+  git(dir, 'push', 'origin', 'main');
 
   git(dir, 'switch', '-c', 'feat/mi-cosa');
   fs.writeFileSync(path.join(dir, 'compartido.txt'), 'MI version\n');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-m', 'feat: mi cambio');
 
-  const otro = otroEmpuja(bare, 'develop', 'x.txt', 'x', 'placeholder');
+  const otro = otroEmpuja(bare, 'main', 'x.txt', 'x', 'placeholder');
   fs.writeFileSync(path.join(otro, 'compartido.txt'), 'SU version\n');
   git(otro, 'add', '-A');
   git(otro, 'commit', '-m', 'feat: su cambio');
-  git(otro, 'push', 'origin', 'develop');
+  git(otro, 'push', 'origin', 'main');
 
   const r = run(['sincronizar'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
@@ -157,7 +157,7 @@ test('sincronizar: detecta EN SECO que la rama de trabajo chocaria con develop (
   assert.ok(!fs.existsSync(path.join(dir, '.git', 'MERGE_HEAD')), 'no debe quedar un merge a medias');
 });
 
-test('sincronizar: rama de trabajo LIMPIA frente a develop se reporta como integrable', () => {
+test('sincronizar: rama de trabajo LIMPIA frente a main se reporta como integrable', () => {
   const { dir, bare } = repoConRemoto('sync-limpio');
   git(dir, 'switch', '-c', 'feat/sin-choque');
   commit(dir, 'solo-mio.txt', 'solo yo toco esto', 'feat: fichero propio');

@@ -91,8 +91,8 @@ function planTerminar({ rama, sucio, integrada, publicada, fase, prAbierto }) {
   const ficheros = String(sucio || '').split('\n').map((s) => s.trim()).filter(Boolean);
   // 'integrada' compara commits: una rama recien creada, o una ya mergeada sobre la que se sigue
   // trabajando, da igualmente "integrada". Si hay trabajo sin commitear, el ciclo NO esta cerrado.
-  if (integrada && !ficheros.length) return no(`La rama '${rama}' ya esta integrada en develop: el ciclo de esta rama ya se cerro.`);
-  if (prAbierto) return no(`La rama '${rama}' ya tiene una peticion abierta: ${prAbierto}. Integrala con /faro:consolidar en vez de abrir otra.`);
+  if (integrada && !ficheros.length) return no(`La rama '${rama}' ya esta integrada en la rama principal: el ciclo de esta rama ya se cerro.`);
+  if (prAbierto) return no(`La rama '${rama}' ya tiene una peticion abierta: ${prAbierto}. Se integra sola (auto-merge) cuando el CI pase: no abras otra.`);
 
   const avisos = [];
   const pasos = [];

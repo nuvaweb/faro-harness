@@ -140,7 +140,7 @@ se va a hacer no es un cierre por completado: eso es `descartar-tarea <N> "<moti
 
 - **Fase = hito, en las DOS forjas.** `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" hito` lista los hitos con tareas
   cerradas/total (y horas estimadas/consumidas en GitLab); `hito sync` crea uno por fase de faro/ESTADO.md ("Fase N — nombre")
-  y cierra los de fases terminadas — disparado también por `/faro:publicar`.
+  y cierra los de fases terminadas — disparado también por `/faro:cerrar-fase`.
 - **Cierre FORZOSO: una fase terminada no cierra su hito con tareas suyas abiertas dentro.** El harness
   DETECTA y avisa cuántas quedan (nunca las mueve ni las cierra por su cuenta — mover una tarea de fase
   es una decisión de gestión, no del motor). Resuélvelas antes de dar la fase por cerrada: ciérralas,

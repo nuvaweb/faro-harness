@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## 3.0.0 — 2026-11-16
+
+### Cambiado (ruptura)
+- **Flujo directo a main.** Cada rama `<tipo>/<N>-<slug>` nace de `origin/main` y entra por PR a `main` con auto-merge (`harness.js pr crear`). Se retiran `develop` como rama de integración y los pasos manuales de consolidar y publicar.
+- **Publica el CI.** Al integrarse en `main`, el job `release` de `.github/workflows/ci.yml` crea el tag `vX.Y.Z` y la release con su sección del CHANGELOG (`scripts/release-ci.js publicar`) si `plugin.json` trae versión nueva. En el PR, `release-ci.js comprobar` avisa si la versión no sube lo que piden los commits. El CI corre en PR, cola de merge y push a `main`.
+- **Una sola nomenclatura Conventional** para ramas, commits, títulos de PR y versiones: `feat` → menor, `fix`/`perf`/`refactor`/`revert` → parche, `!` o `BREAKING CHANGE` → mayor, `docs`/`chore`/`test`/`ci`/`build`/`style` no publican. `pr crear` y `terminar` normalizan el título.
+- Las ramas de trabajo se comparan contra la rama principal (`gitFlow`, `ramas`, `sincronizar`, `worktrees`, tests afectados, `pendientes`). `validate` ya no exige `develop`. Los `[x]` de tareas cerradas se marcan en la rama de trabajo y entran con su PR.
+- Las plantillas de CI que genera `harness.js ci` disparan en push a `main` (sin `develop`).
+
+### Añadido
+- `plugins/faro/hooks/lib/flujo.js`: la política del flujo en un solo módulo (rama principal, auto-merge, método de merge, tipos Conventional, versión que publica cada tipo, bases candidatas). Configurable por entorno (`FARO_RAMA_PRINCIPAL`, `FARO_AUTO_MERGE`, `FARO_METODO_MERGE`) o en `faro/config.json > "flujo"`.
+- Auto-merge en las dos forjas: `activarAutoMerge` (GitHub GraphQL `enablePullRequestAutoMerge`; GitLab `merge_when_pipeline_succeeds`), en el contrato de forja. `pr crear --sin-auto-merge` lo desactiva.
+
+### Retirado
+- `/faro:consolidar`, `/faro:publicar` y `lib/consolidar.js`. `harness.js consolidar|publicar` solo explica el flujo nuevo.
+
 ## 2.4.0 — 2026-11-13
 
 ### Cambiado

@@ -1,5 +1,5 @@
 ---
-description: "Úsala para ver qué hace en producción lo desplegado (tras publicar, al cerrar fase, si falla en real) — lee logs y métricas del Worker vía MCP de Cloudflare."
+description: "Úsala para ver qué hace en producción lo desplegado (tras integrarse en main, al cerrar fase, si falla en real) — lee logs y métricas del Worker vía MCP de Cloudflare."
 argument-hint: "[worker o tema opcional]"
 ---
 
@@ -72,5 +72,5 @@ Eso es lo que no puede decir ningún test, y lo que justifica la consulta.
   producción es la peor mentira posible: se toman decisiones con él.
 - **Vacío no es cero.** Que no haya logs puede significar que no hay tráfico, que la observabilidad
   está desactivada en `wrangler`, o que miras el Worker equivocado. Distingue los tres.
-- **Esto nunca es un gate.** No bloquea `validate`, ni `publicar`, ni el cierre de una fase. Informa
+- **Esto nunca es un gate.** No bloquea `validate`, ni el CI, ni el cierre de una fase. Informa
   para que decida el humano.

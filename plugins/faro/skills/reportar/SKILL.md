@@ -3,7 +3,7 @@ description: "Úsala para el informe de cierre de fase o semanal, o una pieza pu
 argument-hint: "[fase N | semanal | estado | presentada | <tema>]  (vacío = el que toque)"
 ---
 
-> **Rama de trabajo (obligatorio antes de generar):** una pieza de reporting se ESCRIBE. Si estás en `main`/`master`/`develop` (instancia, no template), NO generes aquí — abre primero una rama `docs/<tema>` (`node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" rama docs "<tema>"`), genera ahí y entra por PR a develop (`/faro:pr`). El harness lo bloquea si lo intentas en rama protegida.
+> **Rama de trabajo (obligatorio antes de generar):** una pieza de reporting se ESCRIBE. Si estás en `main`/`master` (instancia, no template), NO generes aquí — abre primero una rama `docs/<tema>` (`node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" rama docs "<tema>"`), genera ahí y entra por PR a main (`/faro:pr`). El harness lo bloquea si lo intentas en rama protegida.
 
 Ejecuta **TÚ en esta conversación (hilo principal)**, NO como subagente — así `AskUserQuestion` funciona y puedes preguntar al usuario con opciones. Todo el reporting de `faro/gestion/reporting/` se **confecciona** desde la evidencia real (artefactos + git), nunca se inventa ni se rellena con supuestos: si algo falta o no cuadra, señálalo y pregunta. **Reporting SIEMPRE versionado por FECHA, nunca SemVer** (es snapshot datado, no conocimiento vivo con `doc_id`): misma fecha → ACTUALIZA ese mismo fichero; fecha nueva → snapshot nuevo, los datados conviven.
 

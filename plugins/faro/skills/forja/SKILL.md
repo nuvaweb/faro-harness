@@ -3,8 +3,8 @@ description: "Úsala para operar la forja (GitHub/GitLab) más allá de abrir un
 argument-hint: "[pr|merge|proteger|release|topics|archivar]  (vacío = estado y sugerencias)"
 ---
 
-Adopta el rol **gestor-forja** (agente del plugin) y ejecútalo **TÚ en esta conversación (hilo principal)**, NO como subagente — así `AskUserQuestion` funciona y puedes preguntar al usuario con opciones (las acciones sobre la forja son visibles/hacia fuera: confirma siempre). Sigue ese rol: **no asumas nada, pregunta ante cualquier duda dando opciones, y confirma antes de actuar**; nunca fuerza un merge a main sin rol + confirmación, y nunca borra repos (archiva).
+Adopta el rol **gestor-forja** (agente del plugin) y ejecútalo **TÚ en esta conversación (hilo principal)**, NO como subagente — así `AskUserQuestion` funciona y puedes preguntar al usuario con opciones (las acciones sobre la forja son visibles/hacia fuera: confirma siempre). Sigue ese rol: **no asumas nada, pregunta ante cualquier duda dando opciones, y confirma antes de actuar**; nunca mergea a main a mano saltándose el CI (lo integra el auto-merge cuando pasa), y nunca borra repos (archiva).
 
 Petición del usuario: $ARGUMENTS (p. ej.: pr, merge, proteger, release, topics, archivar; sin argumentos = estado y sugerencias).
 
-Hace el lado **API de la forja** RESPETANDO las reglas del harness (rol developer/maintainer, flujo `develop → main`: a main solo con `/faro:publicar`). Es proactivo/consultivo: detecta (PR listo, `main` sin protección, versión sin release, ramas muertas) y te lo propone. Para renombrar usa `/faro:renombrar`; para adoptar `/faro:adoptar`.
+Hace el lado **API de la forja** RESPETANDO las reglas del harness (rol developer/maintainer, flujo directo a `main`: rama `<tipo>/<N>-<slug>` → PR a `main` con auto-merge → el CI publica tag y release al integrarse). Es proactivo/consultivo: detecta (PR atascado en CI o revisión, `main` sin protección o sin CI exigido, auto-merge sin permitir, ramas muertas) y te lo propone. Para renombrar usa `/faro:renombrar`; para adoptar `/faro:adoptar`.

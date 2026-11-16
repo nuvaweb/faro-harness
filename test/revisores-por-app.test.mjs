@@ -213,7 +213,7 @@ test('sesion en repo simple: el texto de revisores no cambia', () => {
 
 const leer = (rel) => fs.readFileSync(path.join(PLUGIN, rel), 'utf8');
 
-for (const rel of ['skills/publicar/SKILL.md', 'skills/consolidar/SKILL.md', 'skills/pr/SKILL.md', 'skills/revisar-code/SKILL.md']) {
+for (const rel of ['skills/pr/SKILL.md', 'skills/revisar-code/SKILL.md']) {
   test(`${rel}: en monorepo lanza revisor-code-worker por cada app worker afectada (harness.js apps)`, () => {
     const t = leer(rel);
     assert.match(t, /harness\.js"? apps --json/, `${rel} debe consultar las apps`);
@@ -222,7 +222,7 @@ for (const rel of ['skills/publicar/SKILL.md', 'skills/consolidar/SKILL.md', 'sk
   });
 }
 
-for (const rel of ['skills/consolidar/SKILL.md', 'skills/pr/SKILL.md']) {
+for (const rel of ['skills/pr/SKILL.md']) {
   test(`${rel}: el contrato se comprueba por app en monorepo`, () => {
     assert.match(leer(rel), /contrato <app>/, rel);
   });

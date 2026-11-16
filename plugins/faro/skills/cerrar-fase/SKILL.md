@@ -3,7 +3,7 @@ description: "Úsala para cerrar una fase del faseo — valida que esté termina
 argument-hint: "<N>"
 ---
 
-**Cerrar una fase NO es publicar.** Publicar (`/faro:publicar`) saca a producción; cerrar una fase es
+**Cerrar una fase NO es publicar.** Publicar (lo hace el CI al integrarse cada PR en `main`) saca a producción; cerrar una fase es
 el acto de gestión que declara terminado un bloque de trabajo y lo deja como registro histórico. Son
 independientes: se puede cerrar una fase sin publicar, y publicar sin cerrar ninguna fase.
 

@@ -7,6 +7,7 @@
 // git cherry NO sirve para ramas de MULTIPLES commits (compara patch a patch, no el diff
 // acumulado) — la deteccion correcta compara el diff TOTAL de la rama desde su merge-base contra
 // el diff que ese mismo tramo introdujo en develop.
+// FARO 3.0: la integracion es directa en main (PR con auto-merge), asi que el squash se simula sobre main.
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
@@ -37,14 +38,13 @@ function repoConFeatureSquasheada(name, { commitsEnFeature = 18 } = {}) {
   git(dir, 'config', 'tag.gpgsign', 'false');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-m', 'base');
-  git(dir, 'switch', '-c', 'develop');
   git(dir, 'switch', '-c', 'feat/add-data-detail');
   for (let i = 1; i <= commitsEnFeature; i++) {
     fs.appendFileSync(path.join(dir, 'a.txt'), `linea ${i}\n`);
     git(dir, 'add', '-A');
     git(dir, 'commit', '-m', `commit ${i} de ${commitsEnFeature}`);
   }
-  git(dir, 'switch', 'develop');
+  git(dir, 'switch', 'main');
   // Simula EXACTAMENTE lo que hace GitHub "Squash and merge": un commit nuevo con el diff
   // acumulado, hash distinto a todos los de la rama.
   git(dir, 'merge', '--squash', 'feat/add-data-detail');
@@ -54,11 +54,11 @@ function repoConFeatureSquasheada(name, { commitsEnFeature = 18 } = {}) {
 
 // Las listas de features integradas / sin integrar viven en el bloque COMPLETO ('status' /
 // 'harness.js estado'): el arranque de sesion es un indice y no las repite (#127).
-test('gitFlow: rama con 18 commits SQUASHEADA a develop NO aparece como "sin integrar" (caso real PR #46)', () => {
+test('gitFlow: rama con 18 commits SQUASHEADA a main NO aparece como "sin integrar" (caso real PR #46)', () => {
   const dir = repoConFeatureSquasheada('squash-18-commits');
   const r = run(['status'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.ok(!/Features SIN integrar en develop:.*add-data-detail/.test(r.stdout), `sigue listando la rama squasheada como sin integrar: ${r.stdout.slice(0, 800)}`);
+  assert.ok(!/Ramas SIN integrar en main:.*add-data-detail/.test(r.stdout), `sigue listando la rama squasheada como sin integrar: ${r.stdout.slice(0, 800)}`);
   assert.ok(/ya integradas.*add-data-detail|add-data-detail.*ya integrada/i.test(r.stdout), `no la reconoce como YA integrada: ${r.stdout.slice(0, 800)}`);
 });
 
@@ -66,7 +66,7 @@ test('gitFlow: rama con 1 solo commit squasheada tampoco aparece como "sin integ
   const dir = repoConFeatureSquasheada('squash-1-commit', { commitsEnFeature: 1 });
   const r = run(['status'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.ok(!/Features SIN integrar en develop:.*add-data-detail/.test(r.stdout), `sigue listando la rama squasheada como sin integrar: ${r.stdout.slice(0, 800)}`);
+  assert.ok(!/Ramas SIN integrar en main:.*add-data-detail/.test(r.stdout), `sigue listando la rama squasheada como sin integrar: ${r.stdout.slice(0, 800)}`);
 });
 
 test('gitFlow: rama de trabajo REALMENTE sin integrar SIGUE apareciendo (no romper el caso normal)', () => {
@@ -79,25 +79,24 @@ test('gitFlow: rama de trabajo REALMENTE sin integrar SIGUE apareciendo (no romp
   git(dir, 'config', 'tag.gpgsign', 'false');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-m', 'base');
-  git(dir, 'switch', '-c', 'develop');
   git(dir, 'switch', '-c', 'feat/sin-integrar');
   fs.writeFileSync(path.join(dir, 'b.txt'), 'contenido nunca integrado\n');
   git(dir, 'add', '-A');
-  git(dir, 'commit', '-m', 'commit que NO se ha integrado en develop');
-  git(dir, 'switch', 'develop');
+  git(dir, 'commit', '-m', 'commit que NO se ha integrado en main');
+  git(dir, 'switch', 'main');
   const r = run(['status'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.ok(/Features SIN integrar en develop:.*sin-integrar/.test(r.stdout), `una rama REALMENTE sin integrar deberia seguir avisando: ${r.stdout.slice(0, 800)}`);
+  assert.ok(/Ramas SIN integrar en main:.*sin-integrar/.test(r.stdout), `una rama REALMENTE sin integrar deberia seguir avisando: ${r.stdout.slice(0, 800)}`);
 });
 
-test('gitFlow: rama squasheada Y con develop avanzado DESPUES por otro commit tambien se detecta integrada', () => {
+test('gitFlow: rama squasheada Y con main avanzado DESPUES por otro commit tambien se detecta integrada', () => {
   const dir = repoConFeatureSquasheada('squash-develop-avanzo', { commitsEnFeature: 3 });
-  fs.writeFileSync(path.join(dir, 'c.txt'), 'otro cambio en develop tras el squash\n');
+  fs.writeFileSync(path.join(dir, 'c.txt'), 'otro cambio en main tras el squash\n');
   git(dir, 'add', '-A');
-  git(dir, 'commit', '-m', 'otro commit en develop despues del squash');
+  git(dir, 'commit', '-m', 'otro commit en main despues del squash');
   const r = run(['status'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
-  assert.ok(!/Features SIN integrar en develop:.*add-data-detail/.test(r.stdout), `sigue listando la rama squasheada como sin integrar tras avanzar develop: ${r.stdout.slice(0, 800)}`);
+  assert.ok(!/Ramas SIN integrar en main:.*add-data-detail/.test(r.stdout), `sigue listando la rama squasheada como sin integrar tras avanzar main: ${r.stdout.slice(0, 800)}`);
 });
 
 // --- lib/ramas.js (mismo bug, ya distinguia 'squash' pero con diff acumulado que fallaba si la
@@ -108,9 +107,9 @@ const runRamas = (dir, ...args) => spawnSync(process.execPath, [RAMAS, ...args],
 
 test('ramas.js: rama squasheada CON la base avanzada despues se clasifica [squash], no VIVA', () => {
   const dir = repoConFeatureSquasheada('ramas-squash-base-avanzo', { commitsEnFeature: 3 });
-  fs.writeFileSync(path.join(dir, 'c.txt'), 'otro cambio en develop tras el squash\n');
+  fs.writeFileSync(path.join(dir, 'c.txt'), 'otro cambio en main tras el squash\n');
   git(dir, 'add', '-A');
-  git(dir, 'commit', '-m', 'otro commit en develop despues del squash');
+  git(dir, 'commit', '-m', 'otro commit en main despues del squash');
   const r = runRamas(dir);
   assert.strictEqual(r.status, 0, r.stderr);
   assert.ok(/add-data-detail.*\[squash\/rebase/.test(r.stdout), `no la clasifica como squash/rebase integrada: ${r.stdout}`);

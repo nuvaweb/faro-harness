@@ -63,8 +63,8 @@ Si falta la declaración, el wizard pregunta. Para perfiles con app OAuth propia
 
 Al terminar de crear o traer, el wizard muestra quién aprueba y qué permite cada nivel de la forja en FARO:
 
-- Solo el **owner** y los **maintainers** aprueban, integran a `develop` y publican a `main`.
-- **Write** (GitHub) o **Developer** (GitLab) trabajan en ramas y abren PRs/MRs a `develop`.
+- Solo el **owner** y los **maintainers** aprueban los PRs a `main` (al integrarse, el CI publica la versión).
+- **Write** (GitHub) o **Developer** (GitLab) trabajan en ramas y abren PRs/MRs a `main` con auto-merge.
 - Añadir personas lo hace el owner en la propia forja; el wizard enseña el enlace.
 
 ## Instalar y actualizar

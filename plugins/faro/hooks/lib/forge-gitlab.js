@@ -75,8 +75,8 @@ module.exports = function (ctx) {
     console.log(`Rol en ${f().path} (GitLab, nivel ${ri.nivel}): ${ri.perm}`);
     guardarRolCache({ rol: ri.puedeAprobar ? 'maintainer' : 'developer', forja: 'GitLab', detalle: `nivel ${ri.nivel} = ${ri.perm}`, login: (await me() || {}).login || null });
     console.log(ri.puedeAprobar
-      ? `PUEDES PUBLICAR (nivel ${ri.nivel} = ${ri.perm}). Flujo: /faro:consolidar -> develop · /faro:publicar -> main.`
-      : `NO puedes publicar (nivel ${ri.nivel} = ${ri.perm}). Tu lanzas /faro:pr; /faro:consolidar y /faro:publicar los aplica un Maintainer u Owner.`);
+      ? `PUEDES PUBLICAR (nivel ${ri.nivel} = ${ri.perm}). Flujo FARO 3.0: MR a main con merge al pasar el pipeline; el CI publica al integrarse.`
+      : `NO puedes publicar (nivel ${ri.nivel} = ${ri.perm}). Tu lanzas /faro:pr (MR a main): se integra sola cuando el pipeline pasa y la revision lo permite.`);
   }
 
   // Equipo (atomicidad): miembros directos, heredados, aprobadores y construccion del equipo.
@@ -104,6 +104,14 @@ module.exports = function (ctx) {
     if (r.sinToken) return { ok: false, sinToken: true };
     if (!r.ok) return { ok: false, status: r.status, msg: r.body && (r.body.message || JSON.stringify(r.body).slice(0, 200)) };
     return { ok: true, iid: r.body.iid, url: r.body.web_url };
+  }
+  // activarAutoMerge({numero, metodo}) -> {ok, msg} (FARO 3.0): la MR se fusiona sola cuando el
+  // pipeline pasa (merge_when_pipeline_succeeds). 'squash' se respeta; merge/rebase los fija el proyecto.
+  async function activarAutoMerge({ numero, metodo = 'squash' }) {
+    const r = await api(`projects/${pid()}/merge_requests/${numero}/merge`, { method: 'PUT', body: { merge_when_pipeline_succeeds: true, should_remove_source_branch: true, squash: metodo === 'squash' } });
+    if (r.sinToken) return { ok: false, msg: 'SIN_TOKEN' };
+    if (!r.ok) return { ok: false, msg: (r.body && (r.body.message || JSON.stringify(r.body).slice(0, 200))) || `HTTP ${r.status}` };
+    return { ok: true };
   }
 
   // ---- 5) ETIQUETAS (tipo obligatorio, mismo catalogo que GitHub) ----
@@ -384,5 +392,5 @@ module.exports = function (ctx) {
   const gestion = require('./forge-gitlab-gestion.js')({ api, pid, f, SIN_TOKEN, invalidarResumen, fases: ctx.fases, isDone: ctx.isDone });
   const tareas = require('./forge-gitlab-tareas.js')({ api, pid, f, git, SIN_TOKEN, invalidarResumen, fases: ctx.fases, labelsCatalogo, collaborators, gestion, tokenPara, planificacion });
 
-  return { api, me, roleInfo, cmdRole, collaborators, approvers, cmdPr, crearPr, cmdAsignarTarea, cmdDescartarTarea, ...equipo, cmdMisTareas, cmdClave, claveDeEsteRepo, claveEnUso, estamparClave, ghResumenCache, ghResumenFresco, refrescarResumen, cmdGhRefresh, invalidarResumen, cmdAuth, nivelARol, ...proyecto, ...gestion, ...tareas };
+  return { api, me, roleInfo, cmdRole, collaborators, approvers, cmdPr, crearPr, activarAutoMerge, cmdAsignarTarea, cmdDescartarTarea, ...equipo, cmdMisTareas, cmdClave, claveDeEsteRepo, claveEnUso, estamparClave, ghResumenCache, ghResumenFresco, refrescarResumen, cmdGhRefresh, invalidarResumen, cmdAuth, nivelARol, ...proyecto, ...gestion, ...tareas };
 };

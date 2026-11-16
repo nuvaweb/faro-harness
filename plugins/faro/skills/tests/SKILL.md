@@ -3,7 +3,7 @@ description: "Úsala para que el agente no lance la suite completa en cada cambi
 argument-hint: "[proponer | aplicar | revisar, opcional]"
 ---
 
-Guía al usuario para organizar los tests de este repo **por funcionalidad** (dominio), de modo que mientras se trabaja solo corra lo afectado y la batería completa quede para CI y `/faro:publicar`. Ejecútalo **TÚ en esta conversación (hilo principal)** para poder preguntar con `AskUserQuestion`. Habla en llano: «una funcionalidad es algo que el negocio reconoce — cobros, altas de cliente, informes —, no una carpeta».
+Guía al usuario para organizar los tests de este repo **por funcionalidad** (dominio), de modo que mientras se trabaja solo corra lo afectado y la batería completa quede para el CI (corre en cada PR). Ejecútalo **TÚ en esta conversación (hilo principal)** para poder preguntar con `AskUserQuestion`. Habla en llano: «una funcionalidad es algo que el negocio reconoce — cobros, altas de cliente, informes —, no una carpeta».
 
 Petición del usuario: $ARGUMENTS
 
@@ -45,7 +45,7 @@ Escribe `faro/config.json > tests.dominios` (sin pisar lo ya declarado ni invent
 
 - Razona por **funcionalidad tocada**, no por «qué tests corro»: `tests-dominios --afectados` te da los dominios y la orden exacta.
 - **Monorepo**: la app se deduce de los ficheros cambiados. Si el cambio toca **varias apps** o hay **código sin dominio**, el comando lo marca con «PREGUNTA AL USUARIO» y las opciones: pregúntalo con AskUserQuestion y repite con la respuesta (`--app apps/<x>` o `--app todas`, o declara el dominio). No elijas tú.
-- La suite completa **no la lances tú**: la corren CI y `/faro:publicar`. Solo si el usuario la pide expresamente; ni siquiera «una vez al final» antes del commit o del PR. El harness registra nº de tests y tiempo de cada ejecución y avisa si encadenas baterías completas.
+- La suite completa **no la lances tú**: la corre el CI en el PR. Solo si el usuario la pide expresamente; ni siquiera «una vez al final» antes del commit o del PR. El harness registra nº de tests y tiempo de cada ejecución y avisa si encadenas baterías completas.
 - No rebajes tests para que pasen: el harness contrasta el diff de los tests (aserciones eliminadas, `.skip`/`.only`, umbrales o `expect` relajados) con lo que afirmas. Si algo se quita a propósito, dilo y justifícalo: `tests-dominios --integridad --afirmacion "<lo que dirás>"`.
 
 Cuenta al final: cuántos dominios quedan declarados, cuáles siguen `pendiente` y qué hueco queda abierto.

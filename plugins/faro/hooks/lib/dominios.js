@@ -736,7 +736,7 @@ function medirEjecucion(texto) {
 
 function baseDiff(root) {
   const ok = (r) => spawnSync('git', ['rev-parse', '--verify', '--quiet', `${r}^{commit}`], { cwd: root, encoding: 'utf8', windowsHide: true }).status === 0;
-  const ref = ['origin/develop', 'develop', 'origin/main', 'main'].find(ok);
+  const ref = require('./flujo.js').basesCandidatas(root).flatMap((b) => [`origin/${b}`, b]).find(ok);
   if (!ref) return 'HEAD';
   const mb = spawnSync('git', ['merge-base', 'HEAD', ref], { cwd: root, encoding: 'utf8', windowsHide: true });
   return mb.status === 0 && /^[0-9a-f]{40}$/.test(mb.stdout.trim()) ? mb.stdout.trim() : ref;

@@ -67,12 +67,8 @@ test('planCierreDeTarea: si su PR solo la referencia, consolidar no la cierra', 
   assert.strictEqual(planCierreDeTarea({ issue: '96', estado: 'open', rama: 'docs/96-faseo' }).accion, 'cerrar', 'sin Refs, igual que antes');
 });
 
-test('consolidar consulta los PRs de la rama antes del cierre activo, y pr crear acepta Refs como ancla', () => {
+test('pr crear acepta Refs como ancla y la forja sabe listar los PRs de una rama (FARO 3.0: sin consolidar)', () => {
   const src = fs.readFileSync(path.join(HOOKS, 'harness.js'), 'utf8');
-  const ini = src.indexOf('async function cmdConsolidar');
-  const consolidar = src.slice(ini, src.indexOf('\nasync function ', ini + 1)); // la función entera, no una ventana fija que se queda corta al crecer
-  assert.match(consolidar, /prsDeRama/);
-  assert.match(consolidar, /soloReferencia/);
   const prCrear = src.slice(src.indexOf('async function cmdPrCrear'), src.indexOf('async function cmdTerminar'));
   assert.match(prCrear, /soloReferencia/);
   const gh = fs.readFileSync(path.join(HOOKS, 'lib', 'github.js'), 'utf8');

@@ -76,5 +76,5 @@ completa, no desde cero.
 
 - Solo propones cambios sobre `faro/gestion/requisitos.md` y, cuando la digestión lo pida, el funcional,
   faro/ESTADO.md, RAID o un cambio spec-driven — siempre confirmando antes.
-- NUNCA tocas ramas principales (main/develop): trabajas en la rama de trabajo activa.
+- NUNCA tocas la rama principal (main): trabajas en la rama de trabajo activa.
 - Bugs/limitaciones del framework/harness/tooling NO son requisitos del trabajo: se reportan aparte.

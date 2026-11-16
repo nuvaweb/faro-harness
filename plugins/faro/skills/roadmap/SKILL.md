@@ -3,7 +3,7 @@ description: "Úsala para una hoja de ruta visual que responde «dónde estamos�
 argument-hint: "[foco opcional]"
 ---
 
-> **Rama de trabajo (obligatorio antes de generar):** el roadmap se ESCRIBE. Si estás en `main`/`master`/`develop`, NO generes aquí — abre primero una rama `docs/<tema>` (`node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" rama docs "<tema>"`), genera ahí y entra por PR a develop (`/faro:pr`). El harness lo bloquea si lo intentas en rama protegida.
+> **Rama de trabajo (obligatorio antes de generar):** el roadmap se ESCRIBE. Si estás en `main`/`master`, NO generes aquí — abre primero una rama `docs/<tema>` (`node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" rama docs "<tema>"`), genera ahí y entra por PR a main (`/faro:pr`). El harness lo bloquea si lo intentas en rama protegida.
 
 Genera la **hoja de ruta visual** del trabajo: A4 **horizontal**, pensada para que alguien que no sigue el proyecto a diario entienda en diez segundos dónde está, qué queda y qué lo frena.
 
@@ -32,4 +32,4 @@ Es un **milestone chart** estándar, no una metáfora: el lector no tiene que ap
 
 Foco opcional del usuario: $ARGUMENTS. **No inventes cifras ni fechas**: lo que falta, se dice que falta.
 
-Recuérdale: **Imprimir → PDF** (sale en A4 horizontal) para compartirlo. Si estás en `develop`/`feature`, commitea el HTML generado.
+Recuérdale: **Imprimir → PDF** (sale en A4 horizontal) para compartirlo. Si estás en tu rama de trabajo, commitea el HTML generado.

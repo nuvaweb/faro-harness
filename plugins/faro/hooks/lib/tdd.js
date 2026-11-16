@@ -584,7 +584,7 @@ const gitOut = (root, args) => {
   return r.status === 0 ? r.stdout : null;
 };
 function ramaBase(root) {
-  return ['origin/develop', 'develop'].find((r) => gitOut(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null) || 'HEAD';
+  return require('./flujo.js').basesCandidatas(root).flatMap((b) => [`origin/${b}`, b]).find((r) => gitOut(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null) || 'HEAD';
 }
 
 // Umbrales y expect RELAJADOS (#178): la misma linea (numeros aparte) con el numero aflojado, o la misma

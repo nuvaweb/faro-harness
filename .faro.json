@@ -169,7 +169,7 @@
         ]
       },
       "git-ramas": {
-        "descripcion": "Ramas, PRs, consolidación y protección de ramas",
+        "descripcion": "Ramas, PRs a main con auto-merge y protección de ramas",
         "codigo": [
           "plugins/faro/hooks/lib/git.js",
           "plugins/faro/hooks/lib/ramas.js",
@@ -179,14 +179,12 @@
           "plugins/faro/hooks/lib/atomico.js",
           "plugins/faro/hooks/lib/paths.js",
           "plugins/faro/hooks/lib/subir.js",
-          "plugins/faro/hooks/lib/consolidar.js",
           "plugins/faro/hooks/lib/config-repo.js",
           "plugins/faro/hooks/lib/migrar-layout.js",
-          "plugins/faro/hooks/lib/estado-ci.js"
+          "plugins/faro/hooks/lib/estado-ci.js",
+          "plugins/faro/hooks/lib/flujo.js"
         ],
         "tests": [
-          "test/consolidar.test.mjs",
-          "test/consolidar-sin-versionar.test.mjs",
           "test/desfase-integracion.test.mjs",
           "test/pr-cierra-su-issue.test.mjs",
           "test/pr-crear-publica-rama.test.mjs",
@@ -198,28 +196,26 @@
           "test/motor-protege-ramas.test.mjs",
           "test/hooks-en-worktrees.test.mjs",
           "test/worktrees-limpieza.test.mjs",
-          "test/publicar-confirmacion.test.mjs",
           "test/subir-con-token.test.mjs",
-          "test/consolidar-seleccion.test.mjs",
           "test/layout-faro.test.mjs",
           "test/migrar-layout.test.mjs",
-          "test/consolidar-ci.test.mjs",
-          "test/estado-ci.test.mjs"
+          "test/estado-ci.test.mjs",
+          "test/flujo-politica.test.mjs"
         ],
-        "lento": [
-          "test/consolidar.test.mjs"
-        ]
+        "lento": []
       },
       "release": {
-        "descripcion": "Versionado, CHANGELOG y publicación (develop → main)",
+        "descripcion": "Versionado, CHANGELOG y publicación: el CI tagea y publica al integrar en main (scripts/release-ci.js)",
         "codigo": [
-          "plugins/faro/hooks/lib/release.js"
+          "plugins/faro/hooks/lib/release.js",
+          "scripts/release-ci.js"
         ],
         "tests": [
           "test/changelog-keep-a-changelog.test.mjs",
           "test/motor-changelog-coherencia.test.mjs",
           "test/publicar-tag.test.mjs",
           "test/release-bajo-demanda.test.mjs",
+          "test/release-ci.test.mjs",
           "test/release-desde-main.test.mjs",
           "test/release-en-la-forja.test.mjs",
           "test/release-por-app.test.mjs",
@@ -458,5 +454,10 @@
         ]
       }
     }
+  },
+  "flujo": {
+    "rama_principal": "main",
+    "auto_merge": true,
+    "metodo_merge": "squash"
   }
 }

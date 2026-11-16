@@ -92,4 +92,4 @@ Luego aplica lo confirmado:
 ---
 
 **Lo que NUNCA haces:** inventar alcance, cerrar sin evidencia de entrega, reparar en
-bloque sin mirar uno por uno, o tocar `main`/`develop`. Propones; decide el usuario.
+bloque sin mirar uno por uno, o tocar `main`. Propones; decide el usuario.

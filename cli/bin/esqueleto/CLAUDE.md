@@ -23,6 +23,6 @@ Antes de colocar un artefacto, usa `/faro:documentacion`. Nunca dejes ficheros s
 ## Forma de trabajar
 
 - **Cambios:** `/faro:cambio` propone, `/faro:aplicar` implementa y `/faro:archivar` cierra.
-- **Ramas:** `main` y `develop` no se editan a mano. El trabajo va en `<tipo>/<slug>` (`feat`, `fix`, `docs`, `chore`…).
-- **Integrar:** `/faro:pr` lleva la rama a `develop`, `/faro:consolidar` integra y `/faro:publicar` lleva `develop` a `main`.
+- **Ramas:** `main` no se edita a mano. El trabajo va en `<tipo>/<N>-<slug>` desde `origin/main` (`feat`, `fix`, `docs`, `chore`…), anclado a su issue.
+- **Integrar:** `/faro:pr` abre el PR a `main` con auto-merge y título Conventional (`fix` → parche, `feat` → menor, `!` → mayor; `docs`/`chore`/`test`/`ci` no publican). Entra solo cuando el CI pasa y, al integrarse, el CI publica tag y release.
 - **Estado:** `/faro:estado` muestra por dónde va el trabajo.

@@ -46,7 +46,7 @@ test('la skill no manda tocar nada a mano ni saltarse la firma', () => {
   const t = txt();
   assert.match(t, /nunca muevas, borres ni crees ficheros a mano/i);
   assert.match(t, /no la saltes/i);
-  assert.match(t, /Nunca sobre `develop` ni `main`/);
+  assert.match(t, /Nunca sobre `main`/);
 });
 
 test('el aviso de workspace sin declarar apunta a /faro:monorepo', () => {

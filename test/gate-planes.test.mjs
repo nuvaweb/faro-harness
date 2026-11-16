@@ -70,7 +70,11 @@ test('SIN cambios declarados, lo que se exige es la PROPUESTA, no el plan', (t) 
 const noBloquea = (h) => !h || h.permissionDecision !== 'deny';
 
 test('escribir el plan DENTRO del cambio no se bloquea: es su sitio', () => {
-  const h = preDoc(path.join(REPO, 'gestion/cambios/changes/plugin-en-gitlab/tasks.md'));
+  // El cambio lo declara el propio test (proposal aprobada): no depender de que el repo tenga uno abierto.
+  const dirCambio = path.join(REPO, 'gestion/cambios/changes/cambio-de-prueba');
+  fs.mkdirSync(dirCambio, { recursive: true });
+  fs.writeFileSync(path.join(dirCambio, 'proposal.md'), '---\nestado: aprobada\naprobada_por: t\n---\n# Cambio de prueba\n');
+  const h = preDoc(path.join(dirCambio, 'tasks.md'));
   assert.ok(noBloquea(h), `no deberia bloquear: ${JSON.stringify(h)}`);
 });
 

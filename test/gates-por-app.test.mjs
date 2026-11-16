@@ -205,13 +205,12 @@ test('validate --todas ejecuta los gates de todas las apps; --gates, solo las af
   assert.match(v.out, /Gates por app: todas/i, v.out);
 });
 
-test('publicar valida con --todas (la bateria completa); consolidar, lo que tocan sus ramas (#226); terminar, solo las afectadas', () => {
+test('terminar valida solo las afectadas; la bateria completa la corre el CI (FARO 3.0: sin consolidar ni publicar)', () => {
   const src = fs.readFileSync(HARNESS, 'utf8').replace(/\r\n/g, '\n');
   const cuerpo = (fn) => { const i = src.indexOf(`function ${fn}(`); assert.ok(i > 0, fn); return src.slice(i, src.indexOf('\n}\n', i)); };
-  assert.doesNotMatch(cuerpo('cmdConsolidar'), /\[__filename, 'validate', '--todas'\]/);
-  assert.match(cuerpo('cmdConsolidar'), /argsValidate\(/);
-  assert.match(cuerpo('cmdPublicar'), /\[__filename, 'validate', '--todas'\]/);
   assert.doesNotMatch(cuerpo('cmdTerminar'), /'validate', '--todas'/);
+  assert.strictEqual(src.indexOf('function cmdConsolidar('), -1, 'consolidar se retiro en 3.0');
+  assert.strictEqual(src.indexOf('function cmdPublicar('), -1, 'publicar se retiro en 3.0');
 });
 
 test('un gate que falla en una app dice EN QUE APP falla', { skip: SIN_PNPM }, () => {

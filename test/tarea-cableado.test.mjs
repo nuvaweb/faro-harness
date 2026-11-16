@@ -1,6 +1,6 @@
 // CABLEADO del cierre determinista (#71): la regla unica (lib/tarea.js) solo sirve si la llaman los
-// comandos que deciden (consolidar, publicar), el que vigila (vigilar) y los que avisan sin red
-// (validate y la sesion, desde la cache). Si un comando la pierde, vuelve a haber dos verdades.
+// comandos que deciden (FARO 3.0: terminar, antes de abrir el PR a main), el que vigila (vigilar) y los
+// que avisan sin red (validate y la sesion, desde la cache). Si un comando la pierde, vuelve a haber dos verdades.
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
@@ -14,15 +14,14 @@ const HARNESS = path.join(HOOKS, 'harness.js');
 const SRC = fs.readFileSync(HARNESS, 'utf8');
 const cuerpoDe = (nombre) => { const i = SRC.indexOf(`async function ${nombre}(`); return SRC.slice(i, SRC.indexOf('\n}', i)); };
 
-test('consolidar y publicar CIERRAN y MARCAN con el reconciliador', () => {
-  for (const f of ['cmdConsolidar', 'cmdPublicar']) {
-    assert.match(cuerpoDe(f), /reconciliarTareas\(gh, \{ cerrar: true, marcar: true \}\)/, f);
-  }
+test('terminar CIERRA y MARCA con el reconciliador antes de abrir el PR (FARO 3.0)', () => {
+  const c = cuerpoDe('cmdTerminar');
+  assert.match(c, /reconciliarTareas\(gh, \{ cerrar: true, marcar: true \}\)/);
+  assert.ok(c.indexOf('reconciliarTareas') < c.indexOf("'pr', 'crear'"), 'reconcilia antes de abrir el PR: los [x] entran con el');
 });
 
-test('publicar reconcilia ANTES de la ligadura cambio<->tarea (asi no cancela por lo que ya esta hecho)', () => {
-  const c = cuerpoDe('cmdPublicar');
-  assert.ok(c.indexOf('reconciliarTareas') < c.indexOf('coherenciaCambioIssue'));
+test('consolidar y publicar ya no existen: nadie mas cierra por su cuenta', () => {
+  for (const f of ['cmdConsolidar', 'cmdPublicar']) assert.strictEqual(SRC.indexOf(`function ${f}(`), -1, f);
 });
 
 test('vigilar solo DETECTA (nunca cierra): deja la cache para sesion y validate', () => {
@@ -59,8 +58,6 @@ test('validate avisa desde la cache: bandeja de entrada; las claves viejas del g
   assert.doesNotMatch(out.split('Avisos')[0], /gestor|clickup/i, 'las claves viejas no son un error');
 });
 
-test('consolidar ya no empuja a ningun gestor (#218): la planificacion es externa y FARO solo lee la forja', () => {
-  const c = cuerpoDe('cmdConsolidar');
-  assert.ok(c.includes('reconciliarTareas'));
+test('ningun comando empuja a un gestor (#218): la planificacion es externa y FARO solo lee la forja', () => {
   assert.doesNotMatch(SRC, /pushGestorSiProcede|'clickup', 'push'|coherenciaPm/);
 });

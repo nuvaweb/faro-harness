@@ -39,8 +39,9 @@ orquestación, no un formulario. Delegar a subagente aquí solo vale para **lect
    (`<prefijo>:epica=EPI-n · título`). Decláralo en `faro/config.json` (o en `~/.faro.json`):
    `"planificacion": { "prefijo": "<prefijo>", "nombre": "<Nombre>" }`. FARO solo lo lee:
    `harness.js planificacion` enseña la relación. Si no hay planificador, sigue sin él.
-7. **Ciclo git**: crea `develop` y la rama de trabajo (`git switch -c develop && git push -u origin
-   develop`, luego `<tipo>/<slug>`); recuerda que main/develop quedan protegidas por el harness.
+7. **Ciclo git**: no hay `develop`. Crea la rama de trabajo desde `origin/main`
+   (`node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" rama chore "<tema>"`: las de gestión no necesitan issue; las demás,
+   `<tipo>/<N>-<slug>` con `--issue <N>`) y entra por PR a main (`/faro:pr`); recuerda que main queda protegida por el harness.
    Asegura también `.claude/worktrees/` en el `.gitignore` (`node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" worktrees --ignorar`): los agentes aislados crean ahí sus worktrees y no deben salir como cambios sin seguimiento.
 8. **Verifica**: `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" validate` y presenta al usuario el
    resumen del arranque (qué quedó creado, qué falta, siguiente paso sugerido).

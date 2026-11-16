@@ -3,7 +3,7 @@
  * FARO · ramas — normalizador INTELIGENTE de ramas git: analiza y limpia con criterio.
  *
  * Por defecto SOLO informa (no borra nada). Clasifica cada rama local frente a la BASE
- * (develop si existe; si no, main/master):
+ * (la rama principal de lib/flujo.js; develop solo en repos heredados):
  *   ☠ MUERTA : integrada en la base (merge normal) O su contenido ya esta en la base
  *              (squash/rebase: sin diff efectivo) -> es basura, borrable.
  *   ● VIVA   : tiene trabajo NO integrado -> se MANTIENE. Avisa si lleva mucho sin tocar
@@ -27,8 +27,8 @@ const JSON_OUT = args.includes('--json'); // solo conteo, para el resumen agrega
 const STALE = (() => { const i = args.indexOf('--stale'); return i >= 0 && /^\d+$/.test(args[i + 1] || '') ? +args[i + 1] : 60; })();
 
 if (!ok(['rev-parse', '--is-inside-work-tree'])) { console.error('✗ No es un repositorio git.'); process.exit(1); }
-const base = ['develop', 'main', 'master'].find((b) => ok(['rev-parse', '--verify', '--quiet', `refs/heads/${b}`]));
-if (!base) { console.error('✗ No hay rama base (develop/main/master).'); process.exit(1); }
+const base = require('./flujo.js').basesCandidatas(process.cwd()).find((b) => ok(['rev-parse', '--verify', '--quiet', `refs/heads/${b}`]));
+if (!base) { console.error('✗ No hay rama base (main/master).'); process.exit(1); }
 const current = git(['rev-parse', '--abbrev-ref', 'HEAD']);
 const PROTECT = new Set([base, 'main', 'master', current]);
 

@@ -18,7 +18,7 @@ runbooks incluidos) **se prepara si hace falta para que el resultado opere y per
 | **1. Iniciación / discovery** | Aterrizar la idea: problema, para quién, valor esperado, stakeholders, qué hay ya | Onboarding → `faro/ESTADO.md` + brief (BRF); material recibido → `faro/fuentes/` |
 | **2. Requerimientos** (elicitación BABOK) | Sacar lo que NO está escrito: entrevistas, observación del flujo real, workshops; requisitos verificables (DEBE + escenario); alcance y fuera-de-alcance explícitos | Funcional (FUN) + historias (HU); registro `faro/gestion/requisitos.md` (REQ-NN + estado + origen, agente `gestor-requisitos`); cambios → `faro/gestion/cambios/` |
 | **3. Planificación** | Fases con **entregable observable** y gate objetivo cada una; riesgos y asunciones desde el día 1; KPIs con línea base | `faro/ESTADO.md` (fases+tareas+owner) · `risks.md` · `kpis.md` |
-| **4. Ejecución (piloto → producción)** | Entregar funcionando DENTRO del flujo del usuario/cliente; iterar con feedback real; decisiones estructurales registradas | Cambios spec-driven aplicados · ADRs · rama→develop→main |
+| **4. Ejecución (piloto → producción)** | Entregar funcionando DENTRO del flujo del usuario/cliente; iterar con feedback real; decisiones estructurales registradas | Cambios spec-driven aplicados · ADRs · rama→PR a main |
 | **5. Seguimiento y control** | Estado con EVIDENCIA (tareas, KPIs medidos contra fuente, riesgos revisados); nada de reporting de memoria | Informes datados · presentación viva · `harness.js validate` |
 | **6. Cierre / operación** | El resultado queda operando: guías y runbooks SI HACEN FALTA para que otros lo usen/operen; medición final de valor; lecciones | GUI/RUN/PRO/SLA en `faro/documentos/operaciones/` · informe de fase + tag |
 
@@ -84,8 +84,8 @@ informe + tag; cambio aplicado = spec aprobada antes.
 ## Fases ↔ hitos de la forja (GitHub y GitLab)
 
 Las fases de faro/ESTADO.md tienen su reflejo NATIVO como hitos en las dos forjas: `harness.js hito sync` crea un hito por
-fase ("Fase N — nombre"), cierra los de fases `done` y reabre los que no lo estén; `/faro:publicar` lo hace solo al
-cerrar ciclo. Las tareas de un tipo que PLANIFICA se crean SIEMPRE dentro del hito de su fase — con
+fase ("Fase N — nombre"), cierra los de fases `done` y reabre los que no lo estén; `/faro:cerrar-fase` lo hace solo al
+cerrar la fase. Las tareas de un tipo que PLANIFICA se crean SIEMPRE dentro del hito de su fase — con
 `asignar-tarea --hito <N>` en las dos forjas (en GitHub crea el hito si falta; `--hito backlog` si aún no se decide cuándo; en GitLab, más su estimación con `--estimacion`); las horas se registran con `harness.js tiempo` (solo GitLab). El informe
 de cierre de fase debe leer estimado vs consumido de `harness.js tiempo` (agregado por hito) donde exista, no de
 cifras escritas a mano.

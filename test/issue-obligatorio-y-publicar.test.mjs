@@ -1,6 +1,6 @@
 // Todo trabajo nace de un ISSUE — un fallo detectado se declara como bug antes de abrir su rama —,
-// tambien en el MOTOR y tambien si la rama se crea a mano. Y a main se llega PUBLICANDO
-// (/faro:publicar): el nombre "aprobar" se retiro en 0.37.0 y los avisos no pueden seguir usandolo.
+// tambien en el MOTOR y tambien si la rama se crea a mano. A main se llega por PR con auto-merge y el
+// CI publica (FARO 3.0); "aprobar" se retiro en 0.37.0 y los avisos no pueden seguir usandolo.
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
@@ -79,13 +79,14 @@ test('MOTOR (sin ESTADO.md): la rama tambien exige issue — por comando y a man
   assert.strictEqual(decision(preBash('git switch -c fix/cierre-clickup', dir)), 'deny');
 });
 
-test("pendientes: develop -> main se PUBLICA, no se 'aprueba' con un merge a mano", () => {
+test("pendientes (FARO 3.0): lo que quede en develop (heredada) va a main por PR, nunca con un merge a mano", () => {
   const dir = repo('pendientes');
   fs.writeFileSync(path.join(dir, 'b.txt'), '2');
-  git(dir, 'add', '-A'); git(dir, 'commit', '-m', 'trabajo integrado');
+  git(dir, 'add', '-A'); git(dir, 'commit', '-m', 'trabajo en develop');
   const r = correr(['pendientes'], dir);
-  assert.match(r.stdout, /pendiente de PUBLICAR/, r.stdout);
-  assert.match(r.stdout, /\/faro:publicar/);
+  assert.match(r.stdout, /develop \(heredada\) lleva 1 commit/, r.stdout);
+  assert.match(r.stdout, /PR develop -> main/, r.stdout);
+  assert.doesNotMatch(r.stdout, /\/faro:publicar|\/faro:consolidar/, 'comandos retirados en 3.0');
   assert.doesNotMatch(r.stdout, /aprob/i, r.stdout);
   assert.doesNotMatch(r.stdout, /git merge --no-ff develop/, 'no se ensena el merge a mano como via');
 });

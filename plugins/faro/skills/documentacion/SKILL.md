@@ -55,7 +55,7 @@ Antes de escribir NADA, clasifica el artefacto respondiendo UNA pregunta — ¿q
      no está disponible, el `user.name` de git; si tampoco, PREGUNTA. Nada de nombres plausibles ni
      de placeholders tipo "Equipo FARO" — firmaría a alguien que no ha firmado.
    - Vive SIEMPRE en subcarpeta temática `faro/documentos/<tema>/` con nombre `<doc_id>-<slug>.md`.
-     NUNCA en la raíz de `faro/documentos/`. Queda `approved` al publicarse a main (`/faro:publicar`).
+     NUNCA en la raíz de `faro/documentos/`. Queda `approved` al integrarse en main (PR con `/faro:pr`).
    - El TIPO sale del contrato (`faro-schema.json > tipos_documento`): BRF, FUN, ANA, ARQ, DIS, ADR, GUI, RUN…
      No inventar tipos; clasificar por el CONTENIDO real.
    - Todo cambio de contenido SUBE la versión y añade fila en «Control de versiones».

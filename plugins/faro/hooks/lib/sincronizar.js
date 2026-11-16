@@ -27,7 +27,7 @@
 const { execFileSync } = require('child_process');
 
 const PROTEGIDAS = ['main', 'master'];
-const BASES = ['develop', 'main', 'master'];
+const BASES = require('./flujo.js').basesCandidatas(process.cwd());
 
 function crearGit(cwd) {
   return (args, { timeout = 15000 } = {}) =>

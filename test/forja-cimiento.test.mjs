@@ -150,7 +150,7 @@ test('pr crear: desde una rama protegida se niega; sin titulo explica el uso', (
 
 test('cableado: /faro:pr y el gestor usan pr crear y ya no mandan parar en GitLab', () => {
   const pr = fs.readFileSync(path.join(RAIZ, 'plugins/faro/skills/pr/SKILL.md'), 'utf8');
-  assert.match(pr, /pr crear --base/);
+  assert.match(pr, /pr crear --titulo/); // FARO 3.0: base main por defecto, con auto-merge
   const g = fs.readFileSync(path.join(RAIZ, 'plugins/faro/agents/gestor-forja.md'), 'utf8');
   assert.ok(!/harness todavía no sabe operarlo/.test(g), 'GitLab ya se opera; el agente no debe decir lo contrario');
 });

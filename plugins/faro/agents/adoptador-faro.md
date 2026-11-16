@@ -107,7 +107,7 @@ inventario del paso 1 (stack, estructura y propósito REAL), **reconstruye**:
   (no lo pierdas) con la base FARO y **complétalo** con lo que dedujiste del código. Nunca dejes un
   CLAUDE.md genérico de plantilla: si sigue describiendo "la iniciativa" en abstracto, está mal.
 - **README.md** — **RECONSTRÚYELO** para que refleje el proyecto REAL + la capa FARO (harness dentro,
-  clasificación entidad/domain/concepto, ramas `main`+`develop`, cómo trabajar con Claude Code). Toma lo
+  clasificación entidad/domain/concepto, rama `main` con PRs desde `<tipo>/<N>-<slug>`, cómo trabajar con Claude Code). Toma lo
   ÚTIL del README que hubiera (propósito, instrucciones reales de uso), pero **no arrastres texto
   genérico ni de plantilla**. Si no hay README, créalo.
 - **faro/ESTADO.md** — la **fuente de verdad del ESTADO**: **fases, estados y tareas** (checkbox) con la fase

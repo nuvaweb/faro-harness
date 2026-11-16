@@ -1,10 +1,10 @@
 ---
-description: "Úsala para saber qué está terminado pero sin integrar y quién lo desbloquea — ramas sin llegar a develop y lo de develop pendiente de publicar a main."
+description: "Úsala para saber qué está terminado pero sin integrar y quién lo desbloquea — ramas sin PR y PRs abiertos a main esperando CI o revisión."
 ---
 
-Ejecuta `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" pendientes` y presenta al usuario el panel de promoción de forma clara:
+Ejecuta `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" pendientes` y presenta al usuario el panel de integración de forma clara:
 
-1. **Features sin integrar en develop**: rama, responsable (autor) y resumen de commits — para saber qué está en vuelo y de quién.
-2. **Develop pendiente de publicar a main**: nº de commits por autor con sus mensajes — para que quien puede publicar sepa qué entra y a quién preguntar dudas.
+1. **Ramas sin PR**: rama, responsable (autor) y resumen de commits — trabajo que no ha pedido entrar en `main`. Si es suya, propón `/faro:pr`; si es de otro, a quién preguntar.
+2. **PRs abiertos a main**: número, autor, título y en qué está cada uno (esperando CI, CI en rojo, esperando revisión, auto-merge activado o no) — para saber qué entrará solo y qué está atascado y de quién depende.
 
-Si hay algo pendiente de publicar, recuerda que se publica con `/faro:publicar` (lo decide quien tiene permiso, no Claude) y sugiere validar antes con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" validate`. Si no hay nada pendiente, dilo brevemente. Es una consulta de lectura, sin ceremonia.
+Recuerda que no hay nada que "publicar" a mano: cada PR entra solo en `main` cuando el CI pasa (auto-merge) y, al integrarse, el CI publica la versión que marque su título. Si un PR está en rojo o sin revisor, eso es lo que hay que desbloquear (ver el detalle con `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" pr ver <n>`). Si no hay nada pendiente, dilo brevemente. Es una consulta de lectura, sin ceremonia.

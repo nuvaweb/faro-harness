@@ -155,6 +155,6 @@ Añade también el **contexto para agentes** (estándar `AGENTS.md` de industria
 
 ## 5 · ENTREGA
 
-Cierra con: qué se montó y por qué (2-3 líneas al usuario), cómo correr tests/lint, y el siguiente paso natural (primer cambio spec-driven con `/faro:cambio` para la primera capacidad). Todo por rama de trabajo — el merge a develop vía `/faro:pr`, como siempre.
+Cierra con: qué se montó y por qué (2-3 líneas al usuario), cómo correr tests/lint, y el siguiente paso natural (primer cambio spec-driven con `/faro:cambio` para la primera capacidad). Todo por rama de trabajo — el PR a main vía `/faro:pr`, como siempre.
 
 **Nunca**: deploy, tocar credenciales, borrar contenido documental, o elegir stack en silencio cuando había duda razonable.
