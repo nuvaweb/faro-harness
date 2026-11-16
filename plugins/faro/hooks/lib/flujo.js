@@ -58,13 +58,19 @@ function leerConfig(root) {
   return {};
 }
 
+function ramaValida(r) {
+  return typeof r === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(r) && !/\.\.|\/\/|\/$|\.lock$|\.$/.test(r);
+}
+
 // Config efectiva. 'cfgRepo' = el objeto "flujo" ya leido (tests); si se omite, se lee del repo.
 function config({ root = null, env = process.env, cfgRepo } = {}) {
   const repo = cfgRepo !== undefined ? (cfgRepo || {}) : leerConfig(root);
   const rama = String(env.FARO_RAMA_PRINCIPAL || repo.rama_principal || DEFECTO.rama_principal).trim();
   const metodo = String(env.FARO_METODO_MERGE || repo.metodo_merge || DEFECTO.metodo_merge).trim().toLowerCase();
   return Object.freeze({
-    rama_principal: rama || DEFECTO.rama_principal,
+    // El nombre acaba como argumento de git (fetch, merge-base...): solo un nombre de rama valido y que no
+    // empiece por '-' (no se puede leer como opcion). Si no lo es, se usa el defecto.
+    rama_principal: ramaValida(rama) ? rama : DEFECTO.rama_principal,
     auto_merge: bool(env.FARO_AUTO_MERGE, bool(repo.auto_merge, DEFECTO.auto_merge)),
     metodo_merge: METODOS.includes(metodo) ? metodo : DEFECTO.metodo_merge,
   });
@@ -131,5 +137,5 @@ function avisoRetirado(cmd, rama = DEFECTO.rama_principal) {
 
 module.exports = {
   DEFECTO, METODOS, TIPOS, ALIAS_RAMA,
-  config, leerConfig, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas,
+  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas,
 };

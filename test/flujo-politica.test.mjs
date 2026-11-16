@@ -20,6 +20,13 @@ test('config: el repo manda sobre el defecto y el entorno sobre el repo', () => 
   assert.deepStrictEqual({ ...f.config({ env, cfgRepo: repo }) }, { rama_principal: 'trunk', auto_merge: true, metodo_merge: 'rebase' });
 });
 
+test('una rama principal que git leeria como opcion o no es un nombre valido cae al defecto', () => {
+  for (const mala of ['--upload-pack=x', '-main', 'a..b', 'ma in', 'x.lock', 'rama/', 'a;b']) {
+    assert.strictEqual(f.config({ env: { FARO_RAMA_PRINCIPAL: mala }, cfgRepo: {} }).rama_principal, 'main', mala);
+  }
+  assert.strictEqual(f.config({ env: { FARO_RAMA_PRINCIPAL: 'release/v3' }, cfgRepo: {} }).rama_principal, 'release/v3');
+});
+
 test('config: un metodo de merge desconocido cae al defecto', () => {
   assert.strictEqual(f.config({ env: { FARO_METODO_MERGE: 'pulpo' }, cfgRepo: {} }).metodo_merge, 'squash');
 });
