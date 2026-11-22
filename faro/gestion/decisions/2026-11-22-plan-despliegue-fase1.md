@@ -391,3 +391,33 @@ No sobrescribe nada que ya exista y nunca lo propone por iniciativa propia.
 - **`harness.js ci --aplicar`:** sustituye un CI existente por el optimizado. Sin el flag solo enseña la diferencia.
 - **Tests:** en local solo los afectados (atómicos); en el CI de la forja, la suite completa y los e2e. Si el repo no tiene forja, en local se ejecuta todo.
 - **Motivo:** son procesos de escritura con riesgo, y conviene que lleguen con su propia revisión, no metidos en la 3.1.0.
+
+---
+
+### Task 10: `harness.js ci fallos` — leer el CI del propio PR y no insistir sin cuota
+
+**Ficheros:**
+- Crear: `plugins/faro/hooks/lib/ci-fallos.js`.
+- Modificar: `plugins/faro/harness.js`, para enrutar el subcomando `ci fallos [--pendientes] [--esperar=<min>]`.
+- Test: `test/ci-fallos.test.mjs`, registrado en `.faro.json`.
+
+**Comportamiento:**
+- **Forja:** se detecta por el remoto (`github.com`, o GitLab por host o por `glab`). Usa `gh` o `glab`, y solo lectura del run de la rama actual. Si falta la CLI o la sesión: `estado: 'sin-acceso'`, con la instrucción `! gh auth login` (o `glab auth login`), y no falla.
+- **`clasificar(run, log)`** devuelve uno de estos estados:
+  - `'verde'`;
+  - `'test'`: incluye `{ test, error, fichero }`, extraído de las líneas `not ok` / `✖` / `FAIL` del log de los jobs fallidos. Máximo 40 líneas en total, nunca el log completo;
+  - `'cuota'`: el run tiene `conclusion: startup_failure`, o el log o la anotación contienen `billing`, `spending limit`, `account is locked`, `minutes quota`, `compute minutes` o `No more CI minutes`;
+  - `'pendiente'`: el run está `queued` o `in_progress` más allá de `--esperar` (por defecto 15 minutos, consultando cada 60 s), o está atascado sin runner (`stuck`, `pending` sin runner);
+  - `'infra'`: `runner_system_failure` o timeout del runner.
+- **Si el estado es `cuota` o `pendiente`:**
+  - no reintenta;
+  - ejecuta `npm run test:afectados` (o el equivalente que detecte FARO) como red mínima;
+  - añade una línea a `faro/estado/ci-pendientes.jsonl` con `{ rama, sha, pr, motivo, fecha }`;
+  - sale con código 0 y el mensaje «pendiente de validar en CI».
+- **`--pendientes`:** lista ese fichero y, por cada entrada, consulta el estado actual. Las que estén en verde se eliminan.
+- **Pruebas sin red:** `clasificar` es una función pura, y los tests usan fixtures de JSON y logs de GitHub y GitLab, uno por cada estado.
+
+- [ ] Paso 1: tests en rojo (un fixture por cada estado y `--pendientes` con un fichero temporal).
+- [ ] Paso 2: implementar.
+- [ ] Paso 3: `node --test test/ci-fallos.test.mjs` en verde.
+- [ ] Paso 4: commit `feat(ci): ci fallos clasifica el fallo y no insiste sin cuota`.
