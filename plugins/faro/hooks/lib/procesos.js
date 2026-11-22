@@ -211,7 +211,9 @@ function envLinux(pid) {
   try { return fs.readFileSync(`/proc/${Number(pid)}/environ`, 'utf8'); } catch { return null; }
 }
 const sesionDeEntorno = (txt) => { const m = String(txt || '').match(/(?:^|\0)FARO_PROC=([^\0]*)/); return m ? m[1] : null; };
-const esNode = (n) => /^node(js)?(\.exe)?$/i.test(String(n));
+// Por el NOMBRE del ejecutable: `ps -o comm=` de macOS da la ruta completa (/usr/local/bin/node), Linux y
+// Windows solo el nombre. Sin quitar la ruta, en macOS ningun node se reconocia ni se podia verificar.
+const esNode = (n) => /^node(js)?(\.exe)?$/i.test(String(n).trim().split(/[\\/]/).pop());
 
 /**
  * Procesos node con marca. Fuentes inyectables para probar sin tocar el sistema:
