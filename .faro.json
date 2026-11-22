@@ -297,7 +297,8 @@
           "plugins/faro/hooks/lib/tdd.js",
           "plugins/faro/hooks/lib/dominios.js",
           "plugins/faro/hooks/lib/validado.js",
-          "scripts/test-afectados.js"
+          "scripts/test-afectados.js",
+          "scripts/tests-afectados.js"
         ],
         "tests": [
           "test/tdd-verificable.test.mjs",
@@ -307,7 +308,8 @@
           "test/tests-trozos-y-apps.test.mjs",
           "test/tests-validado.test.mjs",
           "test/tests-sin-firma.test.mjs",
-          "test/tdd-monorepo-dominio-verde-app.test.mjs"
+          "test/tdd-monorepo-dominio-verde-app.test.mjs",
+          "test/tests-afectados.test.mjs"
         ],
         "lento": [
           "test/tdd-verificable.test.mjs"

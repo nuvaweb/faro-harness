@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## 3.0.5 — 2026-11-22
+
+### Corregido
+- **Sin acciones de GitHub en Node 20** (#12). El CI que genera FARO usa `setup-python@v6`, `setup-java@v5` y `setup-dotnet@v5` (Node 24), como ya hacía con `checkout` y `setup-node@v7`. El CI del propio repo pasa a `checkout`/`setup-node@v7` y corre los tests sobre Node 24.
+- **`harness.js procesos` reconoce sus node en Linux con Node 24.** Node 24 cambia el nombre del hilo principal (`/proc/<pid>/comm`), así que ningún node se reconocía ni se podía verificar o cerrar. Ahora manda el ejecutable real (`/proc/<pid>/exe`); `comm` solo si no se puede leer.
+
+## 3.0.4 — 2026-11-22
+
+### Corregido
+- **La suite pasa en macOS y Windows** (#5). El gobernador de recursos mide en macOS la memoria disponible (incluye la caché inactiva y purgable), no solo `os.freemem()`, que allí da ~100 MB y paraba los tests pesados. Los procesos node se reconocen por el nombre del ejecutable, no por la ruta. En Windows, las rutas de los worktrees se comparan con `realpath` nativo (nombres cortos 8.3). El test de resumen siembra la caché con la ruta real del repo temporal.
+
+## 3.0.3 — 2026-11-22
+
+### Corregido
+- **La guarda de deploy ya no pide aprobación en comandos de solo lectura** (#6). Además se cierran fugas del parser de solo lectura: `git grep` sale de la lista de lectura segura y las opciones de git entre comillas se analizan.
+
+## 3.0.2 — 2026-11-22
+
+### Corregido
+- **El borrado de carpetas pregunta en vez de bloquear** (#1). `rm -r`, `rmdir`, `Remove-Item -Recurse`, `rd /s` y `git clean -f` piden confirmación mostrando la ruta. Solo se bloquea si la ruta queda fuera del alcance del repo.
+
+## 3.0.1 — 2026-11-22
+
+### Corregido
+- **La suite del CI vuelve a verde** (#3). Se quitan dos tests de `publicar` (retirado en 3.0) y `gate-planes` usa la ruta `faro/gestion/cambios`. En Linux, la lectura PowerShell de un comando ya no convierte `<<\EOF` en `<</EOF`, así que el heredoc con delimitador escapado sigue siendo literal.
+
 ## 3.0.0 — 2026-11-16
 
 ### Cambiado (ruptura)

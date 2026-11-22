@@ -258,14 +258,3 @@ test('tagVersionSiProcede(ref): etiqueta la referencia pedida (main), no HEAD de
   assert.notStrictEqual(tagCommit, (git(dir, 'rev-parse', 'HEAD').stdout || '').trim());
   assert.strictEqual(tagVersionSiProcede('main').ok, true, 'repetirlo sobre main es idempotente');
 });
-
-test('la release ya no la hace el harness: publicar esta retirado y la etiqueta la crea el CI sobre el commit de main', () => {
-  // FARO 3.0 (0ff5425): /faro:publicar se retira; scripts/release-ci.js crea vX.Y.Z con `gh release create --target`.
-  const src = fs.readFileSync(path.join(HOOKS, 'harness.js'), 'utf8');
-  assert.doesNotMatch(src, /async function cmdPublicar\(/, 'cmdPublicar ya no existe');
-  assert.match(src, /cmd === 'publicar'\) \{ console\.log\(FLUJO\.avisoRetirado\(cmd, RAMA_PRINCIPAL\)\)/, 'publicar responde con el camino nuevo');
-  const ci = fs.readFileSync(path.join(HOOKS, '..', '..', '..', 'scripts', 'release-ci.js'), 'utf8');
-  assert.match(ci, /'release', 'create', plan\.tag, '--target', process\.env\.GITHUB_SHA/, 'el tag se crea sobre el commit de main que dispara el CI');
-  const wf = fs.readFileSync(path.join(HOOKS, '..', '..', '..', '.github', 'workflows', 'ci.yml'), 'utf8');
-  assert.match(wf, /node scripts\/release-ci\.js publicar/, 'el CI publica al integrarse en main');
-});

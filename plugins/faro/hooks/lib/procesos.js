@@ -139,7 +139,7 @@ function consultaSistema(pid) {
   try {
     if (process.platform === 'linux') {
       const st = fs.statSync(`/proc/${pid}`);
-      let nombre = ''; try { nombre = fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim(); } catch {}
+      const nombre = nombreLinux(pid);
       let envTexto = null; try { envTexto = fs.readFileSync(`/proc/${pid}/environ`, 'utf8'); } catch {}
       return { existe: true, nombre, propio: st.uid === process.getuid(), inicio: null, envTexto };
     }
@@ -204,14 +204,26 @@ function snapshotSistema() {
       return parsearCim(t);
     }
     const t = execFileSync('ps', ['-eo', 'pid=,ppid=,etime=,time=,comm='], { encoding: 'utf8', windowsHide: true, timeout: 20000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
-    return parsearPs(t);
+    const lista = parsearPs(t);
+    if (process.platform === 'linux' && lista) for (const p of lista) p.nombre = nombreLinux(p.pid, { comm: p.nombre });
+    return lista;
   } catch { return null; }
+}
+// Nombre del EJECUTABLE en Linux. `comm` es el nombre del hilo principal y Node 24 lo cambia (deja de ser
+// 'node'), asi que ningun node se reconocia: manda el destino de /proc/<pid>/exe (legible en los procesos del
+// propio usuario, que son los unicos que se verifican o cierran); `comm` solo si exe no se puede leer.
+function nombreLinux(pid, { comm, leerExe = (q) => fs.readlinkSync(`/proc/${q}/exe`), leerComm = (q) => fs.readFileSync(`/proc/${q}/comm`, 'utf8') } = {}) {
+  try { const exe = String(leerExe(Number(pid))).replace(/ \(deleted\)$/, ''); if (exe) return path.basename(exe); } catch { /* ajeno o ya muerto */ }
+  if (comm !== undefined) return String(comm).trim();
+  try { return String(leerComm(Number(pid))).trim(); } catch { return ''; }
 }
 function envLinux(pid) {
   try { return fs.readFileSync(`/proc/${Number(pid)}/environ`, 'utf8'); } catch { return null; }
 }
 const sesionDeEntorno = (txt) => { const m = String(txt || '').match(/(?:^|\0)FARO_PROC=([^\0]*)/); return m ? m[1] : null; };
-const esNode = (n) => /^node(js)?(\.exe)?$/i.test(String(n));
+// Por el NOMBRE del ejecutable: `ps -o comm=` de macOS da la ruta completa (/usr/local/bin/node), Linux y
+// Windows solo el nombre. Sin quitar la ruta, en macOS ningun node se reconocia ni se podia verificar.
+const esNode = (n) => /^node(js)?(\.exe)?$/i.test(String(n).trim().split(/[\\/]/).pop());
 
 /**
  * Procesos node con marca. Fuentes inyectables para probar sin tocar el sistema:
@@ -292,8 +304,33 @@ function soltarCandado(ruta, pid = process.pid) {
 }
 
 // ───────────────────────── memoria ─────────────────────────
-/** Si la memoria libre esta por debajo de minMB espera (hasta esperaS) y luego sigue: avisa, no cuelga. */
-async function esperarMemoria({ minMB, esperaS, libreMB = () => os.freemem() / 1048576, dormir = (ms) => new Promise((r) => setTimeout(r, ms)), aviso = () => {} } = {}) {
+// Memoria DISPONIBLE (la que se puede usar sin paginar), no la estrictamente libre. os.freemem() vale en Linux
+// (libuv lee MemAvailable) y en Windows, pero en macOS solo cuenta las paginas libres: la cache inactiva, que el
+// sistema cede al momento, queda fuera y da ~100 MB en una maquina ociosa (los runners de GitHub), asi que todo
+// trabajo pesado esperaba y se negaba a arrancar. En macOS se suma la inactiva leyendo vm_stat (mismo criterio
+// que psutil: available = free + inactive). Si vm_stat falla o no se entiende, os.freemem().
+/** Texto de vm_stat -> MB disponibles (free + inactive), o null si no se entiende. */
+function parsearVmStat(texto) {
+  const t = String(texto || '');
+  const pag = t.match(/page size of (\d+) bytes/);
+  const n = (k) => { const m = t.match(new RegExp(`^Pages ${k}:\\s+(\\d+)`, 'm')); return m ? Number(m[1]) : null; };
+  const libres = n('free'); const inactivas = n('inactive');
+  if (!pag || libres === null || inactivas === null) return null;
+  return ((libres + inactivas) * Number(pag[1])) / 1048576;
+}
+/** MB de memoria disponible en esta maquina. opts inyectables en tests: plataforma, vmStat (texto). */
+function memoriaDisponibleMB({ plataforma = process.platform, vmStat } = {}) {
+  if (plataforma === 'darwin') {
+    try {
+      const t = vmStat !== undefined ? vmStat : execFileSync('vm_stat', [], { encoding: 'utf8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+      const mb = parsearVmStat(t);
+      if (mb !== null && Number.isFinite(mb)) return mb;
+    } catch { /* sin vm_stat: os.freemem() */ }
+  }
+  return os.freemem() / 1048576;
+}
+/** Si la memoria disponible esta por debajo de minMB espera (hasta esperaS) y luego sigue: avisa, no cuelga. */
+async function esperarMemoria({ minMB, esperaS, libreMB = () => memoriaDisponibleMB(), dormir = (ms) => new Promise((r) => setTimeout(r, ms)), aviso = () => {} } = {}) {
   let libre = libreMB();
   if (!(minMB > 0) || libre >= minMB) return { ok: true, libreMB: libre, esperadoS: 0 };
   aviso(`Memoria libre baja: ${Math.round(libre)} MB (minimo ${minMB} MB). Espero hasta ${esperaS} s a que se libere; cierra servidores y baterias ajenas.`);
@@ -353,5 +390,5 @@ function cli(argv, { env = process.env, root, out = (t) => console.log(t), lista
 module.exports = {
   MARCA, UMBRALES, pidValido, vivo, matarArbol, dirRegistro, registrar, olvidar, leerRegistro,
   dirSeguro, verificarProceso, parsearEtime, parsearPs, parsearCim, snapshotSistema, listar, candidatos, limpiar,
-  rutaCandado, leerCandado, tomarCandado, soltarCandado, esperarMemoria, avisoCorto, cli,
+  rutaCandado, leerCandado, tomarCandado, soltarCandado, parsearVmStat, memoriaDisponibleMB, nombreLinux, esperarMemoria, avisoCorto, cli,
 };

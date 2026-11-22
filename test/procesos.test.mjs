@@ -71,6 +71,18 @@ test('listar: marca por entorno (POSIX) sin registro', () => {
   assert.strictEqual(r.propios[0].sesion, 'sesion9');
 });
 
+test('listar y verificarProceso reconocen node por la ruta completa (ps -o comm= de macOS)', () => {
+  const ruta = '/Users/runner/hostedtoolcache/node/22.0.0/arm64/bin/node';
+  const s = [{ pid: 70, ppid: 1, nombre: ruta, inicio: AHORA - 60e3, cpuS: 1 }, { pid: 80, ppid: 1, nombre: '/usr/bin/nodejs-no', inicio: AHORA - 60e3, cpuS: 1 }];
+  const reg = [{ pid: 70, dueno: 999, sesion: 's', rol: 'x', registrado: AHORA - 59e3 }];
+  const r = P.listar({ snapshot: s, registro: reg, ahora: AHORA });
+  assert.deepStrictEqual(r.propios.map((p) => p.pid), [70]);
+  assert.strictEqual(r.ajenos, 0, 'un ejecutable que no es node no se cuenta');
+  const c = { existe: true, nombre: ruta, propio: true, inicio: AHORA - 60e3, envTexto: null };
+  assert.strictEqual(P.verificarProceso(70, { entrada: reg[0], ahora: AHORA, consulta: () => c }).ok, true);
+  assert.strictEqual(P.verificarProceso(70, { entrada: reg[0], ahora: AHORA, consulta: () => ({ ...c, nombre: 'C:\\Program Files\\nodejs\\node.exe' }) }).ok, true);
+});
+
 test('candidatos: huerfanos o sobre umbral de CPU/tiempo, y NUNCA un proceso sin marca', () => {
   const r = P.listar({ snapshot: snap, registro, ahora: AHORA });
   const c = P.candidatos(r.propios, { cpuS: 600, edadS: 6 * 3600 }).map((p) => p.pid).sort((a, b) => a - b);
@@ -283,4 +295,16 @@ test('verificarProceso real: un node propio registrado pasa; uno sin entrada ni 
     assert.strictEqual(P.verificarProceso(h.pid, { entrada }).ok, true);
     if (process.platform !== 'linux') assert.strictEqual(P.verificarProceso(h.pid, { entrada: null }).ok, false);
   } finally { P.matarArbol(h.pid); }
+});
+
+test('nombreLinux (Node 24): manda el ejecutable de /proc/<pid>/exe, no el nombre del hilo (comm)', () => {
+  const P2 = createRequire(import.meta.url)('../plugins/faro/hooks/lib/procesos.js');
+  // Node 24 renombra el hilo principal: comm deja de ser 'node', pero el ejecutable sigue siendolo.
+  assert.strictEqual(P2.nombreLinux(42, { comm: 'MainThread', leerExe: () => '/usr/local/bin/node' }), 'node');
+  assert.strictEqual(P2.nombreLinux(42, { leerExe: () => '/opt/node/bin/node (deleted)', leerComm: () => 'x' }), 'node');
+  // exe ilegible (proceso ajeno o ya muerto): se usa comm.
+  const sinExe = () => { throw new Error('EACCES'); };
+  assert.strictEqual(P2.nombreLinux(42, { comm: 'node\n', leerExe: sinExe }), 'node');
+  assert.strictEqual(P2.nombreLinux(42, { leerExe: sinExe, leerComm: () => 'bash\n' }), 'bash');
+  assert.strictEqual(P2.nombreLinux(42, { leerExe: sinExe, leerComm: sinExe }), '');
 });
