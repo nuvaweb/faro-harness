@@ -2862,6 +2862,7 @@ function cmdValidate() {
   if (!NO_INSTANCIA) {
     const _og = opcionesGates();
     hexagonalEnValidate(errs, flowWarns, _og.gates || _og.todas || _og.apps.length > 0);
+    despliegueEnValidate(errs, flowWarns);
   }
   const flowBlock = flowWarns.length ? `\nAvisos (NO bloquean CI):\n${flowWarns.map((w) => `- ${w}`).join('\n')}\n` : '';
   if (errs.length) {
@@ -4318,6 +4319,53 @@ function hexagonalEnValidate(errs, warns, gate) {
     (gate ? errs : warns).push(msg);
   }
 }
+// CABLEADO de despliegue (lib/despliegue-cli.js): un repo que despliega y tiene codigo exige hexagonal declarada.
+function despliegueEnValidate(errs, warns) {
+  try {
+    const DC = require('./lib/despliegue-cli.js');
+    const D = require('./lib/despliegue.js');
+    const diag = D.diagnosticar(DC.contexto(ROOT, CONFIG_FILE));
+    if (!diag.detectados.length) return;
+    const bases = (require('./lib/apps.js').esMonorepo(ROOT) ? hexagonalBases() : [{ id: null, base: '' }])
+      .map((b) => { const r = hexagonalDe(b); return { id: b.id, donde: b.id ? `app ${b.id}` : 'ARCHITECTURE.md', declarada: r.declaracion.declarada, conCodigo: r.ficheros.length > 0 }; });
+    errs.push(...DC.hexagonalExigida(diag, bases));
+    warns.push(...DC.avisosDeValidate(diag));
+  } catch { /* el diagnostico de despliegue nunca tumba validate */ }
+}
+// harness.js despliegue [--json] [--gates] [--ci] | harness.js local [--ejecutar]
+function cmdDespliegue() {
+  const DC = require('./lib/despliegue-cli.js');
+  const D = require('./lib/despliegue.js');
+  const args = process.argv.slice(3);
+  const ctx = DC.contexto(ROOT, CONFIG_FILE);
+  if (args.includes('--ci')) {
+    console.log('despliegue --ci ya no genera workflow: los gates de IaC (sin credenciales) van en el CI de tests (harness.js ci) y el despliegue lo prepara devops en la forja.');
+    return;
+  }
+  if (args.includes('--gates')) {
+    const r = DC.correrGates(ctx, ROOT, require('./lib/ejecutar-pesado.js').ejecutarSync);
+    r.lineas.forEach((l) => console.log(l));
+    if (!r.ok) process.exit(1);
+    return;
+  }
+  const diag = D.diagnosticar(ctx);
+  if (args.includes('--json')) console.log(JSON.stringify(diag, null, 2));
+  else DC.pintar(diag).forEach((l) => console.log(l));
+  if (DC.hayErrores(diag)) process.exit(1);
+}
+function cmdLocal() {
+  const DC = require('./lib/despliegue-cli.js');
+  const c = DC.comandoLocal(DC.contexto(ROOT, CONFIG_FILE));
+  if (!c) { console.log('local: no hay comando local para el destino de este repo (o no se detecta ninguno).'); return; }
+  console.log(`${[c.cmd, ...c.args].join(' ')}${c.nota ? `\n(${c.nota})` : ''}`);
+  if (!process.argv.slice(3).includes('--ejecutar')) return;
+  const X = require('./lib/ejecutar-pesado.js');
+  const l = X.lanzador(c.cmd, c.args);
+  if (l.error) { console.log(l.error); process.exit(1); }
+  const r = require('child_process').spawnSync(l.file, l.argv, { cwd: ROOT, stdio: 'inherit', windowsHide: true });
+  process.exit(r.status === null ? 1 : r.status);
+}
+
 function cmdHexagonal() {
   const HX = require('./lib/hexagonal.js');
   const args = process.argv.slice(3);
@@ -4864,6 +4912,8 @@ else if (cmd === 'codigo' || cmd === 'salud') cmdCodigo();
 // bloquea: una deriva puede ser deliberada, y como gate se sortearia borrando la linea del documento.
 else if (cmd === 'contrato') cmdContrato();
 else if (cmd === 'hexagonal') cmdHexagonal();
+else if (cmd === 'despliegue') cmdDespliegue();
+else if (cmd === 'local') cmdLocal();
 else if (cmd === 'onepager') opMod().cmdOnepager();
 else if (cmd === 'reporte-negocio') cmdReporteNegocio();
 else if (cmd === 'roadmap') opMod().cmdRoadmap();
@@ -4883,4 +4933,4 @@ else if (cmd === 'ci') cmdCi();
 else if (cmd === 'gates' || cmd === 'infra' || cmd === 'deps') { const c = codeMod(); if (!c) { console.log('Falta .claude/hooks/code.js (capa de codigo).'); process.exit(1); } cmd === 'gates' ? c.cmdGates(opcionesGates()) : cmd === 'infra' ? c.cmdInfra() : c.cmdDeps(); }
 else if (cmd === 'stats') cmdStats();
 else if (cmd === 'status-line') cmdStatusLine();
-else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }
+else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · despliegue · local · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }
