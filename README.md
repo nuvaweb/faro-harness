@@ -219,6 +219,7 @@ Los tres son **informes de lectura**: no bloquean ni cambian el resultado de `va
 | `/faro:aprender` | Convierte en aprendizajes del repo (`faro/gestion/aprendizajes/AP-NNN-*.md`) lo que se descubrió; nada se guarda sin tu sí |
 | `/faro:auditoria` | Auditoría integral de salud (subagente, en background) |
 | `/faro:forja` | Operaciones de plataforma en la forja del repo (GitLab o GitHub): peticiones de integracion, proteccion de ramas, exigir pipeline, releases, etiquetas, miembros |
+| `/faro:desplegar` | Prepara el despliegue agnóstico (Cloudflare, Terraform): diagnostica hexagonal, infra y entornos, propone `wrangler.jsonc` e `infra/` y deja los gates de IaC en el CI; el despliegue lo prepara devops |
 | `/faro:renombrar` | Renombra un repo FARO con criterio (redirecciones, alias, referencias) |
 | `/faro:changelog` | Versiona y registra: decide major/minor/patch por impacto, escribe la entrada del CHANGELOG y valida que versión, changelog y commit digan lo mismo (`--check` solo diagnostica) |
 

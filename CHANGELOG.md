@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## 3.1.0 — 2026-11-22
+
+### Añadido
+- **Despliegue agnóstico por adaptadores** (Cloudflare y Terraform), con `harness.js despliegue [--json] [--gates] [--ci]`.
+- **Gates de IaC en el CI por entornos.** El despliegue y los entornos los prepara devops; FARO no los gestiona.
+- **`harness.js local [--ejecutar]`** para probar el despliegue en local.
+- **Hexagonal estándar en inglés** (`harness.js hexagonal --plan`).
+- **Skill `/faro:desplegar`**, con derivaciones desde `/faro:code` y `/faro:forja`.
+
+### Cambiado
+- **`validate` exige hexagonal declarada en los repos que despliegan** («repo que despliega sin hexagonal declarada»). Los repos con hexagonal declarada no cambian.
+
 ## 3.0.5 — 2026-11-22
 
 ### Corregido
