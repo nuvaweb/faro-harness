@@ -74,6 +74,13 @@ function ctxDesdeDisco(root, cfgRepo) {
   const existe = (rel) => { try { return fs.existsSync(abs(rel)); } catch { return false; } };
   const listar = (dirRel) => { try { return fs.readdirSync(abs(dirRel)); } catch { return []; } };
 
+  // ¿Está el comando en el PATH? Lo usan los adaptadores para gates opcionales (tflint, checkov).
+  const enPath = (cmd) => {
+    const exts = process.platform === 'win32' ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';').concat('') : [''];
+    return String(process.env.PATH || '').split(path.delimiter).filter(Boolean)
+      .some((d) => exts.some((x) => { try { return fs.statSync(path.join(d, cmd + x)).isFile(); } catch { return false; } }));
+  };
+
   let forja = null;
   try {
     const r = require('node:child_process').spawnSync('git', ['remote', 'get-url', 'origin'], {
@@ -92,7 +99,7 @@ function ctxDesdeDisco(root, cfgRepo) {
     if (monorepo) apps = A.apps(root).filter((a) => a.existe && a.ruta).map((a) => ({ id: a.id, dir: a.ruta }));
   } catch { /* sin apps */ }
 
-  return { root, leer, existe, listar, cfg: config(cfgRepo), forja, monorepo, apps };
+  return { root, leer, existe, listar, enPath, cfg: config(cfgRepo), forja, monorepo, apps };
 }
 
 module.exports = { config, diagnosticar, ctxDesdeDisco, adaptadores };
