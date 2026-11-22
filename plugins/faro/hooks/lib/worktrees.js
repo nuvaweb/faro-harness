@@ -19,7 +19,9 @@ const LINEA_IGNORE = '.claude/worktrees/';
 
 const git = (cwd, args) => execFileSync('git', args, { cwd, windowsHide: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 20000 }).trim();
 const ok = (cwd, args) => { try { git(cwd, args); return true; } catch { return false; } };
-const real = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+// realpath NATIVO: git da rutas largas y el llamante puede pasar nombres 8.3 (TEMP de los runners de
+// Windows: C:\Users\RUNNER~1\...); el realpath JS no los expande y el worktree 'en uso' no se reconocia.
+const real = (p) => { try { return (fs.realpathSync.native || fs.realpathSync)(p); } catch { return path.resolve(p); } };
 const igual = (a, b) => (process.platform === 'win32' ? real(a).toLowerCase() === real(b).toLowerCase() : real(a) === real(b));
 
 /** Entradas de `git worktree list --porcelain`: [{ ruta, head, rama|null, prunable }]. La primera es el checkout principal. */
