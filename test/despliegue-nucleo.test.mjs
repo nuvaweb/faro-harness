@@ -39,11 +39,10 @@ test('config con valores válidos los respeta', () => {
   assert.deepStrictEqual(c.avisos, []);
 });
 
-test('config ignora una clave entornos y ETAPAS es la convención fija', () => {
+test('config ignora una clave entornos (FARO no piensa en entornos)', () => {
   const c = D.config({ despliegue: { entornos: ['dev', 'Prod!'] } });
   assert.strictEqual('entornos' in c, false);
   assert.deepStrictEqual(c.avisos, []);
-  assert.deepStrictEqual(D.ETAPAS, [{ fase: 'pr', entorno: 'preview' }, { fase: 'main', entorno: 'staging' }, { fase: 'tag', entorno: 'production' }]);
 });
 
 test('puerta_produccion, infra y preview inválidos caen al defecto con aviso', () => {
@@ -55,18 +54,16 @@ test('puerta_produccion, infra y preview inválidos caen al defecto con aviso', 
 });
 
 const ctxVacio = { root: '/x', leer: () => null, existe: () => false, listar: () => [], cfg: D.config({}), forja: null, monorepo: false, apps: [] };
-const falso = (id, det, hall, sec) => ({ id, detectar: () => det, diagnostico: () => hall, gates: () => [], pasosCi: () => [], comandoLocal: () => null, secretosEsperados: () => sec });
+const falso = (id, det, hall) => ({ id, detectar: () => det, diagnostico: () => hall, gates: () => [], comandoLocal: () => null });
 
-test('diagnosticar agrega, ordena hallazgos (error, aviso, info) y une secretos por nombre', () => {
-  const a = falso('a', { x: 1 }, [{ nivel: 'info', codigo: 'i', mensaje: 'i' }, { nivel: 'error', codigo: 'e', mensaje: 'e' }], [{ nombre: 'TOKEN', proposito: 'p' }]);
-  const b = falso('b', { y: 2 }, [{ nivel: 'aviso', codigo: 'w', mensaje: 'w' }], [{ nombre: 'TOKEN', proposito: 'p' }, { nombre: 'OTRO', proposito: 'q' }]);
-  const n = falso('n', null, [{ nivel: 'error', codigo: 'no', mensaje: 'no' }], []);
+test('diagnosticar agrega y ordena hallazgos (error, aviso, info) sin secretos', () => {
+  const a = falso('a', { x: 1 }, [{ nivel: 'info', codigo: 'i', mensaje: 'i' }, { nivel: 'error', codigo: 'e', mensaje: 'e' }]);
+  const b = falso('b', { y: 2 }, [{ nivel: 'aviso', codigo: 'w', mensaje: 'w' }]);
+  const n = falso('n', null, [{ nivel: 'error', codigo: 'no', mensaje: 'no' }]);
   const r = D.diagnosticar(ctxVacio, [a, b, n]);
   assert.deepStrictEqual(r.detectados.map((d) => d.id), ['a', 'b']);
   assert.deepStrictEqual(r.hallazgos.map((h) => h.nivel), ['error', 'aviso', 'info']);
-  const t = r.secretos.find((s) => s.nombre === 'TOKEN');
-  assert.deepStrictEqual(t, { nombre: 'TOKEN', proposito: 'p' });
-  assert.strictEqual(r.secretos.length, 2);
+  assert.strictEqual('secretos' in r, false);
 });
 
 test('diagnosticar sin detectados devuelve un info', () => {

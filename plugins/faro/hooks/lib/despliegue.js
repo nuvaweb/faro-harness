@@ -1,12 +1,11 @@
 'use strict';
 // Núcleo agnóstico de despliegue: configuración, registro de adaptadores y diagnóstico agregado.
+// FARO solo valida: el despliegue, los secretos y los entornos los pone devops en la forja.
 // Los adaptadores (Cloudflare, Terraform...) implementan el contrato { id, detectar, diagnostico,
-// gates, pasosCi, comandoLocal, secretosEsperados }. Este módulo no sabe nada de ninguno en concreto.
+// gates, comandoLocal }. Este módulo no sabe nada de ninguno en concreto.
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Etapas del despliegue: convención fija, sin configurar. Solo las usa el generador de CI.
-const ETAPAS = [{ fase: 'pr', entorno: 'preview' }, { fase: 'main', entorno: 'staging' }, { fase: 'tag', entorno: 'production' }];
 const PUERTAS = ['tag', 'aprobacion', 'manual'];
 const INFRAS = ['propia', 'externa'];
 
@@ -71,21 +70,17 @@ const ORDEN = { error: 0, aviso: 1, info: 2 };
 function diagnosticar(ctx, lista) {
   const detectados = [];
   const hallazgos = [];
-  const porNombre = new Map();
   for (const ad of lista || adaptadores()) {
     const det = ad.detectar(ctx);
     if (!det) continue;
     detectados.push({ id: ad.id, det });
     hallazgos.push(...(ad.diagnostico(ctx, det) || []));
-    for (const s of (ad.secretosEsperados(ctx, det) || [])) {
-      if (!porNombre.has(s.nombre)) porNombre.set(s.nombre, { nombre: s.nombre, proposito: s.proposito });
-    }
   }
   if (!detectados.length) {
-    return { detectados: [], hallazgos: [{ nivel: 'info', codigo: 'sin-despliegue', mensaje: 'Sin despliegue detectado en este repo.' }], secretos: [] };
+    return { detectados: [], hallazgos: [{ nivel: 'info', codigo: 'sin-despliegue', mensaje: 'Sin despliegue detectado en este repo.' }] };
   }
   hallazgos.sort((a, b) => (ORDEN[a.nivel] ?? 3) - (ORDEN[b.nivel] ?? 3));
-  return { detectados, hallazgos, secretos: [...porNombre.values()] };
+  return { detectados, hallazgos };
 }
 
 // ---------- contexto desde disco (el único sitio que toca fs) ----------
@@ -117,4 +112,4 @@ function ctxDesdeDisco(root, cfgRepo) {
   return { root, leer, existe, listar, cfg: config(cfgRepo), forja, monorepo, apps };
 }
 
-module.exports = { ETAPAS, config, diagnosticar, ctxDesdeDisco, adaptadores, ADAPTADORES };
+module.exports = { config, diagnosticar, ctxDesdeDisco, adaptadores, ADAPTADORES };
