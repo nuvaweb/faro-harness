@@ -44,12 +44,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # --afectados necesita la base y el historial para el merge-base
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       # node directo (no `npm test --`): en Windows el shim de npm para PowerShell puede comerse el `--` y cada
       # job correria la suite entera. Mismos flags que `npm test`.
       - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4 ${{ env.AFECTADOS }}
@@ -66,12 +66,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4 ${{ env.AFECTADOS }}
 
   # Aviso (no rompe): la version de plugin.json sube lo que piden los commits Conventional del PR.
@@ -80,12 +80,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - run: node scripts/release-ci.js comprobar --base origin/${{ github.base_ref }}
         env:
           PR_TITULO: ${{ github.event.pull_request.title }}
@@ -103,12 +103,12 @@ jobs:
       group: release
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - run: node scripts/release-ci.js publicar
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
