@@ -143,10 +143,8 @@ test('validate: acepta doc_id con CLAVE de 7-10 caracteres (regresión del regex
 // --- Guardarrails de seguridad (pre-bash / pre-doc): comandos destructivos y ficheros de secretos ---
 
 const destructivos = [
-  ['rm -rf /tmp/algo', 'rm -rf'],
   ['git push --force origin main', 'git push --force'],
   ['git reset --hard HEAD~1', 'git reset --hard'],
-  ['git clean -fd', 'git clean -fd'],
 ];
 for (const [cmd, label] of destructivos) {
   test(`pre-bash bloquea comando destructivo: ${label}`, () => {
@@ -157,6 +155,27 @@ for (const [cmd, label] of destructivos) {
     assert.strictEqual(out.hookSpecificOutput.permissionDecision, 'deny', `no bloqueó "${cmd}": ${r.stdout}`);
   });
 }
+
+// Borrado de carpetas: el usuario pidio (2026-11-22) que SIEMPRE se pregunte y nunca se bloquee.
+for (const cmd of ['rm -rf /tmp/algo', 'rm -r build', 'rm -fr dist', 'rmdir vacia', 'git clean -fd', 'Remove-Item -Recurse -Force dist', 'rd /s /q dist']) {
+  test(`pre-bash PREGUNTA (no bloquea) el borrado: ${cmd}`, () => {
+    const dir = tmp('prebash-borrado');
+    const r = runHook('pre-bash', { command: cmd }, dir);
+    assert.strictEqual(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.strictEqual(out.hookSpecificOutput.permissionDecision, 'ask', `no pregunto "${cmd}": ${r.stdout}`);
+  });
+}
+
+test('pre-bash NO pregunta por rm de un fichero suelto ni por ordenes que solo mencionan rm', () => {
+  const dir = tmp('prebash-rm-simple');
+  for (const cmd of ['rm fichero.txt', 'grep -r "rm -rf" docs']) {
+    const r = runHook('pre-bash', { command: cmd }, dir);
+    assert.strictEqual(r.status, 0, r.stderr);
+    const dec = r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput.permissionDecision : '';
+    assert.notStrictEqual(dec, 'deny', `bloqueo "${cmd}": ${r.stdout}`);
+  }
+});
 
 test('pre-bash NO bloquea git push --force-with-lease (no es igual de destructivo)', () => {
   const dir = tmp('prebash-lease');

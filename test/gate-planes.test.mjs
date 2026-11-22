@@ -71,7 +71,9 @@ const noBloquea = (h) => !h || h.permissionDecision !== 'deny';
 
 test('escribir el plan DENTRO del cambio no se bloquea: es su sitio', () => {
   // El cambio lo declara el propio test (proposal aprobada): no depender de que el repo tenga uno abierto.
-  const dirCambio = path.join(REPO, 'gestion/cambios/changes/cambio-de-prueba');
+  // Mismo sitio que resuelve el harness (lib/paths specBase): faro/gestion/cambios si el repo usa faro/.
+  const base = fs.existsSync(path.join(REPO, 'faro')) ? 'faro/gestion/cambios' : 'gestion/cambios';
+  const dirCambio = path.join(REPO, base, 'changes/cambio-de-prueba');
   fs.mkdirSync(dirCambio, { recursive: true });
   fs.writeFileSync(path.join(dirCambio, 'proposal.md'), '---\nestado: aprobada\naprobada_por: t\n---\n# Cambio de prueba\n');
   const h = preDoc(path.join(dirCambio, 'tasks.md'));

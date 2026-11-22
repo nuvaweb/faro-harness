@@ -2115,18 +2115,30 @@ function cmdPreDoc() {
 //   - en rama principal (main/master): 'git commit' directo -> DENY; 'git merge'/'git push' -> ASK
 //     (es la aprobacion; la ejecuta el usuario, no Claude).
 //   - en develop/feature: no interfiere -> merge feature->develop y commits pasan por el flujo normal.
-// Patrones de comando DESTRUCTIVO (borrado recursivo/forzado, historial git irreversible, credenciales).
+// Patrones de comando DESTRUCTIVO (historial git irreversible, formateo de discos). El borrado de
+// carpetas NO esta aqui: se pregunta (BORRADO_CMD_PATTERNS).
 // Tratados como codigo de seguridad (recomendacion Anthropic): bloquean SIEMPRE, no dependen de rama/repo FARO.
 // Revisar cada 3-6 meses: reglas pensadas para un modelo mas propenso a atajos peligrosos pueden quedar obsoletas.
 const DESTRUCTIVE_CMD_PATTERNS = [
-  [/\brm\s+(-\w*r\w*f\w*|-\w*f\w*r\w*)\b/i, 'rm -rf (borrado recursivo forzado)'],
   [/\bgit\s+push\s+(?!--force-with-lease\b)(--force\b|-f\b)/i, 'git push --force (sobreescribe historial remoto; usa --force-with-lease si hace falta)'],
   [/\bgit\s+reset\s+--hard\b/i, 'git reset --hard (descarta cambios locales sin posibilidad de deshacer)'],
-  [/\bgit\s+clean\s+-\w*f\w*d?\b/i, 'git clean -fd (borra archivos sin trackear irrecuperablemente)'],
   [/\bchmod\s+-R\s+000\b|\bchmod\s+000\b/i, 'chmod 000 (deja archivos inaccesibles)'],
   [/>\s*\/dev\/sd[a-z]\b/i, 'escritura directa a un dispositivo de bloque'],
   [/\bmkfs\./i, 'mkfs (formatea un sistema de archivos)'],
 ];
+// BORRADO de carpetas/ficheros en bloque: NO se bloquea, se PREGUNTA siempre (decision del usuario,
+// 2026-11-22: "borrado de carpetas siempre preguntar, no bloquear"). El usuario ve la orden y decide.
+const BORRADO_CMD_PATTERNS = [
+  [/\brm\s+(?:[^|;&\n]*\s)?(?:-\w*[rR]\w*|--recursive)\b/, 'rm -r (borrado recursivo)'],
+  [/\brmdir\b/i, 'rmdir (borra carpetas)'],
+  [/\b(?:Remove-Item|ri|del|rd)\b[^|;&\n]*\s-(?:Recurse|r)\b/i, 'Remove-Item -Recurse (borrado recursivo)'],
+  [/\brd\s+\/s\b/i, 'rd /s (borra carpetas)'],
+  [/\bgit\s+clean\s+-\w*f\w*\b/i, 'git clean -f (borra ficheros sin versionar)'],
+];
+function preBashBorradoIssue(cmd) {
+  for (const [re, desc] of BORRADO_CMD_PATTERNS) if (re.test(cmd)) return desc;
+  return null;
+}
 // GATE DE PLATAFORMA: detecta los dos atajos con los que el agente se salta el token del harness.
 // Devuelve {motivo, alerta} o null. Es un DETECTOR PURO (sin efectos) para poder testearlo suelto.
 //
@@ -2254,6 +2266,17 @@ function cmdPreBash() {
         '⛔ Comando destructivo bloqueado — pide confirmacion humana explicita fuera del agente',
       );
       return;
+    }
+    // BORRADO de carpetas: siempre se PREGUNTA (nunca se bloquea). El alcance (abajo) sigue negando
+    // escribir/borrar en OTRO repo; aqui solo se trata el borrado dentro de lo permitido.
+    const borrado = preBashBorradoIssue(cmd);
+    if (borrado) {
+      let fuera = false;
+      try { const aj = require('./lib/alcance.js').analizarComando(cmd, _rootPorDefecto); fuera = Boolean(aj && aj.nivel === 'deny'); } catch { fuera = false; }
+      if (!fuera) {
+        ask(`Borrado detectado (${borrado}). Revisa la ruta antes de confirmar: ${String(cmd).slice(0, 300)}`, 'PreToolUse', `🗑 Borrado: ${borrado} — confirma la ruta`);
+        return;
+      }
     }
     // ALCANCE (#150): escribir (git commit/push/add…, redirecciones, rm/mv/cp…) en otro repo se bloquea;
     // leer no. Va despues de la via temprana de ordenes inocuas, que nunca decide sobre rutas.
