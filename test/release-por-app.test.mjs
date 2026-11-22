@@ -312,10 +312,15 @@ test('RUTAS_GESTION: tocar las dependencias de una app NO es gestion (es trabajo
 
 // ---------- cableado ----------
 
-test('publicar esta enchufado a la release por app (gate, tags, push y Release por app)', () => {
+test('la release por app ya no cuelga de /faro:publicar: publicar esta retirado y el CI publica', () => {
+  // FARO 3.0 (0ff5425, decision 2026-11-16-flujo-directo-a-main): coherenciaApps/tagearApps/notasDeVersion siguen
+  // exportados por lib/release.js (probados arriba) pero el harness ya no los llama; la release la hace
+  // scripts/release-ci.js desde el CI. Se verifica ese cableado real.
   const src = fs.readFileSync(HARNESS, 'utf8');
-  const cuerpo = src.slice(src.indexOf('async function cmdPublicar()'), src.indexOf('// ---------- One-pager'));
-  assert.match(cuerpo, /coherenciaApps\(/, 'gate de coherencia por app antes del merge');
-  assert.match(cuerpo, /tagearApps\(main\)/, 'tags por app sobre main');
-  assert.match(cuerpo, /notasDeVersion\([^)]*\.app\)/, 'notas del CHANGELOG de la app');
+  assert.doesNotMatch(src, /async function cmdPublicar\(/, 'cmdPublicar ya no existe');
+  assert.doesNotMatch(src, /tagearApps\(|coherenciaApps\(/, 'el harness no llama a la release por app: no hay camino paralelo al CI');
+  assert.match(src, /cmd === 'publicar'\) \{ console\.log\(FLUJO\.avisoRetirado/, 'publicar responde con el camino nuevo');
+  const wf = fs.readFileSync(path.join(path.dirname(HARNESS), '..', '..', '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(wf, /release-ci\.js comprobar/, 'el CI avisa de la version en el PR');
+  assert.match(wf, /release-ci\.js publicar/, 'el CI publica al integrarse en main');
 });
