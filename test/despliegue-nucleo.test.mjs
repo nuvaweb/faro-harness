@@ -18,23 +18,17 @@ test('jsonc.parse tolera comentarios y comas finales; null si no es válido', ()
 
 test('config sin clave devuelve los valores por defecto', () => {
   const c = D.config({});
-  assert.strictEqual(c.puerta_produccion, 'tag');
-  assert.strictEqual(c.preview, true);
   assert.strictEqual(c.infra, null);
   assert.strictEqual(c.referencia, null);
-  assert.strictEqual(c.salud_url, null);
   assert.deepStrictEqual(c.terraform, { dir: null, binario: null });
   assert.deepStrictEqual(c.avisos, []);
-  assert.strictEqual(D.config(null).puerta_produccion, 'tag');
+  assert.strictEqual(D.config(null).infra, null);
 });
 
 test('config con valores válidos los respeta', () => {
-  const c = D.config({ despliegue: { puerta_produccion: 'aprobacion', preview: false, infra: 'externa', referencia: 'docs/x.md', salud_url: 'https://x.test/health', terraform: { dir: 'infra', binario: 'tofu' } } });
-  assert.strictEqual(c.puerta_produccion, 'aprobacion');
-  assert.strictEqual(c.preview, false);
+  const c = D.config({ despliegue: { infra: 'externa', referencia: 'docs/x.md', terraform: { dir: 'infra', binario: 'tofu' } } });
   assert.strictEqual(c.infra, 'externa');
   assert.strictEqual(c.referencia, 'docs/x.md');
-  assert.strictEqual(c.salud_url, 'https://x.test/health');
   assert.deepStrictEqual(c.terraform, { dir: 'infra', binario: 'tofu' });
   assert.deepStrictEqual(c.avisos, []);
 });
@@ -45,12 +39,11 @@ test('config ignora una clave entornos (FARO no piensa en entornos)', () => {
   assert.deepStrictEqual(c.avisos, []);
 });
 
-test('puerta_produccion, infra y preview inválidos caen al defecto con aviso', () => {
-  const c = D.config({ despliegue: { puerta_produccion: 'x', infra: 'otra', preview: 'si' } });
-  assert.strictEqual(c.puerta_produccion, 'tag');
+test('infra inválida cae al defecto con aviso; las claves huérfanas ya no existen', () => {
+  const c = D.config({ despliegue: { infra: 'otra', puerta_produccion: 'x', preview: false, salud_url: 'u' } });
   assert.strictEqual(c.infra, null);
-  assert.strictEqual(c.preview, true);
-  assert.strictEqual(c.avisos.length, 3);
+  assert.strictEqual(c.avisos.length, 1);
+  for (const k of ['puerta_produccion', 'preview', 'salud_url', 'entornos']) assert.strictEqual(k in c, false);
 });
 
 const ctxVacio = { root: '/x', leer: () => null, existe: () => false, listar: () => [], cfg: D.config({}), forja: null, monorepo: false, apps: [] };
@@ -74,8 +67,14 @@ test('diagnosticar sin detectados devuelve un info', () => {
   assert.match(r.hallazgos[0].mensaje, /sin despliegue detectado/i);
 });
 
-test('ADAPTADORES es una lista y ctxDesdeDisco construye un contexto sin tocar la red', () => {
-  assert.ok(Array.isArray(D.ADAPTADORES));
+test('adaptadores() devuelve un array real aunque falten los módulos de Cloudflare y Terraform', () => {
+  const l = D.adaptadores();
+  assert.ok(Array.isArray(l));
+  assert.doesNotThrow(() => Object.keys(l));
+  assert.strictEqual('ADAPTADORES' in D, false);
+});
+
+test('ctxDesdeDisco construye un contexto sin tocar la red', () => {
   const ctx = D.ctxDesdeDisco(RAIZ, {});
   assert.strictEqual(ctx.root, RAIZ);
   assert.strictEqual(ctx.existe('package.json'), true);

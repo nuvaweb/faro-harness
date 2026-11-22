@@ -6,7 +6,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PUERTAS = ['tag', 'aprobacion', 'manual'];
 const INFRAS = ['propia', 'externa'];
 
 const cadena = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -17,24 +16,14 @@ function config(cfgRepo) {
     ? cfgRepo.despliegue : {};
   const avisos = [];
   const out = {
-    puerta_produccion: 'tag', preview: true,
-    infra: null, referencia: null, salud_url: null, terraform: { dir: null, binario: null }, avisos,
+    infra: null, referencia: null, terraform: { dir: null, binario: null }, avisos,
   };
 
-  if (raw.puerta_produccion !== undefined) {
-    if (PUERTAS.includes(raw.puerta_produccion)) out.puerta_produccion = raw.puerta_produccion;
-    else avisos.push(`despliegue.puerta_produccion debe ser ${PUERTAS.join(', ')}; se usa "tag".`);
-  }
-  if (raw.preview !== undefined) {
-    if (typeof raw.preview === 'boolean') out.preview = raw.preview;
-    else avisos.push('despliegue.preview debe ser true o false; se usa true.');
-  }
   if (raw.infra !== undefined && raw.infra !== null) {
     if (INFRAS.includes(raw.infra)) out.infra = raw.infra;
     else avisos.push(`despliegue.infra debe ser ${INFRAS.join(' o ')}; se ignora.`);
   }
   out.referencia = cadena(raw.referencia);
-  out.salud_url = cadena(raw.salud_url);
   if (raw.terraform && typeof raw.terraform === 'object') {
     out.terraform = { dir: cadena(raw.terraform.dir), binario: cadena(raw.terraform.binario) };
   }
@@ -46,22 +35,16 @@ function config(cfgRepo) {
 const MODULOS = ['./despliegue-cloudflare.js', './despliegue-terraform.js'];
 
 function cargar(modulo) {
-  try { return require(modulo); } catch (e) {
-    if (e && e.code === 'MODULE_NOT_FOUND' && String(e.message).includes(modulo.replace('./', ''))) return null;
+  // Solo se tolera que el fichero del adaptador no exista; un fallo dentro de él se propaga.
+  try { require.resolve(modulo); } catch (e) {
+    if (e && e.code === 'MODULE_NOT_FOUND') return null;
     throw e;
   }
+  return require(modulo);
 }
 
-/** Lista registrada de adaptadores disponibles, cargada al pedirla. */
+/** Lista registrada de adaptadores disponibles, cargada al pedirla (array real). */
 function adaptadores() { return MODULOS.map(cargar).filter(Boolean); }
-
-const ADAPTADORES = new Proxy([], {
-  get(_t, prop) { const lista = adaptadores(); const v = lista[prop]; return typeof v === 'function' ? v.bind(lista) : v; },
-  has(_t, prop) { return prop in adaptadores(); },
-  ownKeys() { return Reflect.ownKeys(adaptadores()); },
-  getOwnPropertyDescriptor(_t, prop) { const d = Object.getOwnPropertyDescriptor(adaptadores(), prop); if (d) d.configurable = true; return d; },
-});
-// Array.isArray sobre un Proxy de array devuelve true.
 
 // ---------- diagnóstico agregado ----------
 
@@ -112,4 +95,4 @@ function ctxDesdeDisco(root, cfgRepo) {
   return { root, leer, existe, listar, cfg: config(cfgRepo), forja, monorepo, apps };
 }
 
-module.exports = { config, diagnosticar, ctxDesdeDisco, adaptadores, ADAPTADORES };
+module.exports = { config, diagnosticar, ctxDesdeDisco, adaptadores };
