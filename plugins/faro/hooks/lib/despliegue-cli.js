@@ -85,4 +85,19 @@ function avisosDeValidate(diag) {
   return diag.hallazgos.filter((h) => h.nivel === 'error').map((h) => `[despliegue] ${h.codigo}: ${h.mensaje} (detalle: harness.js despliegue)`);
 }
 
-module.exports = { contexto, pintar, hayErrores, correrGates, comandoLocal, hexagonalExigida, avisosDeValidate };
+/**
+ * Cableado de validate con los fallos aislados: si el diagnóstico falla, aviso y nada más; si falla la lectura
+ * de la hexagonal, aviso explícito (la exigencia no se salta en silencio). → { errs, warns }
+ */
+function enValidate({ diagnosticar, bases }) {
+  const errs = [];
+  const warns = [];
+  let diag;
+  try { diag = diagnosticar(); } catch (e) { return { errs, warns: [`[despliegue] diagnóstico de despliegue no disponible: ${e && e.message}`] }; }
+  if (!diag.detectados.length) return { errs, warns };
+  warns.push(...avisosDeValidate(diag));
+  try { errs.push(...hexagonalExigida(diag, bases())); } catch (e) { warns.push(`[despliegue] no se pudo comprobar la hexagonal exigida a un repo que despliega: ${e && e.message}`); }
+  return { errs, warns };
+}
+
+module.exports = { enValidate, contexto, pintar, hayErrores, correrGates, comandoLocal, hexagonalExigida, avisosDeValidate };

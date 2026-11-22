@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HARNESS = path.join(RAIZ, 'plugins', 'faro', 'hooks', 'harness.js');
@@ -48,7 +49,7 @@ const DESPLIEGA = (seccion) => ({
   'src/index.ts': "import { a } from './dominio/a.ts';\nexport default a;\n",
 });
 
-test('despliegue: wrangler sin env.production sale con 1 y muestra cf-secreto-en-vars', () => {
+test('despliegue: wrangler con un secreto en vars sale con 1 y muestra cf-secreto-en-vars', () => {
   const r = run(repoCon({ 'wrangler.jsonc': WRANGLER_CON_SECRETO }), 'despliegue');
   assert.strictEqual(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /cf-secreto-en-vars/);
@@ -123,4 +124,15 @@ test('validate (FR): con la sección en inglés o en español no pide hexagonal;
 test('validate: repo sin destino de despliegue no dice nada de despliegue', () => {
   const r = run(repoCon({ 'ARCHITECTURE.md': arq(''), 'src/a.ts': 'export const a = 1;\n' }, { estado: true }), 'validate');
   assert.doesNotMatch(r.stdout, /despliega|\[despliegue\]/);
+});
+
+test('enValidate: si falla la lectura de la hexagonal o el diagnóstico, avisa y no calla', () => {
+  const DC = createRequire(import.meta.url)(path.join(RAIZ, 'plugins', 'faro', 'hooks', 'lib', 'despliegue-cli.js'));
+  const diag = { detectados: [{ id: 'cloudflare', det: {} }], hallazgos: [{ nivel: 'error', codigo: 'x', mensaje: 'm' }] };
+  const a = DC.enValidate({ diagnosticar: () => diag, bases: () => { throw new Error('boom'); } });
+  assert.deepStrictEqual(a.errs, []);
+  assert.ok(a.warns.some((w) => /\[despliegue\] x/.test(w)), 'conserva los avisos de despliegue');
+  assert.ok(a.warns.some((w) => /no se pudo comprobar la hexagonal.*boom/.test(w)));
+  const b = DC.enValidate({ diagnosticar: () => { throw new Error('caida'); }, bases: () => [] });
+  assert.ok(b.warns.some((w) => /no disponible.*caida/.test(w)));
 });

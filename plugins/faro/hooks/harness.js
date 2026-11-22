@@ -4321,16 +4321,14 @@ function hexagonalEnValidate(errs, warns, gate) {
 }
 // CABLEADO de despliegue (lib/despliegue-cli.js): un repo que despliega y tiene codigo exige hexagonal declarada.
 function despliegueEnValidate(errs, warns) {
-  try {
-    const DC = require('./lib/despliegue-cli.js');
-    const D = require('./lib/despliegue.js');
-    const diag = D.diagnosticar(DC.contexto(ROOT, CONFIG_FILE));
-    if (!diag.detectados.length) return;
-    const bases = (require('./lib/apps.js').esMonorepo(ROOT) ? hexagonalBases() : [{ id: null, base: '' }])
-      .map((b) => { const r = hexagonalDe(b); return { id: b.id, donde: b.id ? `app ${b.id}` : 'ARCHITECTURE.md', declarada: r.declaracion.declarada, conCodigo: r.ficheros.length > 0 }; });
-    errs.push(...DC.hexagonalExigida(diag, bases));
-    warns.push(...DC.avisosDeValidate(diag));
-  } catch { /* el diagnostico de despliegue nunca tumba validate */ }
+  const DC = require('./lib/despliegue-cli.js');
+  const r = DC.enValidate({
+    diagnosticar: () => require('./lib/despliegue.js').diagnosticar(DC.contexto(ROOT, CONFIG_FILE)),
+    bases: () => (require('./lib/apps.js').esMonorepo(ROOT) ? hexagonalBases() : [{ id: null, base: '' }])
+      .map((b) => { const h = hexagonalDe(b); return { id: b.id, donde: b.id ? `app ${b.id}` : 'ARCHITECTURE.md', declarada: h.declaracion.declarada, conCodigo: h.ficheros.length > 0 }; }),
+  });
+  errs.push(...r.errs);
+  warns.push(...r.warns);
 }
 // harness.js despliegue [--json] [--gates] [--ci] | harness.js local [--ejecutar]
 function cmdDespliegue() {
@@ -4363,6 +4361,7 @@ function cmdLocal() {
   const l = X.lanzador(c.cmd, c.args);
   if (l.error) { console.log(l.error); process.exit(1); }
   const r = require('child_process').spawnSync(l.file, l.argv, { cwd: ROOT, stdio: 'inherit', windowsHide: true });
+  if (r.error) { console.log(`local: no se pudo lanzar ${l.file}: ${r.error.message}`); process.exit(1); }
   process.exit(r.status === null ? 1 : r.status);
 }
 
