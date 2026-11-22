@@ -4358,6 +4358,12 @@ function cmdDespliegue() {
   else DC.pintar(diag).forEach((l) => console.log(l));
   if (DC.hayErrores(diag)) process.exit(1);
 }
+// harness.js ci fallos [--pendientes] [--esperar=<min>]: lee el CI de la rama actual (lib/ci-fallos.js).
+function cmdCiFallos() {
+  const f = forgeInfo();
+  require('./lib/ci-fallos.js').fallos({ root: ROOT, forja: f.forge, rama: git('rev-parse', '--abbrev-ref', 'HEAD') || '', args: process.argv.slice(4) })
+    .then((r) => process.exit(r.codigo), (e) => { console.error(`ci fallos: ${e.message}`); process.exit(1); });
+}
 function cmdLocal() {
   const DC = require('./lib/despliegue-cli.js');
   const c = DC.comandoLocal(DC.contexto(ROOT, CONFIG_FILE));
@@ -4935,6 +4941,7 @@ else if (cmd === 'app') cmdApp();
 else if (cmd === 'ficha') cmdFicha();
 // tdd-pre|tdd-post|tdd-stop|tdd-revisar: se despachan al PRINCIPIO del fichero (ver tras ROOT).
 else if (cmd === 'planificacion') cmdPlanificacion();
+else if (cmd === 'ci' && process.argv[3] === 'fallos') cmdCiFallos();
 else if (cmd === 'ci') cmdCi();
 else if (cmd === 'gates' || cmd === 'infra' || cmd === 'deps') { const c = codeMod(); if (!c) { console.log('Falta .claude/hooks/code.js (capa de codigo).'); process.exit(1); } cmd === 'gates' ? c.cmdGates(opcionesGates()) : cmd === 'infra' ? c.cmdInfra() : c.cmdDeps(); }
 else if (cmd === 'stats') cmdStats();
