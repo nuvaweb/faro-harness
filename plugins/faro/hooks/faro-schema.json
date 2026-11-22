@@ -520,9 +520,8 @@
       "claves": ["repos_permitidos"],
       "patron_repo": "^[\\w.-]+/[\\w.-]+$"
     },
-    "_nota_guardas": "GUARDAS DE SEGURIDAD (lib/guardas.js): lo que el harness BLOQUEA antes de que ocurra. 'max_kb_fichero' es el tope de un fichero preparado para commitear (un binario grande entra en el historial y ya no sale). 'sensibles' y 'sensibles_ext' son ficheros que CONTIENEN credenciales: ni se escriben ni se vuelcan por consola. 'exentos' son los de EJEMPLO, que existen para versionarse. Los PATRONES de secreto viven en el codigo, no aqui: exigen la forma completa de la credencial (bloque PEM, token con su prefijo y longitud) y una lista editable invitaria a aflojarlos, que es como un gate deja de proteger. El force push NO esta aqui: ya lo cubre DESTRUCTIVE_CMD_PATTERNS, que exime '--force-with-lease' a proposito.",
+    "_nota_guardas": "GUARDAS DE SEGURIDAD (lib/guardas.js): lo que el harness BLOQUEA antes de que ocurra. 'sensibles' y 'sensibles_ext' son ficheros que CONTIENEN credenciales: ni se escriben ni se vuelcan por consola. 'exentos' son los de EJEMPLO, que existen para versionarse. Los PATRONES de secreto viven en el codigo, no aqui: exigen la forma completa de la credencial (bloque PEM, token con su prefijo y longitud) y una lista editable invitaria a aflojarlos, que es como un gate deja de proteger. El force push NO esta aqui: ya lo cubre DESTRUCTIVE_CMD_PATTERNS, que exime '--force-with-lease' a proposito.",
     "guardas": {
-      "max_kb_fichero": 500,
       "sensibles": [".env", ".env.local", ".env.production", ".env.development", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".npmrc", ".pypirc", "credentials.json", "serviceaccount.json", ".netrc"],
       "sensibles_ext": [".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"],
       "exentos": [".env.example", ".env.sample", ".env.template", ".env.dist", ".dev.vars.example"]
