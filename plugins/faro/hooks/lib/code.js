@@ -825,13 +825,13 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   // ghSetup:null = el runner de GitHub ya trae ese lenguaje preinstalado (rust en ubuntu-latest).
   const RUNTIMES = {
     node: { gitlabImage: (v) => `node:${v}`, ghSetup: (v) => ({ uses: 'actions/setup-node@v7', with: { 'node-version': v } }) },
-    python: { gitlabImage: () => 'python:3.12-slim', ghSetup: () => ({ uses: 'actions/setup-python@v5', with: { 'python-version': '3.12' } }) },
+    python: { gitlabImage: () => 'python:3.12-slim', ghSetup: () => ({ uses: 'actions/setup-python@v6', with: { 'python-version': '3.12' } }) },
     go: { gitlabImage: () => 'golang:1.23', ghSetup: () => ({ uses: 'actions/setup-go@v5', with: { 'go-version': '1.23' } }) },
     rust: { gitlabImage: () => 'rust:1.82', ghSetup: () => null },
-    java: { gitlabImage: () => 'eclipse-temurin:21-jdk', ghSetup: () => ({ uses: 'actions/setup-java@v4', with: { distribution: 'temurin', 'java-version': '21' } }) },
+    java: { gitlabImage: () => 'eclipse-temurin:21-jdk', ghSetup: () => ({ uses: 'actions/setup-java@v5', with: { distribution: 'temurin', 'java-version': '21' } }) },
     ruby: { gitlabImage: () => 'ruby:3.3', ghSetup: () => ({ uses: 'ruby/setup-ruby@v1', with: { 'ruby-version': '3.3' } }) },
     php: { gitlabImage: () => 'php:8.3-cli', ghSetup: () => ({ uses: 'shivammathur/setup-php@v2', with: { 'php-version': '8.3' } }) },
-    dotnet: { gitlabImage: () => 'mcr.microsoft.com/dotnet/sdk:8.0', ghSetup: () => ({ uses: 'actions/setup-dotnet@v4', with: { 'dotnet-version': '8.0.x' } }) },
+    dotnet: { gitlabImage: () => 'mcr.microsoft.com/dotnet/sdk:8.0', ghSetup: () => ({ uses: 'actions/setup-dotnet@v5', with: { 'dotnet-version': '8.0.x' } }) },
   };
   const runtimeDe = (lang, version) => {
     const r = RUNTIMES[lang];

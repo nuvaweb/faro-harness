@@ -174,3 +174,9 @@ test('ci sin --con-codeowners no toca CODEOWNERS', () => {
   harness(dir, 'ci');
   assert.ok(!fs.existsSync(path.join(dir, '.github', 'CODEOWNERS')));
 });
+
+test('CI generado (#12): las acciones de setup de cada lenguaje corren en Node 24 (sin versiones en Node 20)', async () => {
+  const src = fs.readFileSync(new URL('../plugins/faro/hooks/lib/code.js', import.meta.url), 'utf8');
+  for (const a of ['actions/setup-node@v7', 'actions/setup-python@v6', 'actions/setup-java@v5', 'actions/setup-dotnet@v5']) assert.ok(src.includes(a), a);
+  assert.doesNotMatch(src, /actions\/setup-(node|python|java|dotnet)@v[1-4]\b|setup-python@v5/);
+});

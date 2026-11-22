@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 3.0.5 — 2026-11-22
+
+### Corregido
+- **Sin acciones de GitHub en Node 20** (#12). El CI que genera FARO usa `setup-python@v6`, `setup-java@v5` y `setup-dotnet@v5` (Node 24), como ya hacía con `checkout` y `setup-node@v7`. El CI del propio repo pasa a `checkout`/`setup-node@v7` y corre los tests sobre Node 24.
+
 ## 3.0.4 — 2026-11-22
 
 ### Corregido
