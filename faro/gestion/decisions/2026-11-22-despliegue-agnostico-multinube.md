@@ -49,7 +49,7 @@ Esto incluye usar **Terraform desde el inicio** para la infraestructura, empezar
    - `apply` y despliegue en staging al integrar en `main`;
    - lo mismo en producción con el tag `v*`;
    - preview por PR cuando el destino lo permita.
-4. **Preparar la forja** (`harness.js forja preparar`): diagnosticar y, con confirmación, aplicar auto-merge, protección de `main`, check portero y entornos, adaptándose al plan.
+4. **Decir qué espera cada entorno**: secretos y variables por nombre, para que devops los cargue. *(Decisión del usuario: FARO no lee ni configura la forja; eso lo prepara devops.)*
 5. **Desarrollo local de primera clase**: `harness.js local` lanza la herramienta del destino detectado.
 6. **Skill `/faro:desplegar`**: guía, de forma agnóstica, la puesta en marcha y la ampliación a nuevos destinos.
 
@@ -58,7 +58,7 @@ Esto incluye usar **Terraform desde el inicio** para la infraestructura, empezar
 - Que FARO cree credenciales, guarde secretos o cambie el plan de facturación. Los nombra y dice dónde ponerlos.
 - Que FARO imponga un framework o unos nombres de carpeta concretos. **Sí exige el enfoque hexagonal** (ver «Arquitectura hexagonal»): las capas se declaran y se validan, y si el repo no tiene ninguna estructura, FARO propone una.
 - Escribir los adaptadores de las apps: ni el de Durable Objects para AWS ni el de Hyperdrive. Eso es arquitectura de cada producto; FARO solo comprueba que el dominio no dependa de la nube.
-- Gestionar con Terraform la configuración de GitHub. La gestiona FARO (`forja preparar`).
+- Gestionar la configuración de la forja (entornos, rulesets, secretos), ni con Terraform ni desde FARO: la prepara devops.
 - Desplegar a mano desde la sesión. El despliegue sigue siendo cosa del CI, y el hook de deploy manual se mantiene.
 
 ## Antiobjetivos (fallaría aunque funcione)
@@ -99,7 +99,7 @@ Esto incluye usar **Terraform desde el inicio** para la infraestructura, empezar
 | Código de la app, rutas, bindings y entornos de la app | **Herramienta propia del destino**: `wrangler.jsonc` en Cloudflare; SAM, imagen o CLI en AWS |
 | Secretos de la app | La herramienta del destino desde el CI (`wrangler secret`…), nunca en Terraform |
 | Credenciales del CI | A mano, una vez, en el **entorno** de la forja |
-| Ajustes de la forja (rulesets, entornos, auto-merge) | **FARO** (`forja preparar`) |
+| Ajustes de la forja (rulesets, entornos, auto-merge) | **Devops** (en la forja; FARO no la toca) |
 
 - **Modo por defecto:** Terraform para la infraestructura y la herramienta del destino para el código.
 - **Modo alternativo** (detectado, no configurado): hay `*.tf` sin `wrangler.*` → despliegue solo con Terraform. El diagnóstico avisa de que ese modo no tiene desarrollo local.
@@ -188,7 +188,7 @@ Fase 1: `cloudflare` (wrangler) y `terraform` (con detección de providers: `clo
 | Sin entornos en repos privados (GitHub Free) | Tag `v*` + secretos de repositorio. El diagnóstico avisa de que no hay aislamiento por entorno |
 
 - **Decisión del usuario: el despliegue a producción es manual y lo confirma devops.**
-  - **GitHub Team:** devops **crea el tag**, y ese acto es la confirmación. El ruleset de tags solo deja crear `v*` (y `*@*` en monorepo) a quien tiene la excepción, es decir, al equipo de devops. `forja preparar` lo diagnostica: si cualquiera con escritura puede crear tags, la puerta no protege nada.
+  - **GitHub Team:** devops **crea el tag**, y ese acto es la confirmación. El ruleset de tags solo deja crear `v*` (y `*@*` en monorepo) a quien tiene la excepción, es decir, al equipo de devops. Devops se asegura de que solo ellos puedan crear el tag; si cualquiera con escritura puede, la puerta no protege nada.
   - **El push del tag**, hecho por una persona y no por el CI, lanza el workflow de producción.
   - **GitLab:** `when: manual` en un entorno protegido.
   - **Donde haya aprobadores:** tag + aprobación en el entorno (`aprobacion`).
@@ -248,7 +248,9 @@ Fase 1: `cloudflare` (wrangler) y `terraform` (con detección de providers: `clo
   - incluye los especificadores con esquema (`cloudflare:workers`) como externos. *(Decisión mía: es lo que hace que la regla sirva de algo.)*
 - **Durable Objects / Agents SDK:** FARO no los emula ni los porta. Solo comprueba que el dominio no los importe. El puerto debe definirse por lo que la app hace con ellos (recibir, estado, emitir, programar), no copiando la API del DO. El adaptador de AWS (SQS FIFO + DynamoDB + API Gateway WebSocket + EventBridge Scheduler, o un motor de actores portable como Restate) es decisión de cada producto.
 
-### Forja: `harness.js forja preparar`
+### Forja: fuera de FARO (decisión del usuario)
+
+> Sustituido: la forja la prepara devops. Lo de abajo queda solo como referencia de lo que devops configura.
 
 - Diagnóstico en tabla (`ok | falta | no lo permite el plan | lo gestiona la organización`) y, con confirmación, aplicación de:
   - auto-merge y método de merge;
@@ -273,7 +275,7 @@ Fase 1: `cloudflare` (wrangler) y `terraform` (con detección de providers: `clo
   3. entornos en `wrangler.jsonc`;
   4. módulos de Terraform por entorno;
   5. CI de despliegue;
-  6. `forja preparar`.
+  6. Entregar a devops la tabla de secretos y variables por entorno.
 - No existe una skill "de Terraform": Terraform es un adaptador.
 
 ### Credenciales en los jobs del PR *(decisión mía tras la revisión)*
@@ -285,7 +287,7 @@ Un job de PR no puede entrar en `staging` ni en `production`, que solo aceptan `
   - La preview es una **versión no desplegada del Worker de staging**: tiene URL propia y no recibe tráfico de staging.
 - **En el PR se muestra solo el `plan` de staging.**
 - **El `plan` de producción** se ejecuta dentro del job de producción, justo antes del `apply`, y queda en el resumen del job. Así, la credencial de producción nunca está al alcance del código de un PR.
-- Por eso, `forja preparar` crea tres entornos: `preview`, `staging` y `production`.
+- Por eso, devops crea tres entornos: `preview`, `staging` y `production`.
 
 ### De Terraform a `wrangler.jsonc`: cómo llegan los IDs *(decisión mía tras la revisión)*
 
@@ -301,7 +303,7 @@ Un job de PR no puede entrar en `staging` ni en `production`, que solo aceptan `
 ### Monorepo *(decisión mía tras la revisión)*
 
 - **La unidad de despliegue es la app.** El tag de producción es el de la app (`{app}@{version}`, `TAG_DEFECTO` de `apps.js`); en repos de una sola app es `v*`.
-- Los entornos aceptan los dos patrones. El ruleset de tags de la organización debe cubrir también `*@*`: `forja preparar` lo diagnostica.
+- Los entornos aceptan los dos patrones. El ruleset de tags de la organización debe cubrir también `*@*` (lo configura devops).
 - Hay un `wrangler.jsonc` por app (como ya detecta `apps.js`). Terraform puede ser compartido (`infra/` en la raíz) o por app (`apps/<id>/infra/`), según lo que se detecte.
 - `plan`, preview y despliegue van por app, solo para las apps que toca el cambio (reutilizando `alcanceApps`).
 
@@ -318,7 +320,7 @@ Un job de PR no puede entrar en `staging` ni en `production`, que solo aceptan `
 
 ## Fases
 
-1. **Fase 1 (Cloudflare + Terraform):** adaptadores `cloudflare` y `terraform`, gates, `harness.js despliegue`, `harness.js local`, plantilla de CI de despliegue (GitHub y GitLab), previews, `forja preparar`, extensión de `hexagonal.js` y skill `/faro:desplegar`. También el pendiente de la 3.0: el wizard deja de crear `develop`.
+1. **Fase 1 (Cloudflare + Terraform):** adaptadores `cloudflare` y `terraform`, gates, `harness.js despliegue`, `harness.js local`, plantilla de CI de despliegue (GitHub y GitLab), previews, extensión de `hexagonal.js` y skill `/faro:desplegar`. También el pendiente de la 3.0: el wizard deja de crear `develop`.
 2. **Fase 2 (AWS):** adaptadores `aws-sam`, `contenedor` y, como alternativa de infraestructura a Terraform, **stacks de AWS** (CloudFormation / CDK, detectados por `cdk.json` o `template.yaml`: `cdk diff` en el PR, `cdk deploy` por entorno). Terraform sigue siendo el modo por defecto porque sirve para cualquier nube; un repo con stacks y `*.tf` a la vez debe declarar qué recurso tiene cada dueño. Además: autenticación OIDC en el CI (rol IAM limitado al entorno), backend S3 con `use_lockfile`, diagnóstico de cuentas separadas por entorno.
 3. **Después:** Azure (`azurerm`, federated credentials, backend de Azure Storage) y entornos efímeros por PR en AWS y Azure.
 
