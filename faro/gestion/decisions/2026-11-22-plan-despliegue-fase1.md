@@ -368,3 +368,5 @@ Avisos:
 - **Task 4:** no se encuentra `infra/`.
 
 Todo sale de leer el código. No aparecen secretos por entorno.
+
+**Terraform opcional en Cloudflare (2026-11-22):** FARO nunca exige Terraform. El adaptador solo se activa si hay `.tf`. Task 4 añade un aviso cuando un recurso (D1, KV, R2, cola) aparece a la vez en Terraform y en un binding de `wrangler.jsonc` como recurso gestionado por los dos. El reparto recomendado: Terraform para la cuenta, la red y lo compartido; `wrangler.jsonc` para el Worker y sus bindings.
