@@ -1,6 +1,6 @@
 ---
 description: "Úsala para preparar el despliegue de un repo: diagnostica hexagonal, infra y entornos, y propone wrangler.jsonc e infra/. Los gates de IaC van en el CI; el despliegue lo prepara devops."
-argument-hint: "[--gates|--ci|local]  (vacío = diagnóstico completo)"
+argument-hint: "[--gates|local]  (vacío = diagnóstico completo)"
 ---
 
 Ejecútalo **TÚ en esta conversación (hilo principal)**, NO como subagente — así `AskUserQuestion` funciona y puedes preguntar con opciones. **No asumas nada, pregunta ante cualquier duda y confirma antes de crear ficheros.**

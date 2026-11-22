@@ -8,7 +8,7 @@
 - **Despliegue agnóstico por adaptadores** (Cloudflare y Terraform), con `harness.js despliegue [--json] [--gates]`. `--gates` ejecuta en local los gates de IaC; `--ci` ya no genera nada, solo avisa de que esos gates van en `harness.js ci`.
 - **Gates de IaC en el CI de tests.** El despliegue y los entornos los prepara devops; FARO no los gestiona.
 - **`harness.js local [--ejecutar]`** para probar el despliegue en local.
-- **`terraform.binario` solo admite `terraform` o `tofu`** y `terraform.dir` debe ser una ruta relativa sin `..` ni caracteres de shell; otro valor da un hallazgo y no se generan gates. `aws-sdk` (v2) y `@google-cloud/*` cuentan como SDK de nube en la hexagonal.
+- **`terraform.binario` solo admite `terraform` o `tofu`** y `terraform.dir` debe ser una ruta relativa sin `..` ni caracteres de shell. Un `binario` no admitido da un hallazgo y no se generan gates; un `dir` no válido da un hallazgo y se usa el valor por defecto. `aws-sdk` (v2) y `@google-cloud/*` cuentan como SDK de nube en la hexagonal.
 - **Hexagonal estándar en inglés** (`harness.js hexagonal --plan`).
 - **Skill `/faro:desplegar`**, con derivaciones desde `/faro:code` y `/faro:forja`.
 - **`harness.js despliegue` imprime una sección «Para devops»** con lo que el repo declara y hay que preparar: providers de Terraform, variables sin `default` y bindings de `wrangler.jsonc`. Sin valores ni secretos.
