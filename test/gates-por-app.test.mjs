@@ -274,6 +274,31 @@ test('isDeployCmd: toda orden de despliegue pide aprobacion, tambien de pruebas 
   }
 });
 
+test('isDeployCmd: comandos de solo lectura que mencionan deploy no piden aprobacion', () => {
+  const c = codeModule(monorepo());
+  for (const cmd of [
+    `cd /h/x/atlas; sed -n 30,50p .github/workflows/ci.yml; grep -n '"scripts"' -A22 apps/ui/package.json | grep -n "build\|deploy\|wrangler"; git log --oneline -2 -S"deploy:dry" -- apps/ui/package.json`,
+    'grep -rn "wrangler deploy" docs',
+    'rg "npm run deploy" -n',
+    'git log --oneline -S"wrangler deploy"',
+    'cat package.json | grep deploy',
+    'git diff main -- wrangler.jsonc | grep -c deploy',
+  ]) assert.strictEqual(c.isDeployCmd(cmd), false, JSON.stringify(cmd));
+  // falla cerrada: basta un tramo que no sea de lectura, o cualquier sustitucion
+  for (const cmd of [
+    'grep deploy package.json; wrangler deploy',
+    'cat x | sh -c "wrangler deploy"',
+    'grep -n "$(wrangler deploy)" x',
+    'grep x `npm run deploy`',
+    "sed -n '1e wrangler deploy' f",
+    'sed -i s/a/b/ f; npm run deploy',
+    'rg --pre "wrangler deploy" x',
+    "git -c core.pager='wrangler deploy' log",
+    'grep "sin cerrar deploy wrangler',
+    'cd x && pnpm deploy',
+  ]) assert.strictEqual(c.isDeployCmd(cmd), true, JSON.stringify(cmd));
+});
+
 test('isDeployCmd sigue dormido en un repo documental', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-doc-'));
   escribir(dir, '.faro.json', JSON.stringify({ naturaleza: 'documental' }));
