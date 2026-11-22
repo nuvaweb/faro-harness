@@ -2205,12 +2205,10 @@ function preBashGuardaIssue(cmd) {
   if (!r.hallazgos.length) return null;
   const conSecreto = r.hallazgos.filter((h) => h.secretos.length);
   const sensibles = r.hallazgos.filter((h) => h.sensible);
-  const grandes = r.hallazgos.filter((h) => h.grande);
   const partes = [];
   // El motivo NOMBRA el hallazgo pero NUNCA reproduce el valor: seria filtrarlo otra vez, en el propio aviso.
   if (conSecreto.length) partes.push(`SECRETOS en ${conSecreto.map((h) => `${h.ruta} (${h.secretos.join(', ')})`).join(' · ')}`);
   if (sensibles.length) partes.push(`FICHEROS DE CREDENCIALES: ${sensibles.map((h) => h.ruta).join(' · ')}`);
-  if (grandes.length) partes.push(`FICHEROS ENORMES (>${r.max_kb} KB): ${grandes.map((h) => `${h.ruta} (${h.kb} KB)`).join(' · ')}`);
   if (!partes.length) return null;
   return {
     motivo:
@@ -2219,9 +2217,8 @@ function preBashGuardaIssue(cmd) {
         ? 'Un secreto publicado es IRREVERSIBLE: aunque borres el commit, la clave queda comprometida y hay que ROTARLA. ' +
           'Sacalo del area de preparacion (git restore --staged <fichero>), anadelo a .gitignore, mueve el valor a una variable de entorno y deja solo su NOMBRE en el fichero de ejemplo. '
         : '') +
-      (grandes.length ? `Un fichero grande entra en el historial y ya no sale: sacalo del commit y, si hace falta versionarlo, usa Git LFS o publicalo como adjunto de release. ` : '') +
       'Si es un FALSO POSITIVO (una clave de ejemplo, un fixture de test), explicaselo al usuario y que lo confirme el.',
-    alerta: `⛔ Commit bloqueado: ${conSecreto.length ? 'posible SECRETO' : sensibles.length ? 'fichero de credenciales' : 'fichero enorme'} en el area de preparacion`,
+    alerta: `⛔ Commit bloqueado: ${conSecreto.length ? 'posible SECRETO' : 'fichero de credenciales'} en el area de preparacion`,
   };
 }
 

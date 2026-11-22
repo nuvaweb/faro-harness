@@ -31,7 +31,7 @@ Un hook que tarda no cuesta nada; uno que expira deja el turno sin reglas.
 | SessionStart | `session` + `self-hint.js` | Bloque de gobierno completo al arrancar; **reancla** corto tras compactar (lee `start_reason`) |
 | UserPromptSubmit | `prompt-context` | Solo lo que cambia turno a turno (~334 tokens); timeout explícito de 120 s |
 | PreToolUse Write/Edit | `pre-doc` | Nombrado, frontmatter, rama protegida, ficheros de credenciales |
-| PreToolUse Bash/PowerShell | `pre-bash` | Commit en rama protegida, comandos destructivos, transporte de API ajeno a la forja, secretos y ficheros enormes antes de commitear |
+| PreToolUse Bash/PowerShell | `pre-bash` | Commit en rama protegida, comandos destructivos, transporte de API ajeno a la forja, secretos y ficheros de credenciales antes de commitear |
 | PreToolUse Bash/PowerShell (servidores) | `pre-bash` | #177: `ask` con «dame el comando y el puerto; lo levantas tú en una terminal aparte» si la orden levanta un servidor de desarrollo (vite, `npm run dev`, `wrangler dev`, `next dev`, `serve`…, también tras `nohup`, `start`, `Start-Process`, `bash -c`). Lógica en `lib/servidores.js`; red de seguridad sobre el texto, no frontera (no ve scripts propios, `node -e` ni `run_in_background`) |
 | PostToolUse Write/Edit | `doc-check` | Valida lo escrito |
 | PreToolUse Write/Edit/MultiEdit | `tdd-pre` | TDD (#133): código sin test en rojo del módulo en la sesión → aviso una vez por módulo, o exit 2 en modo bloqueo; test en rojo editado antes de su verde → «no debilites el test» |
