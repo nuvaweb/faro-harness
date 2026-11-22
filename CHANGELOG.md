@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 3.0.6 — 2026-11-22
+
+### Cambiado
+- **El tamaño de un fichero ya no bloquea el commit** (#14). Se quita la guarda `max_kb_fichero` (500 KB) de `lib/guardas.js` y de `faro-schema.json`. Siguen bloqueados los secretos y los ficheros de credenciales.
+
 ## 3.0.5 — 2026-11-22
 
 ### Corregido

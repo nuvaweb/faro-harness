@@ -100,16 +100,6 @@ test('guarda: la palabra "password" en prosa NO es una credencial', () => {
     'un detector que salta con una palabra suelta se acaba desactivando');
 });
 
-test('guarda: un fichero por encima del umbral se BLOQUEA e indica su tamaño', () => {
-  const { dir, git, w } = repo();
-  w('datos.bin', 'x'.repeat(600 * 1024));   // 600 KB > umbral 500
-  git('add', '-A');
-  const d = bash('git commit -m "datos"', dir);
-  assert.strictEqual(d.permissionDecision, 'deny');
-  assert.match(d.permissionDecisionReason, /datos\.bin/);
-  assert.match(d.permissionDecisionReason, /KB/, 'el motivo debe indicar el tamaño');
-});
-
 test('guarda: volcar un fichero de credenciales por consola se BLOQUEA', () => {
   const { dir } = repo();
   assert.strictEqual(bash('cat .env', dir).permissionDecision, 'deny');
@@ -152,13 +142,12 @@ test('guarda: --force-with-lease NO se bloquea (comprueba antes de sobrescribir)
     `bloquear la forma SEGURA empuja a usar la peligrosa: ${JSON.stringify(d)}`);
 });
 
-test('guarda: el umbral del repo manda sobre el del plugin', () => {
+test('guarda: el tamaño de un fichero ya no bloquea el commit (solo secretos y credenciales)', () => {
   const { dir, git, w } = repo();
-  w('.claude/faro-schema.json', JSON.stringify({ enums: { guardas: { max_kb_fichero: 1 } } }));
-  w('mediano.txt', 'x'.repeat(50 * 1024));   // 50 KB: por debajo de 500, por encima de 1
+  w('grande.txt', 'x'.repeat(700 * 1024));   // 700 KB: antes superaba el tope de 500 KB
   git('add', '-A');
   const d = bash('git commit -m "x"', dir);
-  assert.strictEqual(d.permissionDecision, 'deny', 'con umbral 1 KB deberia bloquear un fichero de 50 KB');
+  assert.notStrictEqual(d.permissionDecision, 'deny', `un fichero grande no debe bloquear: ${JSON.stringify(d)}`);
 });
 
 // ---------- spec: recontexto-compactacion ----------
