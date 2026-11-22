@@ -343,3 +343,17 @@ Se escribirá en su propio plan, partiendo de lo que deje la Tarea 9.
 - [ ] Paso 2: implementar.
 - [ ] Paso 3: `node test/run.js test/ci-generado.test.mjs test/ci-vigente.test.mjs` y `npm test`, todo en verde.
 - [ ] Paso 4: commit `perf(ci): cancelar runs superados y calcular afectados contra main`.
+
+---
+
+## Recorte de alcance (2026-11-22, usuario: «FARO no debería entrar tanto»)
+
+El despliegue, los secretos, las cuentas y los entornos los configura devops directamente en la forja (GitHub o GitLab). FARO se limita a:
+- validar la hexagonal y dirigir hacia ella (Task 1);
+- validar la IaC presente (`wrangler.jsonc`, Terraform) como gates del CI de tests (Tasks 2-4, sin `secretosEsperados` ni `ETAPAS`);
+- el CI de tests optimizado (Task 9);
+- `harness.js local` y `harness.js despliegue` solo como diagnóstico (Task 6).
+
+**Ajustes en las tareas:**
+- La Task 5 deja de generar el workflow de despliegue. Pasa a añadir los gates de IaC al CI de tests generado.
+- La skill `/faro:desplegar` (Task 7) se queda en validar y explicar el patrón. No toca credenciales ni pipelines.
