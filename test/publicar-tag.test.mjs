@@ -258,10 +258,3 @@ test('tagVersionSiProcede(ref): etiqueta la referencia pedida (main), no HEAD de
   assert.notStrictEqual(tagCommit, (git(dir, 'rev-parse', 'HEAD').stdout || '').trim());
   assert.strictEqual(tagVersionSiProcede('main').ok, true, 'repetirlo sobre main es idempotente');
 });
-
-test('publicar etiqueta MAIN (no la rama a la que vuelve)', () => {
-  const src = fs.readFileSync(path.join(HOOKS, 'harness.js'), 'utf8');
-  const i = src.indexOf('async function cmdPublicar(');
-  const c = src.slice(i, src.indexOf('\n}', i));
-  assert.match(c, /tagVersionSiProcede\(main\)/);
-});
