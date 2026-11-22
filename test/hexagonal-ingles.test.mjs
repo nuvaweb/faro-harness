@@ -126,3 +126,16 @@ test('planMigracion no pide renombrar si no hay carpetas en español', () => {
   const p = HX.planMigracion(fich({ 'src/a.ts': 'export const a=1', 'src/index.ts': '' }));
   assert.ok(!p.pasos.some((x) => /→ domain\//.test(x)));
 });
+
+test('el arreglo nombra las carpetas en inglés aunque la declaración sea en español', () => {
+  const d = HX.leerDeclaracion(ES);
+  const r = HX.comprobar(d, fich({
+    'src/dominio/a.ts': "import fs from 'fs';\nimport w from 'wrangler';\nimport { b } from '../adaptadores/b';",
+  }));
+  assert.ok(r.violaciones.length >= 3);
+  for (const v of r.violaciones) {
+    assert.match(v.arreglo, /domain\//, v.regla);
+    assert.doesNotMatch(v.arreglo, /dominio\/|adaptadores\/|puertos\//, v.regla);
+  }
+  assert.ok(r.violaciones.every((v) => /^dominio /.test(v.regla)));
+});

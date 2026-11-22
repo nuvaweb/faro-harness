@@ -42,6 +42,8 @@ function esSdkNube(spec) {
   const s = String(spec || '');
   return SDK_NUBE.some((p) => (/[:/]$/.test(p) ? s.startsWith(p) : s === p));
 }
+// Carpeta estandar (en ingles) de una capa: los arreglos siempre dirigen a la convencion.
+const carpeta = (capa) => INGLES[capa] || capa;
 const NUCLEO = ['dominio', 'puertos', 'aplicacion'];
 // Alias en ingles de las claves de la declaracion (las internas siguen en espanol).
 const ALIAS = { domain: 'dominio', application: 'aplicacion', ports: 'puertos', adapters: 'adaptadores', composition: 'composicion', entrypoints: 'composicion', allowed: 'permitidos' };
@@ -54,7 +56,8 @@ const limpiarRuta = (s) => s.replace(/`/g, '').replace(/^\.\//, '').trim();
 // ---------- la declaracion ----------
 
 // Lee la seccion '## Hexagonal' (hasta el siguiente '## '). Cada linea '- clave: valor[, valor]'.
-// Acepta backticks, acentos (aplicación, composición) y un comentario tras ' — ' o ' # '.
+// Claves en espanol o en ingles (domain, application, ports, adapters, composition/entrypoints, allowed),
+// normalizadas a las internas. Acepta backticks, acentos (aplicación, composición) y un comentario tras ' — ' o ' # '.
 function leerDeclaracion(texto) {
   const d = { declarada: false, capas: { dominio: [], aplicacion: [], puertos: [], adaptadores: [] }, composicion: [], permitidos: [], errores: [], etiquetas: {} };
   const m = String(texto || '').match(/^##[ \t]+Hexagonal\b[^\n]*\n([\s\S]*?)(?=^##[ \t]|(?![\s\S]))/m);
@@ -143,11 +146,11 @@ function comprobar(decl, ficheros) {
     if (!capa) { sinCapa.push(f.rel); continue; }
     const pura = PURAS.includes(capa);
     const L = etiqueta(decl, capa);
-    const arregloES = `define un puerto en ports/, impleméntalo en adapters/<target>/ e inyéctalo desde entrypoints/ (${L}/ no toca el mundo)`;
+    const arregloES = `define un puerto en ports/, impleméntalo en adapters/<target>/ e inyéctalo desde entrypoints/ (${carpeta(capa)}/ no toca el mundo)`;
     if (pura) for (const u of f.es || []) viola(f, u.linea, `${L} hace E/S`, u.uso, arregloES);
     for (const imp of f.imports || []) {
       if (NUCLEO.includes(capa) && esSdkNube(imp.spec)) {
-        viola(f, imp.linea, `${L} usa SDK de nube`, imp.spec, `define un puerto en ports/, impleméntalo en adapters/<target>/ con ese SDK e inyéctalo desde entrypoints/; ${L}/ no puede importarlo`);
+        viola(f, imp.linea, `${L} usa SDK de nube`, imp.spec, `define un puerto en ports/, impleméntalo en adapters/<target>/ con ese SDK e inyéctalo desde entrypoints/; ${carpeta(capa)}/ no puede importarlo`);
         continue;
       }
       const c = clasificar(imp.spec, f.rel, f.lenguaje, decl);
@@ -155,7 +158,7 @@ function comprobar(decl, ficheros) {
         if (esComposicion(c.ruta, decl)) continue;
         const destino = capaDe(c.ruta, decl);
         if (destino && !PERMITIDO[capa].includes(destino)) viola(f, imp.linea, `${L} → ${etiqueta(decl, destino)}`, imp.spec,
-          `${L}/ solo puede depender de ${PERMITIDO[capa].map((c) => `${etiqueta(decl, c)}/`).join(', ')}; invierte la dependencia con un puerto en ports/ que implemente un adaptador en adapters/<target>/`);
+          `${carpeta(capa)}/ solo puede depender de ${PERMITIDO[capa].map((c) => `${carpeta(c)}/`).join(', ')}; invierte la dependencia con un puerto en ports/ que implemente un adaptador en adapters/<target>/`);
       } else if (pura && c.tipo === 'es' && !decl.permitidos.includes(c.nombre)) {
         viola(f, imp.linea, `${L} hace E/S`, imp.spec, arregloES);
       } else if (pura && c.tipo === 'externo' && !decl.permitidos.includes(c.nombre)) {
@@ -184,7 +187,7 @@ function planMigracion(ficheros) {
     else if (haceES) adaptadores.push(f.rel);
     else dominio.push(f.rel);
   }
-  const renombrar = Object.entries(INGLES).filter(([es]) => codigo.some((f) => f.rel.split('/').slice(0, -1).includes(es))).map(([es, en]) => [es, en]);
+  const renombrar = Object.entries(INGLES).filter(([es]) => codigo.some((f) => f.rel.split('/').slice(0, -1).includes(es)));
   const raiz = codigo.length && codigo.filter((f) => f.rel.startsWith('src/')).length * 2 >= codigo.length ? 'src/' : '';
   const comp = composicion[0] || `${raiz}index.ts`;
   const seccion = [
