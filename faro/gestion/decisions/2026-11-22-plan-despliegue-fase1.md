@@ -371,6 +371,6 @@ Todo sale de leer el código. No aparecen secretos por entorno.
 
 **Terraform opcional en Cloudflare (2026-11-22):** FARO nunca exige Terraform. El adaptador solo se activa si hay `.tf`. Task 4 añade un aviso cuando un recurso (D1, KV, R2, cola) aparece a la vez en Terraform y en un binding de `wrangler.jsonc` como recurso gestionado por los dos. El reparto recomendado: Terraform para la cuenta, la red y lo compartido; `wrangler.jsonc` para el Worker y sus bindings.
 
-**Terraform como IaC estándar (2026-11-22, decisión del usuario):** los repos que apliquen el patrón usan Terraform como IaC, en GitLab y en cualquier otra forja. En Cloudflare convive con `wrangler.jsonc`, que sigue siendo la fuente de verdad del Worker y sus bindings. Para FARO cambia esto:
+**Terraform es la elección del usuario, no de FARO (2026-11-22):** este usuario usará Terraform en sus repos. FARO sigue siendo neutral para cualquiera que lo use: no prescribe ni propone herramienta de IaC. En Cloudflare convive con `wrangler.jsonc`, que sigue siendo la fuente de verdad del Worker y sus bindings. Para FARO cambia esto:
 - **Task 4:** el adaptador avisa (no falla) si hay `.tf` sin bloque `backend`, porque el estado local se pierde en el CI. No prescribe qué backend usar: el `http` de GitLab, S3/R2 o el que sea lo decide devops.
-- **Task 7:** la skill `/faro:desplegar` explica el reparto (Terraform para la infraestructura y `wrangler` para el código) y lo propone cuando el repo no tiene `.tf`. No lo exige.
+- **Task 7:** la skill `/faro:desplegar` describe lo que encuentra en el repo y valida. No recomienda Terraform ni ninguna otra herramienta de IaC. Si el repo usa Terraform y Wrangler a la vez, explica el reparto entre los dos.
