@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 3.0.1 — 2026-11-22
+
+### Corregido
+- **El borrado de carpetas pregunta en vez de bloquear** (#1). `rm -r`, `rmdir`, `Remove-Item -Recurse`, `rd /s` y `git clean -f` piden confirmación mostrando la ruta. Solo se bloquea si la ruta queda fuera del alcance del repo.
+
 ## 3.0.0 — 2026-11-16
 
 ### Cambiado (ruptura)
