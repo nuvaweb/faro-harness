@@ -38,31 +38,45 @@ function extraerFallos(log) {
   return fallos;
 }
 
+const RE_ANSI = /\u001b\[[0-9;?]*[ -\/]*[@-~]/g;
+const RE_CTRL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
+/** Quita codigos ANSI y caracteres de control (salvo \n y \t): lo que sale del log nunca llega crudo a la terminal. */
+const limpiar = (t) => String(t == null ? '' : t).replace(/\r/g, '').replace(RE_ANSI, '').replace(RE_CTRL, '');
+
+const ACTIVOS = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending', 'running', 'manual', 'created', 'preparing', 'scheduled', 'waiting_for_resource']);
+const RE_SHA = /^[0-9a-f]{7,40}$/;
+const rutaRamaValida = (r) => typeof r === 'string' && r.length > 0 && r.length <= 250 && !r.startsWith('-') && !/[\u0000-\u001f\u007f\s]/.test(r);
+
 /**
- * Funcion pura. run: { status, conclusion, stuck?, esperaAgotada?, anotaciones?: string[], fallidos?: [{failure_reason}] }.
+ * Funcion pura. run: { status?, conclusion?, conclusiones?: string[], stuck?, esperaAgotada?, anotaciones?: string[],
+ * fallidos?: [{failure_reason}] }. cuota e infra se deciden por conclusion, razon y anotaciones; el log solo cuenta
+ * si NO hay lineas de test fallidas (un test llamado "billing" que falla es un fallo de test).
  * -> { estado: 'verde'|'test'|'cuota'|'pendiente'|'infra'|'en-curso', ... }
  */
-function clasificar(run, log = '') {
+function clasificar(run, logCrudo = '') {
   const r = run || {};
-  const texto = [log, ...(r.anotaciones || [])].join('\n');
+  const log = limpiar(logCrudo);
+  const conc = r.conclusiones || (r.conclusion ? [r.conclusion] : []);
   const razones = (r.fallidos || []).map((j) => j.failure_reason);
-  if (r.conclusion === 'startup_failure' || razones.includes('ci_quota_exceeded') || RE_FACTURACION.test(texto)) {
-    return { estado: 'cuota', motivo: 'la forja no tiene minutos o credito de CI (no es un fallo del codigo)' };
-  }
-  if (r.conclusion === 'runner_system_failure' || razones.includes('runner_system_failure') || razones.includes('stuck_or_timeout_failure') || RE_INFRA.test(texto)) {
-    return { estado: 'infra', motivo: 'fallo del runner o timeout de infraestructura (no es un fallo del codigo)' };
+  const anot = (r.anotaciones || []).map(limpiar);
+  const CUOTA = { estado: 'cuota', motivo: 'la forja no tiene minutos o credito de CI (no es un fallo del codigo)' };
+  if (conc.includes('startup_failure') || razones.includes('ci_quota_exceeded') || anot.some((a) => RE_FACTURACION.test(a))) return CUOTA;
+  const falla = conc.includes('failure');
+  if (!falla) {
+    if (conc.includes('runner_system_failure') || conc.includes('timed_out')) return { estado: 'infra', motivo: 'fallo del runner o timeout de infraestructura (no es un fallo del codigo)' };
+    if (conc.includes('cancelled')) return { estado: 'infra', motivo: 'cancelado: el CI se cancelo, no es un fallo del codigo' };
   }
   if (r.stuck) return { estado: 'pendiente', motivo: 'el CI esta atascado sin runner' };
-  if (r.status === 'queued' || r.status === 'in_progress' || r.status === 'pending' || r.status === 'running') {
-    return r.esperaAgotada ? { estado: 'pendiente', motivo: 'el CI sigue en curso tras la espera' } : { estado: 'en-curso' };
-  }
-  if (r.conclusion === 'success') return { estado: 'verde' };
+  if (ACTIVOS.has(r.status)) return r.esperaAgotada ? { estado: 'pendiente', motivo: 'el CI sigue en curso tras la espera' } : { estado: 'en-curso' };
+  if (conc.length && conc.every((c) => c === 'success' || c === 'skipped' || c === 'neutral')) return { estado: 'verde' };
   const fallos = extraerFallos(log);
   if (fallos.length) return { estado: 'test', test: fallos[0].test, error: fallos[0].error, fichero: fallos[0].fichero, fallos };
+  if (RE_FACTURACION.test(log)) return CUOTA;
+  if (razones.includes('runner_system_failure') || razones.includes('stuck_or_timeout_failure') || RE_INFRA.test(log)) return { estado: 'infra', motivo: 'fallo del runner o timeout de infraestructura (no es un fallo del codigo)' };
   return { estado: 'test', test: '', error: 'el CI fallo y el log no muestra tests concretos', fichero: '', fallos: [] };
 }
 
-// ---- Adaptadores de lectura (solo lectura; sin shell; la salida se inyecta en los tests) ----
+// ---- Lectura de detalle (solo lo que el contrato de forja no da: conclusion por run y log de los jobs fallidos) ----
 
 /** Lanza gh/glab sin shell. -> { ok, out } | { ok:false, falta:true } cuando la CLI no existe. */
 function ejecutar(cmd, args, cwd) {
@@ -73,52 +87,33 @@ function ejecutar(cmd, args, cwd) {
 const json = (r) => { try { return JSON.parse(r.out); } catch { return null; } };
 const LOGIN = { github: '! gh auth login', gitlab: '! glab auth login' };
 const CLI = { github: 'gh', gitlab: 'glab' };
+const ultimas = (t, n) => String(t).split(/\r?\n/).slice(-n).join('\n');
 
-/** GitHub: gh run list/view. -> { run, log, sha, pr } | { sinAcceso } | { sinRun } */
-function leerGithub(rama, ex) {
-  const l = ex('gh', ['run', 'list', '--branch', rama, '--limit', '1', '--json', 'databaseId,status,conclusion,headSha']);
-  if (!l.ok) return { sinAcceso: true };
-  const runs = json(l);
-  if (!Array.isArray(runs) || !runs.length) return { sinRun: true };
-  const r0 = runs[0];
-  const v = json(ex('gh', ['run', 'view', String(r0.databaseId), '--json', 'status,conclusion,jobs'])) || {};
-  const fallidos = (v.jobs || []).filter((j) => j.conclusion && j.conclusion !== 'success' && j.conclusion !== 'skipped');
-  const run = { status: r0.status, conclusion: r0.conclusion || v.conclusion, fallidos: [], anotaciones: [] };
-  let log = '';
-  if (run.status === 'completed' && run.conclusion !== 'success' && fallidos.length) {
-    const g = ex('gh', ['run', 'view', String(r0.databaseId), '--log-failed']);
-    log = g.out.split(/\r?\n/).slice(-3000).join('\n');
-  }
-  const pr = json(ex('gh', ['pr', 'view', rama, '--json', 'number']));
-  return { run, log, sha: r0.headSha, pr: pr ? pr.number : null };
+/** GitHub: todos los runs del commit; log solo de los que no terminaron bien. -> { run, log } */
+function detalleGithub(sha, ex) {
+  const l = json(ex('gh', ['run', 'list', '--commit', sha, '--json', 'databaseId,status,conclusion', '--limit', '30']));
+  if (!Array.isArray(l) || !l.length) return { run: {}, log: '' };
+  const malos = l.filter((x) => x.status === 'completed' && x.conclusion && !['success', 'skipped', 'neutral'].includes(x.conclusion));
+  const log = malos.filter((x) => x.conclusion === 'failure').slice(0, 3).map((x) => ex('gh', ['run', 'view', String(x.databaseId), '--log-failed']).out).map((t) => ultimas(t, 3000)).join('\n');
+  return { run: { conclusiones: malos.map((x) => x.conclusion) }, log };
 }
-
-/** GitLab: glab api sobre el pipeline mas reciente de la rama. */
-function leerGitlab(rama, ex) {
-  const l = ex('glab', ['api', `projects/:id/pipelines?ref=${encodeURIComponent(rama)}&per_page=1`]);
-  if (!l.ok) return { sinAcceso: true };
-  const ps = json(l);
-  if (!Array.isArray(ps) || !ps.length) return { sinRun: true };
-  const p = ps[0];
-  const jobs = json(ex('glab', ['api', `projects/:id/pipelines/${p.id}/jobs?per_page=100`])) || [];
-  const enCurso = ['created', 'waiting_for_resource', 'preparing', 'pending', 'running', 'scheduled'].includes(p.status);
-  const fallidos = jobs.filter((j) => j.status === 'failed');
-  const run = {
-    status: enCurso ? (p.status === 'running' ? 'in_progress' : 'queued') : 'completed',
-    conclusion: p.status === 'success' ? 'success' : (enCurso ? null : 'failure'),
-    stuck: jobs.some((j) => j.stuck && j.status === 'pending'),
-    fallidos: fallidos.map((j) => ({ name: j.name, failure_reason: j.failure_reason })),
-    anotaciones: [],
-  };
-  let log = '';
-  if (run.status === 'completed' && run.conclusion !== 'success') {
-    log = fallidos.slice(0, 5).map((j) => ex('glab', ['api', `projects/:id/jobs/${j.id}/trace`]).out.split(/\r?\n/).slice(-1500).join('\n')).join('\n');
-  }
-  const mr = json(ex('glab', ['api', `projects/:id/merge_requests?source_branch=${encodeURIComponent(rama)}&state=opened`]));
-  return { run, log, sha: p.sha, pr: Array.isArray(mr) && mr[0] ? mr[0].iid : null };
+/** GitLab: jobs fallidos del ultimo pipeline del commit (razon + traza). */
+function detalleGitlab(sha, ex) {
+  const ps = json(ex('glab', ['api', `projects/:id/pipelines?sha=${sha}&order_by=id&sort=desc&per_page=1`]));
+  if (!Array.isArray(ps) || !ps[0]) return { run: {}, log: '' };
+  const jobs = json(ex('glab', ['api', `projects/:id/pipelines/${ps[0].id}/jobs?scope[]=failed&per_page=100`])) || [];
+  const log = jobs.slice(0, 5).map((j) => ultimas(ex('glab', ['api', `projects/:id/jobs/${j.id}/trace`]).out, 1500)).join('\n');
+  return { run: { conclusion: 'failure', fallidos: jobs.map((j) => ({ name: j.name, failure_reason: j.failure_reason })) }, log };
 }
+const detalle = (forja, sha, ex) => (forja === 'gitlab' ? detalleGitlab(sha, ex) : detalleGithub(sha, ex));
 
-const leerForja = (forja, rama, ex) => (forja === 'gitlab' ? leerGitlab(rama, ex) : leerGithub(rama, ex));
+/** Numero del PR/MR de la rama (solo informativo). Rama validada y tras `--`. */
+function numeroPr(forja, rama, ex) {
+  if (!rutaRamaValida(rama)) return null;
+  if (forja === 'gitlab') { const m = json(ex('glab', ['api', `projects/:id/merge_requests?source_branch=${encodeURIComponent(rama)}&state=opened`])); return Array.isArray(m) && m[0] ? m[0].iid : null; }
+  const p = json(ex('gh', ['pr', 'view', '--json', 'number', '--', rama]));
+  return p ? p.number : null;
+}
 
 // ---- Fichero de pendientes ----
 function leerPendientes(root) {
@@ -151,78 +146,99 @@ function redMinimaPorDefecto(root) {
   const r = spawnSync(l.file, l.argv, { cwd: root, stdio: 'inherit', windowsHide: true });
   return { ok: r.status === 0, comando: `${c.cmd} ${c.args.join(' ')}` };
 }
+const ramaExistePorDefecto = (root) => (rama) => ['refs/heads/', 'refs/remotes/origin/'].some((p) => spawnSync('git', ['rev-parse', '--verify', '--quiet', p + rama], { cwd: root, windowsHide: true }).status === 0);
 
-/** Consulta la forja hasta que el CI termina o se agota la espera. Reloj y sleep inyectables. */
-async function consultar({ forja, rama, esperarMin = ESPERA_MIN, ex, ahora, dormir }) {
+/** Pendientes validos: rama y sha bien formados, una entrada por rama (la ultima). */
+function pendientesValidos(root) {
+  const porRama = new Map();
+  for (const e of leerPendientes(root)) if (rutaRamaValida(e.rama) && RE_SHA.test(String(e.sha))) { porRama.delete(e.rama); porRama.set(e.rama, e); }
+  return [...porRama.values()];
+}
+
+/**
+ * Estado del CI del commit (contrato de forja) esperando si esta en curso. Reloj y sleep inyectables.
+ * estadoCommit(sha) -> { ok, estado, fallidos } | { ok:false, sinToken } | { ok:false, msg }
+ */
+async function consultar({ sha, esperarMin = ESPERA_MIN, estadoCommit, ahora, dormir }) {
   const t0 = ahora();
   for (;;) {
-    const lec = leerForja(forja, rama, ex);
-    if (lec.sinAcceso || lec.sinRun) return lec;
-    lec.run.esperaAgotada = (ahora() - t0) >= esperarMin * 60000;
-    const c = clasificar(lec.run, lec.log);
-    if (c.estado !== 'en-curso') return { ...lec, clasificacion: c };
+    const r = await estadoCommit(sha);
+    if (!r || r.sinToken || !r.ok) return { fallo: r || { ok: false, msg: 'sin respuesta de la forja' } };
+    const agotada = (ahora() - t0) >= esperarMin * 60000;
+    if (r.estado !== 'pendiente' || agotada) return { r, agotada };
     await dormir(SONDEO_MS);
   }
 }
 
 /**
- * Orquestacion. deps: { root, forja, rama, sha?, args, ex?, ahora?, dormir?, redMinima?, salida? }
+ * Orquestacion. deps: { root, forja, rama, sha, args, estadoCommit, ex?, ahora?, dormir?, redMinima?, ramaExiste?, salida? }
  * -> { codigo, estado }
  */
 async function fallos(deps) {
   const root = deps.root;
-  const out = deps.salida || ((l) => console.log(l));
+  const emitidas = [];
+  const out = (l) => { for (const x of limpiar(l).split('\n')) { if (emitidas.length < MAX_LINEAS) { emitidas.push(x); (deps.salida || console.log)(x); } } };
   const ex = deps.ex || ((c, a) => ejecutar(c, a, root));
   const ahora = deps.ahora || Date.now;
   const dormir = deps.dormir || ((ms) => new Promise((r) => setTimeout(r, ms)));
   const redMinima = deps.redMinima || (() => redMinimaPorDefecto(root));
+  const ramaExiste = deps.ramaExiste || ramaExistePorDefecto(root);
   const args = deps.args || [];
   const forja = deps.forja;
-  const cli = CLI[forja];
-  if (!cli) { out(`ci fallos: forja '${forja}' sin soporte (GitHub o GitLab).`); return { codigo: 0, estado: 'sin-acceso' }; }
-  const sinAcceso = () => { out(`ci fallos: sin acceso a ${cli} (no esta instalada o no hay sesion). Inicia sesion con: ${LOGIN[forja]}`); return { codigo: 0, estado: 'sin-acceso' }; };
+  if (!CLI[forja] || typeof deps.estadoCommit !== 'function') { out(`ci fallos: forja '${forja}' sin soporte (GitHub o GitLab).`); return { codigo: 0, estado: 'sin-acceso' }; }
   const espArg = args.find((a) => a.startsWith('--esperar='));
   const esperarMin = espArg && Number(espArg.split('=')[1]) >= 0 ? Number(espArg.split('=')[1]) : ESPERA_MIN;
+  const sinSesion = () => { out(`ci fallos: sin sesion en la forja. Inicia sesion con: ${LOGIN[forja]}`); return { codigo: 0, estado: 'sin-acceso' }; };
+  const errorForja = (f) => { out(`ci fallos: no pude leer el CI de la forja (${limpiar((f && f.msg) || 'error de red o de la API')}). No es un problema de sesion.`); return { codigo: 1, estado: 'error' }; };
 
   if (args.includes('--pendientes')) {
-    const entradas = leerPendientes(root);
-    if (!entradas.length) { out('ci fallos: no hay CI pendientes de validar.'); return { codigo: 0, estado: 'sin-pendientes' }; }
+    const entradas = pendientesValidos(root);
+    if (!entradas.length) { escribirPendientes(root, []); out('ci fallos: no hay CI pendientes de validar.'); return { codigo: 0, estado: 'sin-pendientes' }; }
     const quedan = [];
     for (const e of entradas) {
-      const r = await consultar({ forja, rama: e.rama, esperarMin: 0, ex, ahora, dormir });
-      if (r.sinAcceso) return sinAcceso();
-      const estado = r.clasificacion ? r.clasificacion.estado : 'sin-run';
-      if (estado === 'verde' && (!e.sha || !r.sha || r.sha === e.sha)) { out(`✓ ${e.rama}: CI en verde, se quita de pendientes.`); continue; }
+      if (!ramaExiste(e.rama)) { out(`✓ ${e.rama}: la rama ya no existe, se quita de pendientes.`); continue; }
+      const c = await consultar({ sha: e.sha, esperarMin: 0, estadoCommit: deps.estadoCommit, ahora, dormir });
+      if (c.fallo) { if (c.fallo.sinToken) return sinSesion(); quedan.push(e); out(`? ${e.rama}: no pude consultar (${limpiar(c.fallo.msg || 'error')}).`); continue; }
+      if (c.r.estado === 'verde') { out(`✓ ${e.rama}: CI en verde en ${e.sha.slice(0, 7)}, se quita de pendientes.`); continue; }
       quedan.push(e);
-      out(`… ${e.rama} (${e.motivo}, ${e.fecha}): ahora ${estado}.`);
+      out(`… ${e.rama} (${e.motivo}, ${e.fecha}): ahora ${c.r.estado}.`);
     }
     escribirPendientes(root, quedan);
     return { codigo: 0, estado: 'pendientes', quedan: quedan.length };
   }
 
-  const r = await consultar({ forja, rama: deps.rama, esperarMin, ex, ahora, dormir });
-  if (r.sinAcceso) return sinAcceso();
-  if (r.sinRun) { out(`ci fallos: ${deps.rama} no tiene ejecuciones de CI en la forja.`); return { codigo: 0, estado: 'sin-ci' }; }
-  const c = r.clasificacion;
-  if (c.estado === 'verde') { out('ci fallos: CI en verde.'); return { codigo: 0, estado: 'verde' }; }
-  if (c.estado === 'test') {
-    out(`ci fallos: fallan tests del codigo.${c.test ? `\n  test: ${c.test}` : ''}${c.error ? `\n  error: ${c.error}` : ''}${c.fichero ? `\n  fichero: ${c.fichero}` : ''}`);
-    for (const f of (c.fallos || []).slice(1, MAX_LINEAS)) out(`  - ${f.test}${f.fichero ? ` (${f.fichero})` : ''}`);
-    return { codigo: 1, estado: 'test', clasificacion: c };
+  const sha = String(deps.sha || '');
+  if (!RE_SHA.test(sha)) { out('ci fallos: no pude determinar el commit HEAD.'); return { codigo: 1, estado: 'error' }; }
+  const c = await consultar({ sha, esperarMin, estadoCommit: deps.estadoCommit, ahora, dormir });
+  if (c.fallo) return c.fallo.sinToken ? sinSesion() : errorForja(c.fallo);
+  const { r, agotada } = c;
+  if (r.estado === 'sin-ci') { out(`ci fallos: el commit ${sha.slice(0, 7)} no tiene ejecuciones de CI en la forja (no es verde).`); return { codigo: 0, estado: 'sin-ci' }; }
+  if (r.estado === 'verde') { out('ci fallos: CI en verde.'); return { codigo: 0, estado: 'verde' }; }
+
+  let cl;
+  if (r.estado === 'sin-cuota') cl = clasificar({ conclusion: 'startup_failure' }, '');
+  else if (r.estado === 'pendiente') cl = clasificar({ status: 'in_progress', esperaAgotada: agotada }, '');
+  else { const d = detalle(forja, sha, ex); cl = clasificar({ conclusion: 'failure', ...d.run }, d.log); if (cl.estado === 'test' && !cl.fallos.length && (r.fallidos || []).length) cl.error = `fallan: ${r.fallidos.join(', ')}`; }
+
+  if (cl.estado === 'test') {
+    const l = [`ci fallos: fallan tests del codigo.${cl.test ? `\n  test: ${cl.test}` : ''}${cl.error ? `\n  error: ${cl.error}` : ''}${cl.fichero ? `\n  fichero: ${cl.fichero}` : ''}`];
+    for (const f of (cl.fallos || []).slice(1)) l.push(`  - ${f.test}${f.fichero ? ` (${f.fichero})` : ''}`);
+    out(l.join('\n'));
+    return { codigo: 1, estado: 'test', clasificacion: cl };
   }
-  if (c.estado === 'infra') {
-    out(`ci fallos: ${c.motivo}. No reintento desde aqui: relanza el job en la forja si procede.`);
-    return { codigo: 1, estado: 'infra' };
-  }
+  if (cl.estado === 'infra') { out(`ci fallos: ${cl.motivo}. No reintento desde aqui: relanza el job en la forja si procede.`); return { codigo: 1, estado: 'infra' }; }
+  if (cl.estado !== 'cuota' && cl.estado !== 'pendiente') { out('ci fallos: estado de CI no reconocido.'); return { codigo: 1, estado: 'error' }; }
+
   // cuota | pendiente: no se insiste; red minima local y anotacion.
-  out(`ci fallos: ${c.motivo}. No reintento.`);
+  out(`ci fallos: ${cl.motivo}. No reintento.`);
   const red = redMinima();
-  const entradas = leerPendientes(root).filter((e) => !(e.rama === deps.rama && e.sha === r.sha));
-  entradas.push({ rama: deps.rama, sha: r.sha || deps.sha || null, pr: r.pr || null, motivo: c.estado, fecha: new Date(ahora()).toISOString() });
+  const entradas = pendientesValidos(root).filter((e) => e.rama !== deps.rama);
+  if (rutaRamaValida(deps.rama)) entradas.push({ rama: deps.rama, sha, pr: numeroPr(forja, deps.rama, ex), motivo: cl.estado, fecha: new Date(ahora()).toISOString() });
   escribirPendientes(root, entradas);
-  if (red && red.ok === false) { out(`ci fallos: la red minima local ha fallado${red.comando ? ` (${red.comando})` : ''}: corrige antes de seguir. Queda pendiente de validar en CI.`); return { codigo: 1, estado: c.estado }; }
+  if (red && red.omitida) out('sin tests locales que correr: nada se ha validado en local.');
+  if (red && red.ok === false) { out(`ci fallos: la red minima local ha fallado${red.comando ? ` (${red.comando})` : ''}: corrige antes de seguir. Queda pendiente de validar en CI.`); return { codigo: 1, estado: cl.estado }; }
   out('pendiente de validar en CI');
-  return { codigo: 0, estado: c.estado };
+  return { codigo: 0, estado: cl.estado };
 }
 
-module.exports = { clasificar, extraerFallos, fallos, consultar, leerPendientes, escribirPendientes, comandoRedMinima, FICHERO_PENDIENTES, ESPERA_MIN, SONDEO_MS, MAX_LINEAS };
+module.exports = { clasificar, limpiar, rutaRamaValida, pendientesValidos, extraerFallos, fallos, consultar, leerPendientes, escribirPendientes, comandoRedMinima, FICHERO_PENDIENTES, ESPERA_MIN, SONDEO_MS, MAX_LINEAS };

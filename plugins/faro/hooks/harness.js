@@ -4361,7 +4361,12 @@ function cmdDespliegue() {
 // harness.js ci fallos [--pendientes] [--esperar=<min>]: lee el CI de la rama actual (lib/ci-fallos.js).
 function cmdCiFallos() {
   const f = forgeInfo();
-  require('./lib/ci-fallos.js').fallos({ root: ROOT, forja: f.forge, rama: git('rev-parse', '--abbrev-ref', 'HEAD') || '', args: process.argv.slice(4) })
+  const F = forjaMod();
+  require('./lib/ci-fallos.js').fallos({
+    root: ROOT, forja: f.forge, rama: git('rev-parse', '--abbrev-ref', 'HEAD') || '', sha: git('rev-parse', 'HEAD') || '', args: process.argv.slice(4),
+    // Estado del CI por commit: el contrato de forja (check-runs con anotaciones en GitHub, pipeline en GitLab).
+    estadoCommit: F && F.estadoCiCommit ? (sha) => F.estadoCiCommit(sha) : async () => ({ ok: false, sinToken: true }),
+  })
     .then((r) => process.exit(r.codigo), (e) => { console.error(`ci fallos: ${e.message}`); process.exit(1); });
 }
 function cmdLocal() {
