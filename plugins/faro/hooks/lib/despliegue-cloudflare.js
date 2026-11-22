@@ -60,7 +60,7 @@ function diagnosticoProyecto(ctx, p) {
 
   if (p.toml) { aviso('cf-toml', 'wrangler.toml no se valida; migra a wrangler.jsonc para que FARO revise bindings y entornos.'); return h; }
   const cfg = p.cfg;
-  if (!esObj(cfg)) return h;
+  if (!esObj(cfg)) { error('cf-invalido', 'no se puede leer como JSONC válido; FARO no puede validar bindings ni entornos.'); return h; }
 
   const envs = entornosDe(cfg);
   const top = bindings(cfg);
@@ -117,10 +117,10 @@ function diagnostico(ctx, det) {
 function gates(ctx, det) {
   const out = [];
   for (const p of det.proyectos) {
-    if (p.toml || !esObj(p.cfg)) continue;
+    if (p.toml) continue;
     const sufApp = p.app ? `:${p.app}` : '';
     const cfgArgs = p.dir ? ['--config', p.fichero] : [];
-    const envs = entornosDe(p.cfg);
+    const envs = entornosDe(p.cfg); // cfg inválido (null) -> sin entornos: un dry-run que fallará con el error real
     for (const e of envs.length ? envs : [null]) {
       const args = ['wrangler', 'deploy', '--dry-run', ...cfgArgs, ...(e ? ['--env', e] : [])];
       out.push({ gate: `deploy-dry-run${sufApp}${e ? `:${e}` : ''}`, pasos: [['npx', args]], run: `npx ${args.join(' ')}` });

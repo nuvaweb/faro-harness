@@ -421,3 +421,7 @@ No sobrescribe nada que ya exista y nunca lo propone por iniciativa propia.
 - [ ] Paso 2: implementar.
 - [ ] Paso 3: `node --test test/ci-fallos.test.mjs` en verde.
 - [ ] Paso 4: commit `feat(ci): ci fallos clasifica el fallo y no insiste sin cuota`.
+
+## Regla: el CI de tests no usa credenciales (2026-11-22)
+
+El CI que genera FARO solo corre lo que funciona en local: tests unitarios y de integración sobre adaptadores en memoria, Postgres como contenedor de servicio, y Miniflare o `vitest-pool-workers` para los bindings de Cloudflare. Ningún job de tests pide tokens de nube, cuentas ni secretos. Los gates de IaC tampoco: `wrangler deploy --dry-run` no se autentica, y `terraform init -backend=false` seguido de `terraform validate` no necesita credenciales. Lo que sí necesite credenciales (despliegue, migraciones remotas, pruebas end-to-end contra un entorno) es cosa de devops y vive fuera del CI de tests. Las tareas 5, 9 y 10 deben respetar esta regla, y la tarea 5 tiene que comprobar que los gates generados no hacen referencia a `secrets.*`.

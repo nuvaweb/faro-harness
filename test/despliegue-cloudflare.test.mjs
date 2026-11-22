@@ -120,3 +120,33 @@ test('el adaptador no exporta pasosCi ni secretosEsperados', () => {
 test('adaptadores() del núcleo devuelve el adaptador de Cloudflare', () => {
   assert.ok(D.adaptadores().some((a) => a.id === 'cloudflare'));
 });
+
+test('cf-invalido: wrangler.jsonc ilegible da error y conserva su gate dry-run', () => {
+  const c = ctx({ 'wrangler.jsonc': '{nope' });
+  const det = CF.detectar(c);
+  const hs = CF.diagnostico(c, det);
+  assert.deepStrictEqual(hs.map((h) => [h.nivel, h.codigo]), [['error', 'cf-invalido']]);
+  assert.deepStrictEqual(CF.gates(c, det).map((g) => g.run), ['npx wrangler deploy --dry-run']);
+});
+
+const mono = (ficheros) => ({ ...ctx(ficheros), monorepo: true, apps: [{ id: 'api', dir: 'apps/api' }, { id: 'web', dir: 'apps/web' }] });
+
+test('monorepo: gates por app con --config y sufijo :app; hallazgos y .gitignore por app', () => {
+  const c = mono({
+    'apps/api/wrangler.jsonc': w({ env: { staging: { d1_databases: d1('s') } }, d1_databases: d1('t') }),
+    'apps/web/wrangler.jsonc': '{}',
+    'apps/web/.dev.vars': 'X=1',
+    'apps/api/.dev.vars': 'X=1',
+    'apps/api/.gitignore': '.dev.vars\n',
+  });
+  const det = CF.detectar(c);
+  assert.deepStrictEqual(det.proyectos.map((p) => p.app), ['api', 'web']);
+  const g = CF.gates(c, det);
+  assert.deepStrictEqual(g.map((x) => x.gate), ['deploy-dry-run:api:staging', 'deploy-dry-run:web']);
+  assert.strictEqual(g[0].run, 'npx wrangler deploy --dry-run --config apps/api/wrangler.jsonc --env staging');
+  assert.strictEqual(g[1].run, 'npx wrangler deploy --dry-run --config apps/web/wrangler.jsonc');
+  const hs = CF.diagnostico(c, det);
+  const de = (f) => hs.filter((h) => h.fichero === f).map((h) => h.codigo);
+  assert.deepStrictEqual(de('apps/api/wrangler.jsonc'), []);
+  assert.deepStrictEqual(de('apps/web/wrangler.jsonc').sort(), ['cf-devvars-versionado', 'cf-sin-compat']);
+});
