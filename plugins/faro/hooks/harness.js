@@ -94,7 +94,11 @@ function raizDeFicheroEditado(rootPorDefecto) {
     d = p;
   }
   const arbol = raizRepo(d);
-  const mismo = (a, b) => path.resolve(a).replace(/\\/g, '/').toLowerCase() === path.resolve(b).replace(/\\/g, '/').toLowerCase();
+  // Comparar por ruta REAL (realpath nativo): git devuelve rutas largas y resueltas, pero la ruta del
+  // fichero puede llegar con nombres 8.3 (C:\Users\RUNNER~1\..., el TEMP de los runners de Windows) o
+  // por un enlace. El realpath JS no expande los nombres 8.3; el nativo si.
+  const real = (p) => { try { return (fs.realpathSync.native || fs.realpathSync)(p); } catch { return path.resolve(p); } };
+  const mismo = (a, b) => real(a).replace(/\\/g, '/').toLowerCase() === real(b).replace(/\\/g, '/').toLowerCase();
   if (!fs.existsSync(path.join(arbol, '.git')) || mismo(arbol, rootPorDefecto)) return null;
   // La raiz por defecto debe ser ella misma la raiz de un arbol git: si es una carpeta suelta que
   // solo cae DENTRO de otro repo, git la resolveria al repo de arriba y se adoptaria uno ajeno.
@@ -107,7 +111,9 @@ function raizDeFicheroEditado(rootPorDefecto) {
   const comun = g(top, 'rev-parse', '--path-format=absolute', '--git-common-dir');
   const comunDef = g(rootPorDefecto, 'rev-parse', '--path-format=absolute', '--git-common-dir');
   if (!comun || !comunDef || !mismo(comun, comunDef)) return null;   // repo ajeno: no se gobierna
-  return path.resolve(top);
+  // ROOT se compara luego por PREFIJO con la ruta del fichero: si son la misma carpeta, se devuelve el
+  // arbol escrito como lo escribe esa ruta (arbol), no como lo escribe git (top).
+  return path.resolve(mismo(arbol, top) ? arbol : top);
 }
 const _rootPorDefecto = process.env.CLAUDE_PROJECT_DIR || raizRepo(process.cwd());
 const _rootFichero = raizDeFicheroEditado(_rootPorDefecto);

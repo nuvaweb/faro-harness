@@ -113,6 +113,29 @@ test('esperarMemoria: espera acotada y aborta con aviso corto si no se libera', 
   assert.strictEqual(G.esperarMemoria({ minMB: 0, esperaS: 10, libreMB: () => 1 }).ok, true);
 });
 
+// macOS: os.freemem() solo cuenta paginas libres (~100 MB en un runner ocioso) y el gobernador nunca lanzaba
+// nada pesado. La memoria DISPONIBLE suma la cache inactiva (vm_stat), como hace psutil.
+const VM_STAT = [
+  'Mach Virtual Memory Statistics: (page size of 16384 bytes)',
+  'Pages free:                                6000.',
+  'Pages active:                            200000.',
+  'Pages inactive:                          190000.',
+  'Pages speculative:                         1500.',
+  'Pages wired down:                         90000.',
+  '"Translation faults":                 123456789.',
+].join('\n');
+
+test('memoriaDisponibleMB: en macOS cuenta libre + inactiva (vm_stat), no solo os.freemem()', () => {
+  const P = require(path.join(HOOKS, 'lib', 'procesos.js'));
+  assert.strictEqual(P.parsearVmStat(VM_STAT), ((6000 + 190000) * 16384) / 1048576);
+  assert.strictEqual(P.memoriaDisponibleMB({ plataforma: 'darwin', vmStat: VM_STAT }), P.parsearVmStat(VM_STAT));
+  assert.strictEqual(P.parsearVmStat('basura'), null);
+  const libre = os.freemem() / 1048576;
+  assert.ok(Math.abs(P.memoriaDisponibleMB({ plataforma: 'darwin', vmStat: 'basura' }) - libre) < 512, 'vm_stat ilegible: cae a os.freemem()');
+  assert.ok(Math.abs(P.memoriaDisponibleMB({ plataforma: 'linux' }) - libre) < 512, 'Linux/Windows: os.freemem()');
+  assert.strictEqual(G.memoriaLibreMB.toString().includes('memoriaDisponibleMB'), true, 'el gobernador usa el helper compartido');
+});
+
 test('avisoSaturacion: silencio si todo esta bien; una linea si hay saturacion', () => {
   const env = entorno();
   assert.strictEqual(G.avisoSaturacion(env, tmp(), { libreMB: 100000 }), '');
