@@ -135,7 +135,24 @@ function avisoRetirado(cmd, rama = DEFECTO.rama_principal) {
   return `'${cmd}' se retiro en FARO 3.0: ya no hay develop ni publicacion manual. Cada rama entra por PR a ${rama} con auto-merge (harness.js pr crear) y el CI publica tag y release al integrarse.`;
 }
 
+// UNA RAMA -> UN PR -> UNA ISSUE (regla firme). Decide si 'pr crear' puede abrir la peticion:
+//  - la rama ya tiene peticion abierta -> no se abre otra: los commits nuevos se SUBEN (git push) y la
+//    peticion existente se actualiza y relanza el CI;
+//  - la peticion cerraria mas de una issue -> se parte en una rama por issue.
+// Puro (sin red): 'prAbierto' es la url que devuelve la forja (prAbiertoDe) o null; 'cierra' son los
+// numeros de issue que la peticion cerraria (tarea.js issuesDePr).
+function validarPeticion({ rama, prAbierto = null, cierra = [] } = {}) {
+  if (prAbierto) {
+    return { ok: false, motivo: `La rama '${rama}' ya tiene su peticion abierta: ${prAbierto}. Una rama = un PR: sigue haciendo commits en la rama y 'git push'; la peticion se actualiza sola, el CI se relanza y el auto-merge la integra cuando pase.` };
+  }
+  const nums = [...new Set([...(cierra || [])].map(String))].sort((a, b) => Number(a) - Number(b));
+  if (nums.length > 1) {
+    return { ok: false, motivo: `Esta peticion cerraria ${nums.length} issues (${nums.map((n) => `#${n}`).join(', ')}). Un PR por issue: abre una rama por cada una (harness.js rama <tipo> "<desc>" --issue <N>) y deja en esta solo la suya.` };
+  }
+  return { ok: true };
+}
+
 module.exports = {
   DEFECTO, METODOS, TIPOS, ALIAS_RAMA,
-  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas,
+  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas, validarPeticion,
 };

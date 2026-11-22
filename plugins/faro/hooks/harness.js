@@ -3833,6 +3833,13 @@ async function cmdPrCrear(m) {
       process.exit(1);
     }
   }
+  // UNA RAMA -> UN PR -> UNA ISSUE: ni segunda peticion para la misma rama ni una que cierre varias.
+  {
+    let prAbierto = null;
+    if (typeof m.prAbiertoDe === 'function') { try { prAbierto = await m.prAbiertoDe(head); } catch { prAbierto = null; } }
+    const v = FLUJO.validarPeticion({ rama: head, prAbierto, cierra: refs });
+    if (!v.ok) { console.log(`No abro la peticion: ${v.motivo}`); process.exit(1); }
+  }
   // La rama TIENE que estar publicada antes: la forja no abre una peticion desde algo que no ha
   // visto. Sin esto fallaba siempre la primera vez, y el 'push -u' manual que venia despues era lo
   // que de verdad lo arreglaba (se vivia como un error transitorio que se iba al reintentar).
