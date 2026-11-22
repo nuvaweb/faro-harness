@@ -1,5 +1,5 @@
 ---
-description: "Úsala para preparar el despliegue de un repo — diagnostica hexagonal, infra (IaC) y entornos, y propone wrangler.jsonc e infra/ por entorno. Los gates de IaC van en el CI; el despliegue y los entornos los prepara devops."
+description: "Úsala para preparar el despliegue de un repo: diagnostica hexagonal, infra y entornos, y propone wrangler.jsonc e infra/. Los gates de IaC van en el CI; el despliegue lo prepara devops."
 argument-hint: "[--gates|--ci|local]  (vacío = diagnóstico completo)"
 ---
 
