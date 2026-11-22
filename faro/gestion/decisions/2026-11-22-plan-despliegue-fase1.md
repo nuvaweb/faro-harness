@@ -412,7 +412,7 @@ No sobrescribe nada que ya exista y nunca lo propone por iniciativa propia.
 - **Si el estado es `cuota` o `pendiente`:**
   - no reintenta;
   - ejecuta `npm run test:afectados` (o el equivalente que detecte FARO) como red mínima;
-  - añade una línea a `faro/estado/ci-pendientes.jsonl` con `{ rama, sha, pr, motivo, fecha }`;
+  - añade una línea a `faro/.cache/ci-pendientes.jsonl` con `{ rama, sha, pr, motivo, fecha }`;
   - sale con código 0 y el mensaje «pendiente de validar en CI».
 - **`--pendientes`:** lista ese fichero y, por cada entrada, consulta el estado actual. Las que estén en verde se eliminan.
 - **Pruebas sin red:** `clasificar` es una función pura, y los tests usan fixtures de JSON y logs de GitHub y GitLab, uno por cada estado.

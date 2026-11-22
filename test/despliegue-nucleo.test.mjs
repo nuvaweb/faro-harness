@@ -18,17 +18,15 @@ test('jsonc.parse tolera comentarios y comas finales; null si no es válido', ()
 
 test('config sin clave devuelve los valores por defecto', () => {
   const c = D.config({});
-  assert.strictEqual(c.infra, null);
-  assert.strictEqual(c.referencia, null);
+  assert.strictEqual('infra' in c, false);
+  assert.strictEqual('referencia' in c, false);
   assert.deepStrictEqual(c.terraform, { dir: null, binario: null });
   assert.deepStrictEqual(c.avisos, []);
-  assert.strictEqual(D.config(null).infra, null);
+  assert.deepStrictEqual(D.config(null).terraform, { dir: null, binario: null });
 });
 
 test('config con valores válidos los respeta', () => {
-  const c = D.config({ despliegue: { infra: 'externa', referencia: 'docs/x.md', terraform: { dir: 'infra', binario: 'tofu' } } });
-  assert.strictEqual(c.infra, 'externa');
-  assert.strictEqual(c.referencia, 'docs/x.md');
+  const c = D.config({ despliegue: { terraform: { dir: 'infra', binario: 'tofu' } } });
   assert.deepStrictEqual(c.terraform, { dir: 'infra', binario: 'tofu' });
   assert.deepStrictEqual(c.avisos, []);
 });
@@ -39,11 +37,10 @@ test('config ignora una clave entornos (FARO no piensa en entornos)', () => {
   assert.deepStrictEqual(c.avisos, []);
 });
 
-test('infra inválida cae al defecto con aviso; las claves huérfanas ya no existen', () => {
-  const c = D.config({ despliegue: { infra: 'otra', puerta_produccion: 'x', preview: false, salud_url: 'u' } });
-  assert.strictEqual(c.infra, null);
-  assert.strictEqual(c.avisos.length, 1);
-  for (const k of ['puerta_produccion', 'preview', 'salud_url', 'entornos']) assert.strictEqual(k in c, false);
+test('las claves retiradas (infra, referencia, puerta_produccion...) ya no existen', () => {
+  const c = D.config({ despliegue: { infra: 'otra', referencia: 'x', puerta_produccion: 'x', preview: false, salud_url: 'u' } });
+  assert.strictEqual(c.avisos.length, 0);
+  for (const k of ['infra', 'referencia', 'puerta_produccion', 'preview', 'salud_url', 'entornos']) assert.strictEqual(k in c, false);
 });
 
 const ctxVacio = { root: '/x', leer: () => null, existe: () => false, listar: () => [], cfg: D.config({}), forja: null, monorepo: false, apps: [] };

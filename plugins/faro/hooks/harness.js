@@ -3567,7 +3567,7 @@ function iacGates(plan) {
   return Object.keys(out).length ? out : null;
 }
 // Un job por herramienta (cada una con su imagen), en el mismo stage y con las mismas reglas que 'gates'.
-const GITLAB_REGLAS = ['  rules:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"', '    - if: $CI_COMMIT_BRANCH == "main"'];
+const GITLAB_REGLAS = ['  rules:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"', `    - if: $CI_COMMIT_BRANCH == "${RAMA_PRINCIPAL}"`];
 function gitlabIacJobs(plan, iac) {
   if (!iac) return [];
   const out = [];
@@ -3621,9 +3621,7 @@ function gitlabCiYaml(plan, gates, iac) {
     ...(before.length ? ['  before_script:', ...before.map((c) => `    - ${c}`)] : []),
     '  script:',
     ...script.map((c) => `    - ${c}`),
-    '  rules:',
-    '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"',
-    '    - if: $CI_COMMIT_BRANCH == "main"',
+    ...GITLAB_REGLAS,
     ...gitlabIacJobs(plan, iac),
     '',
   ].join('\n');
@@ -3719,7 +3717,7 @@ function cmdCi() {
   if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates, iacGates(plan)); }
   else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates, iacGates(plan)); }
   else {
-    console.log(`Forja '${f.forge}' sin plantilla de CI conocida: te dejo el YAML aqui para que lo pegues donde corresponda (GitLab: .gitlab-ci.yml · GitHub: .github/workflows/ci.yml):\n\n${gitlabCiYaml(plan, plan.gates)}`);
+    console.log(`Forja '${f.forge}' sin plantilla de CI conocida: te dejo el YAML aqui para que lo pegues donde corresponda (GitLab: .gitlab-ci.yml · GitHub: .github/workflows/ci.yml):\n\n${gitlabCiYaml(plan, plan.gates, iacGates(plan))}`);
     return;
   }
   const destino = path.join(ROOT, rel);

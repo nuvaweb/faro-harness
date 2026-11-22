@@ -139,7 +139,9 @@ resource "cloudflare_workers_kv_namespace" "kv" {\n  title = "CACHE"\n  lifecycl
 resource "cloudflare_r2_bucket" "b" {\n  name = "mi-bucket"\n  lifecycle { prevent_destroy = true }\n}
 resource "cloudflare_r2_bucket" "otro" {\n  name = "distinto"\n  lifecycle { prevent_destroy = true }\n}\n`;
   const hs = hallazgos({ ...BUENO, 'infra/cf.tf': tf, 'wrangler.jsonc': wr }).filter((x) => x.codigo === 'tf-duplicado-wrangler');
-  assert.strictEqual(hs.length, 3);
+  // el title del KV no se compara con el binding del wrangler (solo d1 y r2 coinciden por nombre)
+  assert.strictEqual(hs.length, 2);
+  assert.ok(!hs.some((x) => /kv/.test(x.mensaje)));
   assert.ok(hs.every((x) => x.nivel === 'aviso' && /Wrangler ya aprovisiona/.test(x.mensaje)));
   assert.ok(!codigos({ ...BUENO, 'infra/cf.tf': tf }).includes('tf-duplicado-wrangler'));
 });
@@ -178,4 +180,23 @@ test('contrato: id terraform, comandoLocal null, sin pasosCi ni secretosEsperado
 
 test('adaptadores() devuelve el adaptador de terraform', () => {
   assert.ok(D.adaptadores().some((a) => a.id === 'terraform'));
+});
+
+test('terraform.binario solo admite terraform o tofu: otro valor da error y no genera gates', () => {
+  const c = ctx(BUENO, { cfg: D.config({ despliegue: { terraform: { binario: 'rm -rf /' } } }) });
+  const det = TF.detectar(c);
+  assert.ok(TF.diagnostico(c, det).some((h) => h.codigo === 'tf-binario-invalido' && h.nivel === 'error'));
+  assert.deepStrictEqual(TF.gates(c, det), []);
+});
+
+test('terraform.dir debe ser relativo, sin .. ni caracteres de shell', () => {
+  for (const dir of ['../fuera', 'a; rm x', '/abs', 'a b', '$(x)']) {
+    const c = ctx(BUENO, { cfg: D.config({ despliegue: { terraform: { dir } } }) });
+    const det = TF.detectar(c);
+    assert.strictEqual(det.dir, 'infra', dir);
+    assert.ok(TF.diagnostico(c, det).some((h) => h.codigo === 'tf-dir-invalido'), dir);
+  }
+  const ok = ctx({ 'plataforma/main.tf': MAIN }, { cfg: D.config({ despliegue: { terraform: { dir: 'plataforma' } } }) });
+  assert.strictEqual(TF.detectar(ok).dir, 'plataforma');
+  assert.strictEqual(TF.detectar(ok).dirInvalido, null);
 });

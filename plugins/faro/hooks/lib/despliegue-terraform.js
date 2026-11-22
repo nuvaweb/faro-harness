@@ -13,6 +13,9 @@ const EXCLUIDOS = new Set(['.terraform', 'node_modules']);
 const unir = (dir, f) => (dir ? `${dir}/${f}` : f);
 const limpiaDir = (d) => (typeof d === 'string' ? d.trim().replace(/\\/g, '/').replace(/^\.\/?$/, '').replace(/^\.\//, '').replace(/\/+$/, '') : '');
 const esObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+const BINARIOS = ['terraform', 'tofu'];
+// Ruta relativa al repo, sin `..` ni caracteres de shell (el valor acaba en los comandos del CI).
+const dirValido = (d) => d === '' || (/^[\w.-]+(\/[\w.-]+)*$/.test(d) && !d.split('/').some((p) => p === '..' || p === '.'));
 
 /** Ficheros .tf directos de un directorio (relativos al repo). */
 function tfDe(ctx, dir) {
@@ -43,7 +46,9 @@ function* bloques(src, re) {
 /** { dir, ficheros, porEntorno, binario, entornos, unidades } o null si no hay *.tf. */
 function detectar(ctx) {
   const cfg = (ctx.cfg && ctx.cfg.terraform) || {};
-  const candidatos = [...new Set([cfg.dir ? limpiaDir(cfg.dir) : null, 'infra', ''].filter((d) => d !== null))];
+  const dirCfg = cfg.dir ? limpiaDir(cfg.dir) : null;
+  const dirInvalido = dirCfg !== null && !dirValido(dirCfg) ? cfg.dir : null;
+  const candidatos = [...new Set([dirCfg !== null && !dirInvalido ? dirCfg : null, 'infra', ''].filter((d) => d !== null))];
   for (const dir of candidatos) {
     const propios = tfDe(ctx, dir);
     const entornos = (ctx.listar(unir(dir, 'envs')) || []).filter((e) => !EXCLUIDOS.has(e) && tfDe(ctx, unir(dir, `envs/${e}`)).length).sort();
@@ -56,12 +61,26 @@ function detectar(ctx) {
     if (entornos.length) porEntorno = 'carpetas';
     else if (ficheros.some((f) => /\bterraform\.workspace\b/.test(quitaComentarios(ctx.leer(f))))) porEntorno = 'workspaces';
     const b = ctx.cfg && ctx.cfg.terraform && ctx.cfg.terraform.binario;
-    return { dir, ficheros, porEntorno, binario: b || 'terraform', entornos, unidades };
+    const binarioInvalido = b && !BINARIOS.includes(b) ? b : null;
+    return { dir, ficheros, porEntorno, binario: binarioInvalido ? 'terraform' : (b || 'terraform'), binarioInvalido, dirInvalido, entornos, unidades };
   }
   return null;
 }
 
 const hcl = (ctx, ficheros) => ficheros.map((f) => quitaComentarios(ctx.leer(f))).join('\n');
+// El HCL sin comentarios se lee una sola vez por detección (lo comparten diagnostico y paraDevops).
+function textoHcl(ctx, det) {
+  if (typeof det.hcl !== 'string') Object.defineProperty(det, 'hcl', { value: hcl(ctx, det.ficheros), enumerable: false });
+  return det.hcl;
+}
+/** Providers declarados en required_providers: [{ nombre, cuerpo }]. */
+function providers(todo) {
+  const out = [];
+  for (const { cuerpo: rp } of bloques(todo, /\brequired_providers\s*\{/)) {
+    for (const { m, cuerpo: c } of bloques(rp, /([\w-]+)\s*=\s*\{/)) out.push({ nombre: m[1], cuerpo: c });
+  }
+  return out;
+}
 
 function cubreTerraformDir(ctx, dir) {
   const reglas = [...new Set([unir(dir, '.gitignore'), '.gitignore'])]
@@ -85,7 +104,8 @@ function nombresWrangler(ctx) {
     const add = (set, v) => { if (typeof v === 'string' && v) set.add(v); };
     for (const b of bls) {
       for (const x of Array.isArray(b.d1_databases) ? b.d1_databases : []) if (esObj(x)) add(out.d1, x.database_name);
-      for (const x of Array.isArray(b.kv_namespaces) ? b.kv_namespaces : []) if (esObj(x)) { add(out.kv, x.binding); add(out.kv, x.title); }
+      // El binding de un KV es el nombre en el código, no el title del namespace: no se compara con él.
+      for (const x of Array.isArray(b.kv_namespaces) ? b.kv_namespaces : []) if (esObj(x)) add(out.kv, x.title);
       for (const x of Array.isArray(b.r2_buckets) ? b.r2_buckets : []) if (esObj(x)) add(out.r2, x.bucket_name);
     }
   }
@@ -99,7 +119,9 @@ function diagnostico(ctx, det) {
   const aviso = (codigo, mensaje, fichero) => h.push({ nivel: 'aviso', codigo, mensaje, ...(fichero ? { fichero } : {}) });
   const error = (codigo, mensaje, fichero) => h.push({ nivel: 'error', codigo, mensaje, ...(fichero ? { fichero } : {}) });
   const donde = (u) => u.dir || '.';
-  const todo = hcl(ctx, det.ficheros);
+  const todo = textoHcl(ctx, det);
+  if (det.binarioInvalido) error('tf-binario-invalido', `despliegue.terraform.binario "${det.binarioInvalido}" no es válido: usa terraform o tofu. No se generan gates de Terraform.`);
+  if (det.dirInvalido) error('tf-dir-invalido', `despliegue.terraform.dir "${det.dirInvalido}" no es válido: debe ser una ruta relativa al repo, sin .. ni caracteres de shell. Se ignora.`);
   const unidadesBackend = det.porEntorno === 'carpetas' ? det.unidades : det.unidades.slice(0, 1);
 
   // Estado sin backend remoto: acabaría en la máquina de quien ejecuta.
@@ -114,10 +136,8 @@ function diagnostico(ctx, det) {
   }
 
   if (!/\brequired_version\s*=/.test(todo)) aviso('tf-version-libre', 'falta required_version en el bloque terraform.');
-  for (const { cuerpo: rp } of bloques(todo, /\brequired_providers\s*\{/)) {
-    for (const { m, cuerpo: c } of bloques(rp, /([\w-]+)\s*=\s*\{/)) {
-      if (!/\bversion\s*=/.test(c)) aviso('tf-version-libre', `el provider "${m[1]}" no tiene version.`);
-    }
+  for (const p of providers(todo)) {
+    if (!/\bversion\s*=/.test(p.cuerpo)) aviso('tf-version-libre', `el provider "${p.nombre}" no tiene version.`);
   }
 
   const dirs = [...new Set(['', det.dir, ...det.unidades.map((u) => u.dir)])];
@@ -148,10 +168,27 @@ function diagnostico(ctx, det) {
   return h;
 }
 
+/** Lo que devops debe preparar según el código: providers y variables sin default. Sin valores. */
+function paraDevops(ctx, det) {
+  const todo = textoHcl(ctx, det);
+  const out = [];
+  for (const p of providers(todo)) {
+    const src = (/\bsource\s*=\s*"([^"]+)"/.exec(p.cuerpo) || [])[1] || p.nombre;
+    const ver = (/\bversion\s*=\s*"([^"]+)"/.exec(p.cuerpo) || [])[1];
+    out.push({ tipo: 'provider', texto: ver ? `${src} ${ver}` : src });
+  }
+  const vistas = new Set();
+  for (const { m, cuerpo: c } of bloques(todo, /\bvariable\s+"([\w-]+)"\s*\{/)) {
+    if (!/^\s*default\s*=/m.test(c) && !vistas.has(m[1])) { vistas.add(m[1]); out.push({ tipo: 'variable', texto: `${m[1]} (sin default)` }); }
+  }
+  return out;
+}
+
 /** Gates sin credenciales: fmt, init -backend=false + validate (raíz y envs/<e>), y tflint/checkov si están en el PATH. */
 function gates(ctx, det) {
   const bin = det.binario;
   const out = [];
+  if (det.binarioInvalido) return out;
   const chdir = (d) => (d ? [`-chdir=${d}`] : []);
   const gate = (nombre, pasos) => out.push({ gate: nombre, pasos, run: pasos.map(([c, a]) => `${c} ${a.join(' ')}`).join(' && ') });
   const enPath = (c) => (typeof ctx.enPath === 'function' ? !!ctx.enPath(c) : false);
@@ -170,4 +207,4 @@ function gates(ctx, det) {
 
 function comandoLocal() { return null; }
 
-module.exports = { id: 'terraform', detectar, diagnostico, gates, comandoLocal };
+module.exports = { id: 'terraform', detectar, diagnostico, gates, comandoLocal, paraDevops };

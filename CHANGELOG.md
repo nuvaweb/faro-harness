@@ -5,11 +5,15 @@
 ## 3.1.0 — 2026-11-22
 
 ### Añadido
-- **Despliegue agnóstico por adaptadores** (Cloudflare y Terraform), con `harness.js despliegue [--json] [--gates] [--ci]`.
+- **Despliegue agnóstico por adaptadores** (Cloudflare y Terraform), con `harness.js despliegue [--json] [--gates]`. `--gates` ejecuta en local los gates de IaC; `--ci` ya no genera nada, solo avisa de que esos gates van en `harness.js ci`.
 - **Gates de IaC en el CI de tests.** El despliegue y los entornos los prepara devops; FARO no los gestiona.
 - **`harness.js local [--ejecutar]`** para probar el despliegue en local.
+- **`terraform.binario` solo admite `terraform` o `tofu`** y `terraform.dir` debe ser una ruta relativa sin `..` ni caracteres de shell; otro valor da un hallazgo y no se generan gates. `aws-sdk` (v2) y `@google-cloud/*` cuentan como SDK de nube en la hexagonal.
 - **Hexagonal estándar en inglés** (`harness.js hexagonal --plan`).
 - **Skill `/faro:desplegar`**, con derivaciones desde `/faro:code` y `/faro:forja`.
+- **`harness.js despliegue` imprime una sección «Para devops»** con lo que el repo declara y hay que preparar: providers de Terraform, variables sin `default` y bindings de `wrangler.jsonc`. Sin valores ni secretos.
+- **`harness.js ci fallos`.** Lee el CI del PR/MR de la rama actual y clasifica el fallo (tests, cuota, infraestructura del runner). Si el CI no puede correr (sin cuota o atascado) no insiste: corre los tests afectados en local y deja la anotación en `faro/.cache/ci-pendientes.jsonl` (fuera del árbol versionado). Solo lee la forja.
+- **CI generado más barato.** Los borradores no gastan CI (`ready_for_review`), un push nuevo cancela el run superado del mismo PR (`concurrency`, nunca en la rama principal), se admite `merge_group`, y la base de comparación y las reglas de GitLab usan la rama principal configurada en lugar de `develop`/`main` fijos.
 
 ### Cambiado
 - **`validate` exige hexagonal declarada en los repos que despliegan** («repo que despliega sin hexagonal declarada»). Los repos con hexagonal declarada no cambian.

@@ -136,3 +136,41 @@ test('enValidate: si falla la lectura de la hexagonal o el diagnóstico, avisa y
   const b = DC.enValidate({ diagnosticar: () => { throw new Error('caida'); }, bases: () => [] });
   assert.ok(b.warns.some((w) => /no disponible.*caida/.test(w)));
 });
+
+test('despliegue: sección «Para devops» con providers, variables sin default y bindings, sin valores', () => {
+  const tf = `terraform {
+  required_version = ">= 1.6"
+  required_providers {
+    cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.0" }
+  }
+  backend "s3" { bucket = "estado" }
+}
+variable "account_id" { type = string }
+variable "region" {
+  type    = string
+  default = "eu"
+}
+variable "api_token" {
+  type      = string
+  sensitive = true
+}
+`;
+  const wr = '{ "name": "api", "compatibility_date": "2025-01-01", "d1_databases": [{ "binding": "DB", "database_name": "d", "database_id": "ID-SECRETO-123" }], "kv_namespaces": [{ "binding": "CACHE", "id": "kv-id-9" }] }\n';
+  const r = run(repoCon({ 'infra/main.tf': tf, 'infra/.terraform.lock.hcl': '', '.gitignore': '.terraform/\n', 'wrangler.jsonc': wr }), 'despliegue');
+  const sec = r.stdout.split('Para devops')[1] || '';
+  assert.ok(sec, r.stdout);
+  assert.match(sec, /provider \[terraform\]: cloudflare\/cloudflare ~> 5\.0/);
+  assert.match(sec, /variable \[terraform\]: account_id \(sin default\)/);
+  assert.match(sec, /variable \[terraform\]: api_token \(sin default\)/);
+  assert.doesNotMatch(sec, /region/);
+  assert.match(sec, /binding \[cloudflare\]: d1 DB/);
+  assert.match(sec, /binding \[cloudflare\]: kv CACHE/);
+  assert.doesNotMatch(r.stdout, /ID-SECRETO-123|kv-id-9/);
+  const j = JSON.parse(run(repoCon({ 'infra/main.tf': tf, 'wrangler.jsonc': wr }), 'despliegue', '--json').stdout);
+  assert.ok(j.devops.some((x) => x.tipo === 'provider') && j.devops.some((x) => x.tipo === 'binding'));
+});
+
+test('despliegue: sin destino no hay sección «Para devops»', () => {
+  const r = run(repoCon({ 'README.md': '# x\n' }), 'despliegue');
+  assert.doesNotMatch(r.stdout, /Para devops/);
+});

@@ -19,7 +19,7 @@ test('desplegar: frontmatter con description y argument-hint', () => {
 
 test('desplegar: deriva a los comandos reales y no promete deploy.yml ni secretos', () => {
   const txt = fs.readFileSync(SKILL, 'utf8');
-  for (const c of ['harness.js" despliegue', 'hexagonal --plan', 'despliegue --ci']) assert.ok(txt.includes(c), c);
+  for (const c of ['harness.js" despliegue', 'hexagonal --plan', 'harness.js" ci']) assert.ok(txt.includes(c), c);
   assert.ok(!/secretosEsperados/.test(txt));
   assert.ok(!/deploy\.yml/.test(txt.replace(/no (genera|crea)[^\n]*deploy\.yml/gi, '')));
 });

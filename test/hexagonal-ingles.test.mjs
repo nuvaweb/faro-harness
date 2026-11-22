@@ -82,10 +82,10 @@ test('SDK de nube en adapters es válido', () => {
 });
 
 test('esSdkNube reconoce la lista y no confunde paquetes parecidos', () => {
-  for (const s of ['cloudflare:workers', 'agents', 'wrangler', 'aws-lambda', '@cloudflare/workers-types', '@aws-sdk/client-s3', '@azure/storage-blob']) {
+  for (const s of ['cloudflare:workers', 'agents', 'wrangler', 'aws-lambda', '@cloudflare/workers-types', '@aws-sdk/client-s3', '@azure/storage-blob', 'aws-sdk', '@google-cloud/storage']) {
     assert.strictEqual(HX.esSdkNube(s), true, s);
   }
-  for (const s of ['zod', 'agentsmith', 'node:fs', '@awsome/x', './agents']) assert.strictEqual(HX.esSdkNube(s), false, s);
+  for (const s of ['zod', 'agentsmith', 'node:fs', '@awsome/x', './agents', 'aws-sdk-mock', '@google-cloudx/y']) assert.strictEqual(HX.esSdkNube(s), false, s);
   assert.ok(HX.SDK_NUBE.includes('@aws-sdk/'));
 });
 

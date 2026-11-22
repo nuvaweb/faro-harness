@@ -1,6 +1,6 @@
 // lib/ci-fallos.js — `harness.js ci fallos`: lee el CI del PR/MR de la rama actual, clasifica el fallo y,
 // si el CI no puede correr (cuota o atascado), NO insiste: red minima local y anotacion en
-// faro/estado/ci-pendientes.jsonl. Solo lectura en la forja (nada de re-run, cancel ni comentarios).
+// faro/.cache/ci-pendientes.jsonl. Solo lectura en la forja (nada de re-run, cancel ni comentarios).
 // El CI de tests no usa credenciales: aqui solo se lee con la sesion de `gh` / `glab` del usuario.
 'use strict';
 const fs = require('node:fs');
@@ -11,7 +11,7 @@ const { RE_FACTURACION } = require('./estado-ci.js');
 const MAX_LINEAS = 40;
 const ESPERA_MIN = 15;
 const SONDEO_MS = 60000;
-const FICHERO_PENDIENTES = path.join('faro', 'estado', 'ci-pendientes.jsonl');
+const FICHERO_PENDIENTES = path.join('faro', '.cache', 'ci-pendientes.jsonl');
 const RE_INFRA = /runner_system_failure|stuck_or_timeout_failure|runner.{0,40}(time ?out|timed out|lost)|received a shutdown signal/i;
 const RE_FALLO = /^\s*(not ok\b|✖|FAIL\b)/;
 const RE_ERROR = /(error|expected|assert|received|actual)/i;

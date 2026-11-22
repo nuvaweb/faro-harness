@@ -6,8 +6,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const INFRAS = ['propia', 'externa'];
-
 const cadena = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
 /** Lee faro/config.json > despliegue con valores por defecto; lo inválido cae al defecto y avisa. */
@@ -16,14 +14,9 @@ function config(cfgRepo) {
     ? cfgRepo.despliegue : {};
   const avisos = [];
   const out = {
-    infra: null, referencia: null, terraform: { dir: null, binario: null }, avisos,
+    terraform: { dir: null, binario: null }, avisos,
   };
 
-  if (raw.infra !== undefined && raw.infra !== null) {
-    if (INFRAS.includes(raw.infra)) out.infra = raw.infra;
-    else avisos.push(`despliegue.infra debe ser ${INFRAS.join(' o ')}; se ignora.`);
-  }
-  out.referencia = cadena(raw.referencia);
   if (raw.terraform && typeof raw.terraform === 'object') {
     out.terraform = { dir: cadena(raw.terraform.dir), binario: cadena(raw.terraform.binario) };
   }
@@ -53,17 +46,19 @@ const ORDEN = { error: 0, aviso: 1, info: 2 };
 function diagnosticar(ctx, lista) {
   const detectados = [];
   const hallazgos = [];
+  const devops = [];
   for (const ad of lista || adaptadores()) {
     const det = ad.detectar(ctx);
     if (!det) continue;
     detectados.push({ id: ad.id, det });
     hallazgos.push(...(ad.diagnostico(ctx, det) || []));
+    if (typeof ad.paraDevops === 'function') devops.push(...(ad.paraDevops(ctx, det) || []).map((x) => ({ adaptador: ad.id, ...x })));
   }
   if (!detectados.length) {
     return { detectados: [], hallazgos: [{ nivel: 'info', codigo: 'sin-despliegue', mensaje: 'Sin despliegue detectado en este repo.' }] };
   }
   hallazgos.sort((a, b) => (ORDEN[a.nivel] ?? 3) - (ORDEN[b.nivel] ?? 3));
-  return { detectados, hallazgos };
+  return { detectados, hallazgos, devops };
 }
 
 // ---------- contexto desde disco (el único sitio que toca fs) ----------

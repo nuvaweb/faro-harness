@@ -150,3 +150,12 @@ test('afectados: sin rama develop, la base es la principal (main) y no cae a «t
   assert.match(alc.resumen, /respecto a main/, `debe comparar contra main: ${alc.resumen}`);
   assert.ok(!/sin la rama/.test(alc.resumen), alc.resumen);
 });
+
+test('ci: las reglas de GitLab usan la rama principal configurada, no un main fijo', () => {
+  const dir = repo('ci-gitlab-rama', 'git@gitlab.com:grupo/app.git', pkg({ test: 'vitest run' }));
+  const r = spawnSync(process.execPath, [HARNESS, 'ci'], { cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, CLAUDE_PROJECT_DIR: dir, FARO_RAMA_PRINCIPAL: 'trunk' } });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const yml = fs.readFileSync(path.join(dir, '.gitlab-ci.yml'), 'utf8');
+  assert.match(yml, /\$CI_COMMIT_BRANCH == "trunk"/);
+  assert.ok(!/\$CI_COMMIT_BRANCH == "main"/.test(yml), `no debe quedar main fijo:\n${yml}`);
+});

@@ -24,6 +24,10 @@ function pintar(diag) {
     out.push(`  [${ETIQUETA[h.nivel] || h.nivel}] ${h.codigo}: ${h.mensaje}`);
     if (h.arreglo) out.push(`      arreglo: ${h.arreglo}`);
   }
+  if (diag.devops && diag.devops.length) {
+    out.push('', 'Para devops (lo que el repo declara y hay que preparar; FARO no gestiona valores):');
+    for (const x of diag.devops) out.push(`  - ${x.tipo} [${x.adaptador}]: ${x.texto}`);
+  }
   if (diag.detectados.length) {
     out.push('', 'Siguientes pasos:',
       '  - Corrige los errores de arriba; los avisos son recomendaciones.',

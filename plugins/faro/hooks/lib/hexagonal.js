@@ -37,7 +37,7 @@ const PY_PURO = new Set(['__future__', 'abc', 'dataclasses', 'typing', 'enum', '
   'unicodedata', 'warnings', 'csv']);
 
 // SDKs de nube: prohibidos en domain/ports/application (con prioridad sobre 'permitidos'); su sitio es adapters/.
-const SDK_NUBE = ['cloudflare:', 'agents', 'wrangler', 'aws-lambda', '@cloudflare/', '@aws-sdk/', '@azure/'];
+const SDK_NUBE = ['cloudflare:', 'agents', 'wrangler', 'aws-lambda', '@cloudflare/', '@aws-sdk/', '@azure/', 'aws-sdk', '@google-cloud/'];
 function esSdkNube(spec) {
   const s = String(spec || '');
   return SDK_NUBE.some((p) => (/[:/]$/.test(p) ? s.startsWith(p) : s === p));

@@ -129,6 +129,24 @@ function gates(ctx, det) {
   return out;
 }
 
+/** Bindings que declara cada wrangler (nombre y tipo, nunca IDs ni valores) y dónde: [{ tipo, texto }]. */
+function paraDevops(ctx, det) {
+  const out = [];
+  for (const p of det.proyectos) {
+    if (!esObj(p.cfg)) continue;
+    const donde = new Map();
+    const ambitos = [['global', p.cfg], ...entornosDe(p.cfg).map((e) => [`env.${e}`, p.cfg.env[e]])];
+    for (const [nombre, bl] of ambitos) {
+      for (const b of bindings(bl).values()) {
+        const k = `${b.tipo} ${b.nombre}`;
+        donde.set(k, [...(donde.get(k) || []), nombre]);
+      }
+    }
+    for (const [k, en] of donde) out.push({ tipo: 'binding', texto: `${k} (${p.fichero}; ${en.join(', ')})` });
+  }
+  return out;
+}
+
 function comandoLocal(ctx) {
   const nota = 'bindings locales con Miniflare; Hyperdrive usa localConnectionString';
   const pkg = parse(ctx.leer('package.json'));
@@ -136,4 +154,4 @@ function comandoLocal(ctx) {
   return { cmd: 'npx', args: ['wrangler', 'dev'], nota };
 }
 
-module.exports = { id: 'cloudflare', detectar, diagnostico, gates, comandoLocal };
+module.exports = { id: 'cloudflare', detectar, diagnostico, gates, comandoLocal, paraDevops };
