@@ -357,3 +357,14 @@ El despliegue, los secretos, las cuentas y los entornos los configura devops dir
 **Ajustes en las tareas:**
 - La Task 5 deja de generar el workflow de despliegue. Pasa a añadir los gates de IaC al CI de tests generado.
 - La skill `/faro:desplegar` (Task 7) se queda en validar y explicar el patrón. No toca credenciales ni pipelines.
+
+**Task 6, resumen para devops (2026-11-22):** `harness.js despliegue` imprime lo que el repo declara, sin configurar nada. Incluye:
+- los proveedores de Terraform;
+- las variables sin `default` (lo que hay que suministrar);
+- los bindings de `wrangler.jsonc`.
+
+Avisos:
+- **Task 3:** binding con ID fijo sin separar por entorno.
+- **Task 4:** no se encuentra `infra/`.
+
+Todo sale de leer el código. No aparecen secretos por entorno.
