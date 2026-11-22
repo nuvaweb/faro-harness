@@ -3515,7 +3515,45 @@ function ymlValor(v) {
 // MONOREPO (#130): en una peticion, solo las apps cambiadas (+ dependientes) con el filtro de pnpm;
 // en push a develop/main la variable queda vacia y corren todas.
 const NOTA_FILTRO_CI = '# Monorepo: en cada peticion corren solo las apps cambiadas y sus dependientes (pnpm --filter "...[origin/<destino>]"); en push a main, todas.';
-function gitlabCiYaml(plan, gates) {
+// Gates de IaC (adaptadores de despliegue) para el CI de TESTS: sin credenciales, solo validacion
+// (wrangler --dry-run, terraform init -backend=false + validate). tflint/checkov dependen del PATH de
+// quien genera, no del runner: enPath=false para que el YAML no varie por maquina.
+// Devuelve { cloudflare: { gates }, terraform: { binario, gates } } con solo lo detectado, o null.
+function iacGates() {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { /* sin config */ }
+  const D = require('./lib/despliegue.js');
+  const ctx = { ...D.ctxDesdeDisco(ROOT, cfg), enPath: () => false };
+  const out = {};
+  for (const ad of D.adaptadores()) {
+    const det = ad.detectar(ctx);
+    if (!det) continue;
+    const gates = ad.gates(ctx, det);
+    if (!gates.length) continue;
+    out[ad.id] = ad.id === 'terraform' ? { binario: det.binario, gates } : { gates };
+  }
+  return Object.keys(out).length ? out : null;
+}
+// Un job por herramienta (cada una con su imagen), en el mismo stage y con las mismas reglas que 'gates'.
+const GITLAB_REGLAS = ['  rules:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"', '    - if: $CI_COMMIT_BRANCH == "main"'];
+function gitlabIacJobs(plan, iac) {
+  if (!iac) return [];
+  const out = [];
+  if (iac.terraform) {
+    const tofu = iac.terraform.binario === 'tofu';
+    out.push('', `iac-${tofu ? 'opentofu' : 'terraform'}:`, '  stage: gates',
+      '  image:', `    name: ${tofu ? 'ghcr.io/opentofu/opentofu:latest' : 'hashicorp/terraform:latest'}`, '    entrypoint: [""]',
+      '  script:', ...iac.terraform.gates.map((g) => `    - ${g.run}`), ...GITLAB_REGLAS);
+  }
+  if (iac.cloudflare) {
+    const before = plan.runtime.gitlabBefore || [];
+    out.push('', 'iac-cloudflare:', '  stage: gates', `  image: ${plan.runtime.gitlabImage || 'node:lts'}`,
+      ...(before.length ? ['  before_script:', ...before.map((c) => `    - ${c}`)] : []),
+      '  script:', ...(plan.install ? [`    - ${plan.install}`] : []), ...iac.cloudflare.gates.map((g) => `    - ${g.run}`), ...GITLAB_REGLAS);
+  }
+  return out;
+}
+function gitlabCiYaml(plan, gates, iac) {
   const img = plan.runtime.gitlabImage || 'TODO: pon aqui la imagen de tu stack (ej. python:3.12-slim, golang:1.23) — el harness no la pudo inferir';
   const filtro = plan.filtroCambios
     ? [`'export ${plan.filtroCambios}=""; if [ -n "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" ]; then git fetch -q origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"; export ${plan.filtroCambios}="--filter=...[origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME]"; fi'`]
@@ -3554,6 +3592,7 @@ function gitlabCiYaml(plan, gates) {
     '  rules:',
     '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"',
     '    - if: $CI_COMMIT_BRANCH == "main"',
+    ...gitlabIacJobs(plan, iac),
     '',
   ].join('\n');
 }
@@ -3575,7 +3614,7 @@ function pasosRuntimeManuales(plan, forge) {
   }
   return out;
 }
-function githubCiYaml(plan, gates) {
+function githubCiYaml(plan, gates, iac) {
   const setup = plan.runtime.ghSetup;
   const lines = [
     '# .github/workflows/ci.yml generado por FARO (node .claude/hooks/harness.js ci) a partir de TUS',
@@ -3613,6 +3652,18 @@ function githubCiYaml(plan, gates) {
   }
   if (plan.install) lines.push(`      - run: ${plan.install}`);
   for (const g of gates) lines.push(`      - run: ${g.run}`);
+  if (iac) {
+    // Job aparte, sin filtros paths (un check obligatorio omitido bloquea el auto-merge) y sin credenciales.
+    const conPasos = (p) => { lines.push(`      - uses: ${p.uses}`); if (p.with) { lines.push('        with:'); for (const [k, v] of Object.entries(p.with)) lines.push(`          ${k}: ${ymlValor(v)}`); } };
+    lines.push('  iac:', '    runs-on: ubuntu-latest', '    steps:', `      - uses: ${ACCION_CHECKOUT}`);
+    if (iac.terraform) lines.push(`      - uses: ${iac.terraform.binario === 'tofu' ? 'opentofu/setup-opentofu@v1' : 'hashicorp/setup-terraform@v3'}`);
+    if (iac.cloudflare) {
+      for (const p of plan.runtime.ghPre || []) conPasos(p);
+      if (setup) conPasos(setup);
+      if (plan.install) lines.push(`      - run: ${plan.install}`);
+    }
+    for (const g of [...(iac.terraform ? iac.terraform.gates : []), ...(iac.cloudflare ? iac.cloudflare.gates : [])]) lines.push(`      - run: ${g.run}`);
+  }
   lines.push('');
   return lines.join('\n');
 }
@@ -3626,8 +3677,8 @@ function cmdCi() {
   }
   const f = forgeInfo();
   let rel, contenido;
-  if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates); }
-  else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates); }
+  if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates, iacGates()); }
+  else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates, iacGates()); }
   else {
     console.log(`Forja '${f.forge}' sin plantilla de CI conocida: te dejo el YAML aqui para que lo pegues donde corresponda (GitLab: .gitlab-ci.yml · GitHub: .github/workflows/ci.yml):\n\n${gitlabCiYaml(plan, plan.gates)}`);
     return;

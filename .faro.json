@@ -250,6 +250,7 @@
           "test/despliegue-nucleo.test.mjs",
           "test/despliegue-cloudflare.test.mjs",
           "test/despliegue-terraform.test.mjs",
+          "test/despliegue-ci.test.mjs",
           "test/ci-pnpm.test.mjs",
           "test/ci-vigente.test.mjs",
           "test/gates-por-app.test.mjs",
