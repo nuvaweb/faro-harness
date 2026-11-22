@@ -5,10 +5,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ENTORNOS_DEFECTO = ['staging', 'production'];
+// Etapas del despliegue: convención fija, sin configurar. Solo las usa el generador de CI.
+const ETAPAS = [{ fase: 'pr', entorno: 'preview' }, { fase: 'main', entorno: 'staging' }, { fase: 'tag', entorno: 'production' }];
 const PUERTAS = ['tag', 'aprobacion', 'manual'];
 const INFRAS = ['propia', 'externa'];
-const RE_ENTORNO = /^[a-z][a-z0-9-]{0,30}$/;
 
 const cadena = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -18,16 +18,10 @@ function config(cfgRepo) {
     ? cfgRepo.despliegue : {};
   const avisos = [];
   const out = {
-    entornos: ENTORNOS_DEFECTO.slice(), puerta_produccion: 'tag', preview: true,
+    puerta_produccion: 'tag', preview: true,
     infra: null, referencia: null, salud_url: null, terraform: { dir: null, binario: null }, avisos,
   };
 
-  if (raw.entornos !== undefined) {
-    const ok = Array.isArray(raw.entornos) && raw.entornos.length > 0
-      && raw.entornos.every((e) => typeof e === 'string' && RE_ENTORNO.test(e));
-    if (ok) out.entornos = [...new Set(raw.entornos)];
-    else avisos.push('despliegue.entornos no es válido (lista de nombres en minúscula, p. ej. ["staging","production"]); se usan los entornos por defecto.');
-  }
   if (raw.puerta_produccion !== undefined) {
     if (PUERTAS.includes(raw.puerta_produccion)) out.puerta_produccion = raw.puerta_produccion;
     else avisos.push(`despliegue.puerta_produccion debe ser ${PUERTAS.join(', ')}; se usa "tag".`);
@@ -84,9 +78,7 @@ function diagnosticar(ctx, lista) {
     detectados.push({ id: ad.id, det });
     hallazgos.push(...(ad.diagnostico(ctx, det) || []));
     for (const s of (ad.secretosEsperados(ctx, det) || [])) {
-      const prev = porNombre.get(s.nombre);
-      if (prev) prev.entornos = [...new Set([...prev.entornos, ...(s.entornos || [])])];
-      else porNombre.set(s.nombre, { ...s, entornos: [...new Set(s.entornos || [])] });
+      if (!porNombre.has(s.nombre)) porNombre.set(s.nombre, { nombre: s.nombre, proposito: s.proposito });
     }
   }
   if (!detectados.length) {
@@ -125,4 +117,4 @@ function ctxDesdeDisco(root, cfgRepo) {
   return { root, leer, existe, listar, cfg: config(cfgRepo), forja, monorepo, apps };
 }
 
-module.exports = { config, diagnosticar, ctxDesdeDisco, adaptadores, ADAPTADORES };
+module.exports = { ETAPAS, config, diagnosticar, ctxDesdeDisco, adaptadores, ADAPTADORES };

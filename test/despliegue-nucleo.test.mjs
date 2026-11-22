@@ -18,7 +18,6 @@ test('jsonc.parse tolera comentarios y comas finales; null si no es válido', ()
 
 test('config sin clave devuelve los valores por defecto', () => {
   const c = D.config({});
-  assert.deepStrictEqual(c.entornos, ['staging', 'production']);
   assert.strictEqual(c.puerta_produccion, 'tag');
   assert.strictEqual(c.preview, true);
   assert.strictEqual(c.infra, null);
@@ -26,12 +25,11 @@ test('config sin clave devuelve los valores por defecto', () => {
   assert.strictEqual(c.salud_url, null);
   assert.deepStrictEqual(c.terraform, { dir: null, binario: null });
   assert.deepStrictEqual(c.avisos, []);
-  assert.deepStrictEqual(D.config(null).entornos, ['staging', 'production']);
+  assert.strictEqual(D.config(null).puerta_produccion, 'tag');
 });
 
 test('config con valores válidos los respeta', () => {
-  const c = D.config({ despliegue: { entornos: ['dev', 'prod'], puerta_produccion: 'aprobacion', preview: false, infra: 'externa', referencia: 'docs/x.md', salud_url: 'https://x.test/health', terraform: { dir: 'infra', binario: 'tofu' } } });
-  assert.deepStrictEqual(c.entornos, ['dev', 'prod']);
+  const c = D.config({ despliegue: { puerta_produccion: 'aprobacion', preview: false, infra: 'externa', referencia: 'docs/x.md', salud_url: 'https://x.test/health', terraform: { dir: 'infra', binario: 'tofu' } } });
   assert.strictEqual(c.puerta_produccion, 'aprobacion');
   assert.strictEqual(c.preview, false);
   assert.strictEqual(c.infra, 'externa');
@@ -41,11 +39,11 @@ test('config con valores válidos los respeta', () => {
   assert.deepStrictEqual(c.avisos, []);
 });
 
-test('entorno inválido cae al defecto con aviso', () => {
-  const c = D.config({ despliegue: { entornos: ['Prod!'] } });
-  assert.deepStrictEqual(c.entornos, ['staging', 'production']);
-  assert.strictEqual(c.avisos.length, 1);
-  assert.match(c.avisos[0], /entornos/);
+test('config ignora una clave entornos y ETAPAS es la convención fija', () => {
+  const c = D.config({ despliegue: { entornos: ['dev', 'Prod!'] } });
+  assert.strictEqual('entornos' in c, false);
+  assert.deepStrictEqual(c.avisos, []);
+  assert.deepStrictEqual(D.ETAPAS, [{ fase: 'pr', entorno: 'preview' }, { fase: 'main', entorno: 'staging' }, { fase: 'tag', entorno: 'production' }]);
 });
 
 test('puerta_produccion, infra y preview inválidos caen al defecto con aviso', () => {
@@ -60,14 +58,14 @@ const ctxVacio = { root: '/x', leer: () => null, existe: () => false, listar: ()
 const falso = (id, det, hall, sec) => ({ id, detectar: () => det, diagnostico: () => hall, gates: () => [], pasosCi: () => [], comandoLocal: () => null, secretosEsperados: () => sec });
 
 test('diagnosticar agrega, ordena hallazgos (error, aviso, info) y une secretos por nombre', () => {
-  const a = falso('a', { x: 1 }, [{ nivel: 'info', codigo: 'i', mensaje: 'i' }, { nivel: 'error', codigo: 'e', mensaje: 'e' }], [{ nombre: 'TOKEN', entornos: ['staging'], proposito: 'p' }]);
-  const b = falso('b', { y: 2 }, [{ nivel: 'aviso', codigo: 'w', mensaje: 'w' }], [{ nombre: 'TOKEN', entornos: ['production', 'staging'], proposito: 'p' }, { nombre: 'OTRO', entornos: ['production'], proposito: 'q' }]);
+  const a = falso('a', { x: 1 }, [{ nivel: 'info', codigo: 'i', mensaje: 'i' }, { nivel: 'error', codigo: 'e', mensaje: 'e' }], [{ nombre: 'TOKEN', proposito: 'p' }]);
+  const b = falso('b', { y: 2 }, [{ nivel: 'aviso', codigo: 'w', mensaje: 'w' }], [{ nombre: 'TOKEN', proposito: 'p' }, { nombre: 'OTRO', proposito: 'q' }]);
   const n = falso('n', null, [{ nivel: 'error', codigo: 'no', mensaje: 'no' }], []);
   const r = D.diagnosticar(ctxVacio, [a, b, n]);
   assert.deepStrictEqual(r.detectados.map((d) => d.id), ['a', 'b']);
   assert.deepStrictEqual(r.hallazgos.map((h) => h.nivel), ['error', 'aviso', 'info']);
   const t = r.secretos.find((s) => s.nombre === 'TOKEN');
-  assert.deepStrictEqual([...t.entornos].sort(), ['production', 'staging']);
+  assert.deepStrictEqual(t, { nombre: 'TOKEN', proposito: 'p' });
   assert.strictEqual(r.secretos.length, 2);
 });
 
