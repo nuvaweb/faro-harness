@@ -1,51 +1,84 @@
 # CI del motor faro: la suite completa (sintaxis de módulos, manifiestos, gobierno de ramas,
 # digestión/requisitos, guardarraíles).
 #
-# COSTE: en un repo PRIVADO los minutos de Actions se facturan, y no cuestan igual —
-# Ubuntu 1x · Windows 2x · macOS 10x. Correr los tres sistemas en cada push de cada rama
-# multiplicaba el gasto por ~13 sin aportar: el 99% de los fallos salen en cualquiera de los tres.
+# COSTE (#8): en un repo PRIVADO los minutos de Actions se facturan (Ubuntu 1x · Windows 2x). Por eso:
+#   · ESCALONES: Ubuntu primero; Windows solo si Ubuntu pasa, y en Windows el primer fallo cancela el
+#     resto (fail-fast): un fallo ya bloquea el merge, seguir gastando no aporta.
+#   · PR = TESTS AFECTADOS (test/run.js --afectados=origin/<base>, scripts/tests-afectados.js): solo los
+#     tests a los que llega el cambio. Seleccion conservadora: si no es fiable, o el cambio toca la
+#     infraestructura de tests o este CI, corre la suite completa.
+#   · main / cola de merge / lanzado a mano = SUITE COMPLETA en Ubuntu y Windows: la red de seguridad.
+#   · Un push nuevo al mismo PR cancela el run anterior; cada job tiene tiempo maximo.
+#   · macOS fuera del CI (10x). Para probarlo a mano: node test/run.js en un Mac.
 #
-# Reparto: Ubuntu en cada PR (red rápida y barata, es donde se trabaja) y la matriz COMPLETA solo
-# al entrar en main, que es cuando de verdad importa que funcione en las tres — el equipo
-# mezcla Windows y macOS, y hay guardarraíles específicos de Windows (windowsHide) que hay que
-# seguir probando allí antes de publicar.
-#
-# FARO 3.0 — flujo directo a main: cada PR va a main con auto-merge; este CI es la puerta. Al
-# integrarse, el job 'release' publica tag + release si plugin.json trae version nueva (sin
-# /faro:publicar). La regla de que version pide cada tipo de commit vive en plugins/faro/hooks/lib/flujo.js.
+# FARO 3.0 — flujo directo a main: cada PR va a main con auto-merge; este CI es la puerta (los checks
+# obligatorios los fija la regla de la rama, que gestiona devops). Al integrarse, el job 'release'
+# publica tag + release si plugin.json trae version nueva. La regla de que version pide cada tipo de
+# commit vive en plugins/faro/hooks/lib/flujo.js.
 name: ci
 on:
   pull_request:
   merge_group:
   push:
     branches: [main]
-#
-# TROZOS (#178): la suite completa (~1.100 tests, en serie a proposito) se reparte en 4 trozos que corren en
-# paralelo, repartidos por tamaño de fichero (test/run.js --trozo=i/n, determinista). Mismo gasto de minutos
-# (mas el arranque de cada job), un cuarto de espera.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# TROZOS (#178): la suite (en serie a proposito) se reparte en 4 trozos en paralelo, por tamaño de
+# fichero (test/run.js --trozo=i/n, determinista). Con --afectados se reparte solo la seleccion.
+env:
+  AFECTADOS: ${{ github.event_name == 'pull_request' && format('--afectados=origin/{0}', github.base_ref) || '' }}
+
 jobs:
+  # Escalon 1: barato y rapido. El nombre se mantiene: lo exige la regla de la rama.
   test:
     strategy:
       fail-fast: false
       matrix:
-        # En un PR: solo Ubuntu. Al integrar (push a main / cola de merge): los tres.
-        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest","windows-latest","macos-latest"]') }}
+        os: [ubuntu-latest]
         trozo: [1, 2, 3, 4]
     name: test (${{ matrix.os }}, trozo ${{ matrix.trozo }}/4)
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # --afectados necesita la base y el historial para el merge-base
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       # node directo (no `npm test --`): en Windows el shim de npm para PowerShell puede comerse el `--` y cada
       # job correria la suite entera. Mismos flags que `npm test`.
-      - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4
+      - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4 ${{ env.AFECTADOS }}
+
+  # Escalon 2: Windows, solo si Ubuntu paso (rutas, windowsHide, taskkill...).
+  test-windows:
+    needs: test
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest]
+        trozo: [1, 2, 3, 4]
+    name: test (${{ matrix.os }}, trozo ${{ matrix.trozo }}/4)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node test/run.js --test-concurrency=1 --trozo=${{ matrix.trozo }}/4 ${{ env.AFECTADOS }}
 
   # Aviso (no rompe): la version de plugin.json sube lo que piden los commits Conventional del PR.
   version:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,12 +90,13 @@ jobs:
         env:
           PR_TITULO: ${{ github.event.pull_request.title }}
 
-  # Publicacion automatica: tras la matriz verde en main, tag vX.Y.Z + release con su CHANGELOG si la
-  # version es nueva. Un merge de docs/chore no cambia la version y no publica nada.
+  # Publicacion automatica: con Ubuntu y Windows en verde en main, tag vX.Y.Z + release con su CHANGELOG
+  # si la version es nueva. Un merge de docs/chore no cambia la version y no publica nada.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: [test, test-windows]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     concurrency:

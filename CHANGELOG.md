@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 3.0.3 — 2026-11-22
+
+### Corregido
+- **La guarda de deploy ya no pide aprobación en comandos de solo lectura** (#6). Además se cierran fugas del parser de solo lectura: `git grep` sale de la lista de lectura segura y las opciones de git entre comillas se analizan.
+
 ## 3.0.2 — 2026-11-22
 
 ### Corregido
