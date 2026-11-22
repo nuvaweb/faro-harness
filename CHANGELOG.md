@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
-## 3.0.1 — 2026-11-22
+## 3.0.2 — 2026-11-22
 
 ### Corregido
 - **El borrado de carpetas pregunta en vez de bloquear** (#1). `rm -r`, `rmdir`, `Remove-Item -Recurse`, `rd /s` y `git clean -f` piden confirmación mostrando la ruta. Solo se bloquea si la ruta queda fuera del alcance del repo.
+
+## 3.0.1 — 2026-11-22
+
+### Corregido
+- **La suite del CI vuelve a verde** (#3). Se quitan dos tests de `publicar` (retirado en 3.0) y `gate-planes` usa la ruta `faro/gestion/cambios`. En Linux, la lectura PowerShell de un comando ya no convierte `<<\EOF` en `<</EOF`, así que el heredoc con delimitador escapado sigue siendo literal.
 
 ## 3.0.0 — 2026-11-16
 

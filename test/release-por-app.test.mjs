@@ -311,11 +311,3 @@ test('RUTAS_GESTION: tocar las dependencias de una app NO es gestion (es trabajo
 });
 
 // ---------- cableado ----------
-
-test('publicar esta enchufado a la release por app (gate, tags, push y Release por app)', () => {
-  const src = fs.readFileSync(HARNESS, 'utf8');
-  const cuerpo = src.slice(src.indexOf('async function cmdPublicar()'), src.indexOf('// ---------- One-pager'));
-  assert.match(cuerpo, /coherenciaApps\(/, 'gate de coherencia por app antes del merge');
-  assert.match(cuerpo, /tagearApps\(main\)/, 'tags por app sobre main');
-  assert.match(cuerpo, /notasDeVersion\([^)]*\.app\)/, 'notas del CHANGELOG de la app');
-});
