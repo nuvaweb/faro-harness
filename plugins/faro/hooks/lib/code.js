@@ -740,7 +740,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   // aparezca en un patron de grep o en un 'git log -S'. Falla cerrada: cualquier sustitucion
   // ($, backtick), redireccion de entrada a un interprete o tramo desconocido mantiene el aviso.
   const LECTORES = /^(cd|ls|cat|head|tail|wc|grep|egrep|fgrep|rg|pwd|stat|diff|uniq|cut|tr|basename|dirname)$/;
-  const GIT_LECTURA = /^(log|show|diff|status|grep|blame|branch|rev-parse|ls-files|cat-file|shortlog)$/;
+  const GIT_LECTURA = /^(log|show|diff|status|blame|branch|rev-parse|ls-files|cat-file|shortlog)$/;
   const tramos = (t) => {
     const out = []; let cur = ''; let q = null;
     for (let i = 0; i < t.length; i++) {
@@ -767,7 +767,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
       if (cmd === 'rg' && w.some((x) => x.startsWith('--pre'))) return false; // rg --pre ejecuta un programa
       if (LECTORES.test(cmd)) return true;
       // git: subcomando justo detras (sin opciones globales como -c) y sin opciones que ejecutan programas
-      if (cmd === 'git') return !!w[1] && GIT_LECTURA.test(w[1]) && !w.some((x) => /^(-o|--open-files-in-pager|--ext-diff|--textconv|--output|--exec|--upload-pack)/.test(x));
+      if (cmd === 'git') return !!w[1] && GIT_LECTURA.test(w[1]) && !w.some((x) => /^(-o|--open-files-in-pager|--ext-diff|--textconv|--output|--exec|--upload-pack)/.test(x.replace(/^['"]+/, '')));
       // sed solo como impresor: -n, sin -i/--in-place y con un guion de rangos 'N,Mp' (el comando 'e' de sed ejecuta)
       if (cmd === 'sed') return w[1] === '-n' && /^['"]?\d+(,\d+)?p['"]?$/.test(w[2] || '') && w.slice(3).every((x) => !x.startsWith('-'));
       return false;

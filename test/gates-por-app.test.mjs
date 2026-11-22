@@ -301,6 +301,8 @@ test('isDeployCmd: comandos de solo lectura que mencionan deploy no piden aproba
     "sed -n 1p -e '1e npm run deploy' f",
     'git -c alias.log=!wrangler log deploy',
     'git grep -O"wrangler deploy" x',
+    'git log "--output=x" wrangler deploy',
+    'git grep -n wrangler deploy',
     'git diff --ext-diff -- wrangler deploy',
     'sort --compress-program=wrangler deploy',
   ]) assert.strictEqual(c.isDeployCmd(cmd), true, JSON.stringify(cmd));
