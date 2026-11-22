@@ -380,3 +380,14 @@ Todo sale de leer el código. No aparecen secretos por entorno.
 - `variables.tf`: sin valores.
 
 No sobrescribe nada que ya exista y nunca lo propone por iniciativa propia.
+
+---
+
+## Siguiente versión, fuera de la 3.1.0 (2026-11-22, petición del usuario)
+
+- **`harness.js hexagonal migrar`:** mueve las carpetas al estándar en inglés (`dominio` → `domain`, etc.) y reescribe los imports.
+  - Sin flags solo enseña el plan de cambios; con `--aplicar` lo ejecuta.
+  - Va en su propio issue/PR y se valida con los tests.
+- **`harness.js ci --aplicar`:** sustituye un CI existente por el optimizado. Sin el flag solo enseña la diferencia.
+- **Tests:** en local solo los afectados (atómicos); en el CI de la forja, la suite completa y los e2e. Si el repo no tiene forja, en local se ejecuta todo.
+- **Motivo:** son procesos de escritura con riesgo, y conviene que lleguen con su propia revisión, no metidos en la 3.1.0.
