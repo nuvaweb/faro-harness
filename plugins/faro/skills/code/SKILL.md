@@ -95,6 +95,7 @@ tests/                ← espejo de src/, con un test real del primer caso de us
   justo cuando más prisa hay. El harness ya sabe cuál es el remoto: `harness.js infra` avisa si falta
   **diciendo qué URL poner**, y también si apunta a otro repo (peor que faltar: nadie duda de un dato
   que está escrito).
+- **Si el repo despliega** (Cloudflare, Terraform): diagnostica y prepara el despliegue con `/faro:desplegar`; el despliegue y los entornos los prepara devops.
 - `.gitignore`: MERGE — añade lo del stack (node_modules, dist, .env*, cachés) SIN tocar las reglas FARO; **no toques** `faro/documentos/ faro/gestion/ faro/fuentes/ faro/flujos/ faro/borrador/`.
 - **CI de verdad, no solo gates locales (obligatorio al scaffoldear)**: en cuanto los scripts de
   lint/test/build existan, ejecuta `node "${CLAUDE_PLUGIN_ROOT}/hooks/harness.js" ci`. Genera el fichero de la

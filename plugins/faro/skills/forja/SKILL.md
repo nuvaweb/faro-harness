@@ -8,3 +8,5 @@ Adopta el rol **gestor-forja** (agente del plugin) y ejecútalo **TÚ en esta co
 Petición del usuario: $ARGUMENTS (p. ej.: pr, merge, proteger, release, topics, archivar; sin argumentos = estado y sugerencias).
 
 Hace el lado **API de la forja** RESPETANDO las reglas del harness (rol developer/maintainer, flujo directo a `main`: rama `<tipo>/<N>-<slug>` → PR a `main` con auto-merge → el CI publica tag y release al integrarse). Es proactivo/consultivo: detecta (PR atascado en CI o revisión, `main` sin protección o sin CI exigido, auto-merge sin permitir, ramas muertas) y te lo propone. Para renombrar usa `/faro:renombrar`; para adoptar `/faro:adoptar`.
+
+Para preparar el despliegue (infra, hexagonal, gates de IaC) usa `/faro:desplegar`; los entornos y secretos de la forja los prepara devops.

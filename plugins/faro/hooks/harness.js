@@ -2859,6 +2859,7 @@ function cmdValidate() {
   if (!NO_INSTANCIA) {
     const _og = opcionesGates();
     hexagonalEnValidate(errs, flowWarns, _og.gates || _og.todas || _og.apps.length > 0);
+    despliegueEnValidate(errs, flowWarns);
   }
   const flowBlock = flowWarns.length ? `\nAvisos (NO bloquean CI):\n${flowWarns.map((w) => `- ${w}`).join('\n')}\n` : '';
   if (errs.length) {
@@ -3541,7 +3542,47 @@ function ymlValor(v) {
 // MONOREPO (#130): en una peticion, solo las apps cambiadas (+ dependientes) con el filtro de pnpm;
 // en push a develop/main la variable queda vacia y corren todas.
 const NOTA_FILTRO_CI = '# Monorepo: en cada peticion corren solo las apps cambiadas y sus dependientes (pnpm --filter "...[origin/<destino>]"); en push a main, todas.';
-function gitlabCiYaml(plan, gates) {
+// Gates de IaC (adaptadores de despliegue) para el CI de TESTS: sin credenciales, solo validacion
+// (wrangler --dry-run, terraform init -backend=false + validate). tflint/checkov dependen del PATH de
+// quien genera, no del runner: enPath=false para que el YAML no varie por maquina.
+// Devuelve { cloudflare: { gates }, terraform: { binario, gates } } con solo lo detectado, o null.
+function iacGates(plan) {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { /* sin config */ }
+  const D = require('./lib/despliegue.js');
+  const ctx = { ...D.ctxDesdeDisco(ROOT, cfg), enPath: () => false };
+  const out = {};
+  for (const ad of D.adaptadores()) {
+    const det = ad.detectar(ctx);
+    if (!det) continue;
+    const gates = ad.gates(ctx, det);
+    if (!gates.length) continue;
+    // El plan ya trae el simulacro de wrangler (con build / deploy:dry): no repetirlo, a secas puede fallar.
+    if (ad.id === 'cloudflare' && plan.gates.some((g) => /^deploy-dry-run/.test(g.name))) continue;
+    out[ad.id] = ad.id === 'terraform' ? { binario: det.binario, gates } : { gates };
+  }
+  return Object.keys(out).length ? out : null;
+}
+// Un job por herramienta (cada una con su imagen), en el mismo stage y con las mismas reglas que 'gates'.
+const GITLAB_REGLAS = ['  rules:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"', `    - if: $CI_COMMIT_BRANCH == "${RAMA_PRINCIPAL}"`];
+function gitlabIacJobs(plan, iac) {
+  if (!iac) return [];
+  const out = [];
+  if (iac.terraform) {
+    const tofu = iac.terraform.binario === 'tofu';
+    out.push('', `iac-${tofu ? 'opentofu' : 'terraform'}:`, '  stage: gates',
+      '  image:', `    name: ${tofu ? 'ghcr.io/opentofu/opentofu:latest' : 'hashicorp/terraform:latest'}`, '    entrypoint: [""]',
+      '  script:', ...iac.terraform.gates.map((g) => `    - ${g.run}`), ...GITLAB_REGLAS);
+  }
+  if (iac.cloudflare) {
+    const before = plan.runtime.gitlabBefore || [];
+    out.push('', 'iac-cloudflare:', '  stage: gates', `  image: ${plan.runtime.gitlabImage || 'node:lts'}`,
+      ...(before.length ? ['  before_script:', ...before.map((c) => `    - ${c}`)] : []),
+      '  script:', ...(plan.install ? [`    - ${plan.install}`] : []), ...iac.cloudflare.gates.map((g) => `    - ${g.run}`), ...GITLAB_REGLAS);
+  }
+  return out;
+}
+function gitlabCiYaml(plan, gates, iac) {
   const img = plan.runtime.gitlabImage || 'TODO: pon aqui la imagen de tu stack (ej. python:3.12-slim, golang:1.23) — el harness no la pudo inferir';
   const filtro = plan.filtroCambios
     ? [`'export ${plan.filtroCambios}=""; if [ -n "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" ]; then git fetch -q origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"; export ${plan.filtroCambios}="--filter=...[origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME]"; fi'`]
@@ -3577,9 +3618,8 @@ function gitlabCiYaml(plan, gates) {
     ...(before.length ? ['  before_script:', ...before.map((c) => `    - ${c}`)] : []),
     '  script:',
     ...script.map((c) => `    - ${c}`),
-    '  rules:',
-    '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"',
-    '    - if: $CI_COMMIT_BRANCH == "main"',
+    ...GITLAB_REGLAS,
+    ...gitlabIacJobs(plan, iac),
     '',
   ].join('\n');
 }
@@ -3601,7 +3641,7 @@ function pasosRuntimeManuales(plan, forge) {
   }
   return out;
 }
-function githubCiYaml(plan, gates) {
+function githubCiYaml(plan, gates, iac) {
   const setup = plan.runtime.ghSetup;
   const lines = [
     '# .github/workflows/ci.yml generado por FARO (node .claude/hooks/harness.js ci) a partir de TUS',
@@ -3613,10 +3653,17 @@ function githubCiYaml(plan, gates) {
     'name: CI (gates de FARO)',
     'on:',
     '  pull_request:',
+    '    types: [opened, synchronize, reopened, ready_for_review]',
     '  push:',
-    '    branches: [main]',
+    `    branches: [${RAMA_PRINCIPAL}]`,
+    '  merge_group:',
+    // un push nuevo al mismo PR cancela el run superado; en la rama principal nunca se cancela
+    'concurrency:',
+    '  group: ci-${{ github.event.pull_request.number || github.ref }}',
+    "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
     'jobs:',
     '  gates:',
+    "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft",
     '    runs-on: ubuntu-latest',
     ...(plan.filtroCambios ? ['    env:', `      ${plan.filtroCambios}: "${'$'}{{ github.event_name == 'pull_request' && format('--filter=...[origin/{0}]', github.base_ref) || '' }}"`] : []),
     '    steps:',
@@ -3639,6 +3686,18 @@ function githubCiYaml(plan, gates) {
   }
   if (plan.install) lines.push(`      - run: ${plan.install}`);
   for (const g of gates) lines.push(`      - run: ${g.run}`);
+  if (iac) {
+    // Job aparte, sin filtros paths (un check obligatorio omitido bloquea el auto-merge) y sin credenciales.
+    const conPasos = (p) => { lines.push(`      - uses: ${p.uses}`); if (p.with) { lines.push('        with:'); for (const [k, v] of Object.entries(p.with)) lines.push(`          ${k}: ${ymlValor(v)}`); } };
+    lines.push('  iac:', "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft", '    runs-on: ubuntu-latest', '    steps:', `      - uses: ${ACCION_CHECKOUT}`);
+    if (iac.terraform) lines.push(`      - uses: ${iac.terraform.binario === 'tofu' ? 'opentofu/setup-opentofu@v1' : 'hashicorp/setup-terraform@v3'}`);
+    if (iac.cloudflare) {
+      for (const p of plan.runtime.ghPre || []) conPasos(p);
+      if (setup) conPasos(setup);
+      if (plan.install) lines.push(`      - run: ${plan.install}`);
+    }
+    for (const g of [...(iac.terraform ? iac.terraform.gates : []), ...(iac.cloudflare ? iac.cloudflare.gates : [])]) lines.push(`      - run: ${g.run}`);
+  }
   lines.push('');
   return lines.join('\n');
 }
@@ -3652,10 +3711,10 @@ function cmdCi() {
   }
   const f = forgeInfo();
   let rel, contenido;
-  if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates); }
-  else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates); }
+  if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates, iacGates(plan)); }
+  else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates, iacGates(plan)); }
   else {
-    console.log(`Forja '${f.forge}' sin plantilla de CI conocida: te dejo el YAML aqui para que lo pegues donde corresponda (GitLab: .gitlab-ci.yml · GitHub: .github/workflows/ci.yml):\n\n${gitlabCiYaml(plan, plan.gates)}`);
+    console.log(`Forja '${f.forge}' sin plantilla de CI conocida: te dejo el YAML aqui para que lo pegues donde corresponda (GitLab: .gitlab-ci.yml · GitHub: .github/workflows/ci.yml):\n\n${gitlabCiYaml(plan, plan.gates, iacGates(plan))}`);
     return;
   }
   const destino = path.join(ROOT, rel);
@@ -4262,6 +4321,63 @@ function hexagonalEnValidate(errs, warns, gate) {
     (gate ? errs : warns).push(msg);
   }
 }
+// CABLEADO de despliegue (lib/despliegue-cli.js): un repo que despliega y tiene codigo exige hexagonal declarada.
+function despliegueEnValidate(errs, warns) {
+  const DC = require('./lib/despliegue-cli.js');
+  const r = DC.enValidate({
+    diagnosticar: () => require('./lib/despliegue.js').diagnosticar(DC.contexto(ROOT, CONFIG_FILE)),
+    bases: () => (require('./lib/apps.js').esMonorepo(ROOT) ? hexagonalBases() : [{ id: null, base: '' }])
+      .map((b) => { const h = hexagonalDe(b); return { id: b.id, donde: b.id ? `app ${b.id}` : 'ARCHITECTURE.md', declarada: h.declaracion.declarada, conCodigo: h.ficheros.length > 0 }; }),
+  });
+  errs.push(...r.errs);
+  warns.push(...r.warns);
+}
+// harness.js despliegue [--json] [--gates] [--ci] | harness.js local [--ejecutar]
+function cmdDespliegue() {
+  const DC = require('./lib/despliegue-cli.js');
+  const D = require('./lib/despliegue.js');
+  const args = process.argv.slice(3);
+  const ctx = DC.contexto(ROOT, CONFIG_FILE);
+  if (args.includes('--ci')) {
+    console.log('despliegue --ci ya no genera workflow: los gates de IaC (sin credenciales) van en el CI de tests (harness.js ci) y el despliegue lo prepara devops en la forja.');
+    return;
+  }
+  if (args.includes('--gates')) {
+    const r = DC.correrGates(ctx, ROOT, require('./lib/ejecutar-pesado.js').ejecutarSync);
+    r.lineas.forEach((l) => console.log(l));
+    if (!r.ok) process.exit(1);
+    return;
+  }
+  const diag = D.diagnosticar(ctx);
+  if (args.includes('--json')) console.log(JSON.stringify(diag, null, 2));
+  else DC.pintar(diag).forEach((l) => console.log(l));
+  if (DC.hayErrores(diag)) process.exit(1);
+}
+// harness.js ci fallos [--pendientes] [--esperar=<min>]: lee el CI de la rama actual (lib/ci-fallos.js).
+function cmdCiFallos() {
+  const f = forgeInfo();
+  const F = forjaMod();
+  require('./lib/ci-fallos.js').fallos({
+    root: ROOT, forja: f.forge, rama: git('rev-parse', '--abbrev-ref', 'HEAD') || '', sha: git('rev-parse', 'HEAD') || '', args: process.argv.slice(4),
+    // Estado del CI por commit: el contrato de forja (check-runs con anotaciones en GitHub, pipeline en GitLab).
+    estadoCommit: F && F.estadoCiCommit ? (sha) => F.estadoCiCommit(sha) : async () => ({ ok: false, sinToken: true }),
+  })
+    .then((r) => process.exit(r.codigo), (e) => { console.error(`ci fallos: ${e.message}`); process.exit(1); });
+}
+function cmdLocal() {
+  const DC = require('./lib/despliegue-cli.js');
+  const c = DC.comandoLocal(DC.contexto(ROOT, CONFIG_FILE));
+  if (!c) { console.log('local: no hay comando local para el destino de este repo (o no se detecta ninguno).'); return; }
+  console.log(`${[c.cmd, ...c.args].join(' ')}${c.nota ? `\n(${c.nota})` : ''}`);
+  if (!process.argv.slice(3).includes('--ejecutar')) return;
+  const X = require('./lib/ejecutar-pesado.js');
+  const l = X.lanzador(c.cmd, c.args);
+  if (l.error) { console.log(l.error); process.exit(1); }
+  const r = require('child_process').spawnSync(l.file, l.argv, { cwd: ROOT, stdio: 'inherit', windowsHide: true });
+  if (r.error) { console.log(`local: no se pudo lanzar ${l.file}: ${r.error.message}`); process.exit(1); }
+  process.exit(r.status === null ? 1 : r.status);
+}
+
 function cmdHexagonal() {
   const HX = require('./lib/hexagonal.js');
   const args = process.argv.slice(3);
@@ -4808,6 +4924,8 @@ else if (cmd === 'codigo' || cmd === 'salud') cmdCodigo();
 // bloquea: una deriva puede ser deliberada, y como gate se sortearia borrando la linea del documento.
 else if (cmd === 'contrato') cmdContrato();
 else if (cmd === 'hexagonal') cmdHexagonal();
+else if (cmd === 'despliegue') cmdDespliegue();
+else if (cmd === 'local') cmdLocal();
 else if (cmd === 'onepager') opMod().cmdOnepager();
 else if (cmd === 'reporte-negocio') cmdReporteNegocio();
 else if (cmd === 'roadmap') opMod().cmdRoadmap();
@@ -4823,8 +4941,9 @@ else if (cmd === 'app') cmdApp();
 else if (cmd === 'ficha') cmdFicha();
 // tdd-pre|tdd-post|tdd-stop|tdd-revisar: se despachan al PRINCIPIO del fichero (ver tras ROOT).
 else if (cmd === 'planificacion') cmdPlanificacion();
+else if (cmd === 'ci' && process.argv[3] === 'fallos') cmdCiFallos();
 else if (cmd === 'ci') cmdCi();
 else if (cmd === 'gates' || cmd === 'infra' || cmd === 'deps') { const c = codeMod(); if (!c) { console.log('Falta .claude/hooks/code.js (capa de codigo).'); process.exit(1); } cmd === 'gates' ? c.cmdGates(opcionesGates()) : cmd === 'infra' ? c.cmdInfra() : c.cmdDeps(); }
 else if (cmd === 'stats') cmdStats();
 else if (cmd === 'status-line') cmdStatusLine();
-else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }
+else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · despliegue · local · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }

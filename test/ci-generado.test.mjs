@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const HOOKS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'plugins', 'faro', 'hooks');
 const HARNESS = path.join(HOOKS, 'harness.js');
@@ -117,4 +118,44 @@ test('ci: tras generar el pipeline en GitLab, encamina a exigirlo (el orden corr
   const r = run([HARNESS, 'ci'], dir);
   assert.strictEqual(r.status, 0, r.stderr);
   assert.match(r.stdout, /exigir-pipeline/, `debe sugerir el paso siguiente:\n${r.stdout}`);
+});
+
+// ---- Task 9: CI optimizado (cancelar runs superados, borradores, base = rama principal) ----
+test('ci: la plantilla de GitHub cancela runs superados solo en PR y no usa develop', () => {
+  const dir = repo('ci-concurrency', 'git@github.com:org/app.git', pkg({ test: 'vitest run' }));
+  const r = run([HARNESS, 'ci'], dir);
+  assert.strictEqual(r.status, 0, r.stderr);
+  const yml = fs.readFileSync(path.join(dir, '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(yml, /concurrency:/);
+  assert.match(yml, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/, 'cancela solo en PR');
+  assert.match(yml, /merge_group:/);
+  assert.match(yml, /branches: \[main\]/);
+  assert.ok(!/develop/.test(yml), `no debe aparecer develop:\n${yml}`);
+});
+
+test('ci: la plantilla de GitHub no gasta CI en borradores (ready_for_review + condicion)', () => {
+  const dir = repo('ci-borrador', 'git@github.com:org/app.git', pkg({ test: 'vitest run' }));
+  const r = run([HARNESS, 'ci'], dir);
+  assert.strictEqual(r.status, 0, r.stderr);
+  const yml = fs.readFileSync(path.join(dir, '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(yml, /types: \[opened, synchronize, reopened, ready_for_review\]/);
+  assert.ok(yml.includes("if: github.event_name != 'pull_request' || !github.event.pull_request.draft"));
+});
+
+test('afectados: sin rama develop, la base es la principal (main) y no cae a «todas»', () => {
+  const dir = repo('ci-base-main', null, pkg({ test: 'vitest run' }));
+  assert.strictEqual(git(dir, 'branch', '--list', 'develop').stdout.trim(), '', 'el repo de prueba no tiene develop');
+  const code = createRequire(import.meta.url)(path.join(HOOKS, 'lib', 'code.js'));
+  const alc = code(dir).alcanceApps();
+  assert.match(alc.resumen, /respecto a main/, `debe comparar contra main: ${alc.resumen}`);
+  assert.ok(!/sin la rama/.test(alc.resumen), alc.resumen);
+});
+
+test('ci: las reglas de GitLab usan la rama principal configurada, no un main fijo', () => {
+  const dir = repo('ci-gitlab-rama', 'git@gitlab.com:grupo/app.git', pkg({ test: 'vitest run' }));
+  const r = spawnSync(process.execPath, [HARNESS, 'ci'], { cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, CLAUDE_PROJECT_DIR: dir, FARO_RAMA_PRINCIPAL: 'trunk' } });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const yml = fs.readFileSync(path.join(dir, '.gitlab-ci.yml'), 'utf8');
+  assert.match(yml, /\$CI_COMMIT_BRANCH == "trunk"/);
+  assert.ok(!/\$CI_COMMIT_BRANCH == "main"/.test(yml), `no debe quedar main fijo:\n${yml}`);
 });

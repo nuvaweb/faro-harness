@@ -12,7 +12,7 @@ const ESTADOS = Object.freeze(['verde', 'rojo', 'pendiente', 'sin-ci', 'sin-cuot
 // GitHub no documenta un conclusion propio para "sin minutos": el job falla sin arrancar y la causa va
 // en la anotacion del check-run ("The job was not started because ..."). Si GitHub cambiara el texto,
 // el fallo se veria como rojo con la anotacion a la vista: nunca se oculta un fallo.
-const RE_FACTURACION = /job was not started because|spending limit|billing|payments have failed|budget is preventing/i;
+const RE_FACTURACION = /job was not started because|spending limit|billing|payments have failed|budget is preventing|account is locked|minutes quota|compute minutes|no more ci minutes/i;
 const FALLO_GH = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
 
 function normalizarGithub({ checkRuns = [], statuses = [], anotaciones = {} } = {}) {
