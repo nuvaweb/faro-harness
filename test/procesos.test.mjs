@@ -296,3 +296,15 @@ test('verificarProceso real: un node propio registrado pasa; uno sin entrada ni 
     if (process.platform !== 'linux') assert.strictEqual(P.verificarProceso(h.pid, { entrada: null }).ok, false);
   } finally { P.matarArbol(h.pid); }
 });
+
+test('nombreLinux (Node 24): manda el ejecutable de /proc/<pid>/exe, no el nombre del hilo (comm)', () => {
+  const P2 = createRequire(import.meta.url)('../plugins/faro/hooks/lib/procesos.js');
+  // Node 24 renombra el hilo principal: comm deja de ser 'node', pero el ejecutable sigue siendolo.
+  assert.strictEqual(P2.nombreLinux(42, { comm: 'MainThread', leerExe: () => '/usr/local/bin/node' }), 'node');
+  assert.strictEqual(P2.nombreLinux(42, { leerExe: () => '/opt/node/bin/node (deleted)', leerComm: () => 'x' }), 'node');
+  // exe ilegible (proceso ajeno o ya muerto): se usa comm.
+  const sinExe = () => { throw new Error('EACCES'); };
+  assert.strictEqual(P2.nombreLinux(42, { comm: 'node\n', leerExe: sinExe }), 'node');
+  assert.strictEqual(P2.nombreLinux(42, { leerExe: sinExe, leerComm: () => 'bash\n' }), 'bash');
+  assert.strictEqual(P2.nombreLinux(42, { leerExe: sinExe, leerComm: sinExe }), '');
+});
