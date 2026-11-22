@@ -675,7 +675,7 @@ function analizarComando(cmd, root, opts = {}) {
   // El MISMO veredicto en cualquier SO: en POSIX path.resolve no trata \ como separador, asi que la lectura de
   // PowerShell/cmd se hace explicita (\ → /). En Windows path.resolve ya lo hace y r ES esa lectura.
   if (!WIN) {
-    const win = cmd.replace(/(?<!:)\\(?=[^\s"'\\])/g, '/');
+    const win = cmd.replace(/(?<!:|<<-?[ \t]*)\\(?=[^\s"'\\])/g, '/');   // <<\EOF tampoco se toca: sigue siendo literal
     if (win !== cmd && win !== posix) lecturas.push(analizarComandoUnaLectura(win, root, { ...opts, lecturaWin: true }));
   }
   return lecturas.find((x) => x && x.nivel === 'deny') || lecturas.find((x) => x) || null;

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 3.0.1 — 2026-11-22
+
+### Corregido
+- **La suite del CI vuelve a verde** (#3). Se quitan dos tests de `publicar` (retirado en 3.0) y `gate-planes` usa la ruta `faro/gestion/cambios`. En Linux, la lectura PowerShell de un comando ya no convierte `<<\EOF` en `<</EOF`, así que el heredoc con delimitador escapado sigue siendo literal.
+
 ## 3.0.0 — 2026-11-16
 
 ### Cambiado (ruptura)
