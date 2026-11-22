@@ -46,13 +46,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   const hasScript = (name) => { const pkg = readPkg(); return Boolean(pkg && pkg.scripts && pkg.scripts[name]); };
 
   // ---- Cloudflare (wrangler) ----
-  const parseJsonc = (text) => {
-    if (!text) return null;
-    try {
-      const noTrail = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1');
-      return JSON.parse(noTrail);
-    } catch { return null; }
-  };
+  const parseJsonc = require('./jsonc.js').parse;
   let _wrangler;
   const readWrangler = () => {
     if (_wrangler !== undefined) return _wrangler;

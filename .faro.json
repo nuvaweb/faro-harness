@@ -232,6 +232,8 @@
           "plugins/faro/hooks/lib/apps.js",
           "plugins/faro/hooks/lib/apps-forja.js",
           "plugins/faro/hooks/lib/code.js",
+          "plugins/faro/hooks/lib/jsonc.js",
+          "plugins/faro/hooks/lib/despliegue.js",
           "plugins/faro/hooks/lib/generados.js",
           "plugins/faro/hooks/lib/contrato.js",
           "plugins/faro/hooks/lib/reconocer.js",
@@ -243,6 +245,7 @@
         ],
         "tests": [
           "test/ci-generado.test.mjs",
+          "test/despliegue-nucleo.test.mjs",
           "test/ci-pnpm.test.mjs",
           "test/ci-vigente.test.mjs",
           "test/gates-por-app.test.mjs",
