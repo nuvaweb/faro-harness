@@ -6,7 +6,7 @@
 
 ### Añadido
 - **Despliegue agnóstico por adaptadores** (Cloudflare y Terraform), con `harness.js despliegue [--json] [--gates] [--ci]`.
-- **Gates de IaC en el CI por entornos.** El despliegue y los entornos los prepara devops; FARO no los gestiona.
+- **Gates de IaC en el CI de tests.** El despliegue y los entornos los prepara devops; FARO no los gestiona.
 - **`harness.js local [--ejecutar]`** para probar el despliegue en local.
 - **Hexagonal estándar en inglés** (`harness.js hexagonal --plan`).
 - **Skill `/faro:desplegar`**, con derivaciones desde `/faro:code` y `/faro:forja`.
