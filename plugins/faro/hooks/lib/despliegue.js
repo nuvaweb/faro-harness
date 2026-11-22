@@ -79,7 +79,7 @@ function ctxDesdeDisco(root, cfgRepo) {
   let forja = null;
   try {
     const r = require('node:child_process').spawnSync('git', ['remote', 'get-url', 'origin'], {
-      cwd: root, encoding: 'utf8', timeout: 5000,
+      cwd: root, encoding: 'utf8', timeout: 5000, windowsHide: true,
       env: { ...process.env, GCM_INTERACTIVE: 'never', GIT_TERMINAL_PROMPT: '0' },
     });
     const f = r.status === 0 ? require('./forge.js').detect(r.stdout.trim()).forge : null;
