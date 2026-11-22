@@ -296,6 +296,13 @@ test('isDeployCmd: comandos de solo lectura que mencionan deploy no piden aproba
     "git -c core.pager='wrangler deploy' log",
     'grep "sin cerrar deploy wrangler',
     'cd x && pnpm deploy',
+    'grep \\"x; wrangler deploy; echo \\"', // escape fuera de comillas
+    "sed -n -e '1e wrangler deploy' -e 1p f",
+    "sed -n 1p -e '1e npm run deploy' f",
+    'git -c alias.log=!wrangler log deploy',
+    'git grep -O"wrangler deploy" x',
+    'git diff --ext-diff -- wrangler deploy',
+    'sort --compress-program=wrangler deploy',
   ]) assert.strictEqual(c.isDeployCmd(cmd), true, JSON.stringify(cmd));
 });
 
