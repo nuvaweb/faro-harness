@@ -234,7 +234,8 @@ async function adquirirAsync(op = {}) {
 }
 
 // ───────────────────────── memoria ─────────────────────────
-const memoriaLibreMB = () => os.freemem() / 1048576;
+// Memoria DISPONIBLE por SO (en macOS os.freemem() no cuenta la cache inactiva): helper unico en procesos.js.
+const memoriaLibreMB = () => P.memoriaDisponibleMB();
 /** Espera (acotada, sincrona) a que haya `minMB` libres; si no, ok:false y un aviso de UNA linea. */
 function esperarMemoria({ minMB, esperaS, libreMB = memoriaLibreMB, dormir = dormirSync, aviso = () => {} } = {}) {
   let libre = libreMB();
