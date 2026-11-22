@@ -13,7 +13,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { umbral, plazo, conReintento } from './lib-tiempo.mjs';
 
 const HOOKS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'plugins', 'faro', 'hooks');
-const tmp = (name) => fs.mkdtempSync(path.join(os.tmpdir(), `faro-${name}-`));
+// Ruta REAL: en macOS os.tmpdir() es /var/folders/... (enlace a /private/var); el harness lanzado con ese
+// cwd ve process.cwd() ya resuelto y usa /private/var/... como ROOT y como clave de cache. Una cache
+// sembrada con la clave sin resolver no la encontraria nunca.
+const tmp = (name) => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `faro-${name}-`)));
 const git = (cwd, ...args) => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: plazo(120000) });
 
 async function cargarAgregado(ROOT) {
