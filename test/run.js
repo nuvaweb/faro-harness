@@ -42,13 +42,28 @@ const MEM_ESPERA = num(process.env.FARO_TEST_MEM_ESPERA_S, 120);
 const args = process.argv.slice(2);
 // --trozo=i/n (#178): solo la parte i de n de la suite completa, repartida por tamaño de fichero (CI en paralelo).
 const argTrozo = args.find((a) => a.startsWith('--trozo='));
-const flags = args.filter((a) => a.startsWith('-') && a !== argTrozo);
+// --afectados=<base> (#8): solo los tests afectados por el cambio frente a <base> (scripts/tests-afectados.js);
+// si la seleccion no es fiable devuelve '*' y se corre la suite completa. Combinable con --trozo.
+const argAfectados = args.find((a) => a.startsWith('--afectados='));
+const flags = args.filter((a) => a.startsWith('-') && a !== argTrozo && a !== argAfectados);
 const posicionales = args.filter((a) => !a.startsWith('-'));
 const completa = posicionales.length === 0;
 const testDir = process.env.FARO_TEST_DIR ? path.resolve(process.env.FARO_TEST_DIR) : __dirname;
 let ficheros = completa
   ? fs.readdirSync(testDir).filter((f) => /\.test\.(mjs|cjs|js)$/.test(f)).sort().map((f) => path.join(testDir, f))
   : posicionales.map((f) => path.resolve(f));
+let soloAfectados = false;
+if (argAfectados) {
+  if (!completa) { console.error('[suite] --afectados no se combina con ficheros sueltos.'); process.exit(2); }
+  const sel = require('../scripts/tests-afectados.js').calcular(path.resolve(__dirname, '..'), argAfectados.slice('--afectados='.length));
+  if (sel === '*') console.log('[suite] afectados: seleccion no fiable o cambio de infraestructura -> suite completa.');
+  else {
+    const total = ficheros.length;
+    ficheros = ficheros.filter((f) => sel.includes(path.basename(f)));
+    soloAfectados = true;
+    console.log(`[suite] afectados: ${ficheros.length} de ${total} ficheros.`);
+  }
+}
 // Un trozo sigue tomando el candado de bateria completa: en CI cada trozo va en su runner; en local, los trozos
 // se lanzan uno tras otro (en paralelo, el segundo sale con 3, como cualquier otra bateria completa).
 if (argTrozo || args.includes('--trozo')) {
@@ -57,6 +72,7 @@ if (argTrozo || args.includes('--trozo')) {
   if (!t || !completa) { console.error('[suite] --trozo invalido: usa --trozo=i/n (1 <= i <= n, con «=») y sin ficheros sueltos.'); process.exit(2); }
   const total = ficheros.length;
   ficheros = dom.trozo(ficheros, t.i, t.n, (f) => fs.statSync(f).size);
+  if (!ficheros.length && soloAfectados) { console.log(`[suite] trozo ${t.i}/${t.n}: sin tests afectados en este trozo.`); process.exit(0); }
   if (!ficheros.length) { console.error(`[suite] trozo ${t.i}/${t.n} vacío: hay ${total} fichero(s) para ${t.n} trozos. Usa menos trozos.`); process.exit(2); }
   console.log(`[suite] trozo ${t.i}/${t.n}: ${ficheros.length} de ${total} ficheros.`);
 }
