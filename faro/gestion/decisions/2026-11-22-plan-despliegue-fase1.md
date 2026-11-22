@@ -316,3 +316,28 @@ Para conectar `aws-identity` del todo:
 - Job programado de drift (`plan -detailed-exitcode` que abre una issue), aplazado desde la fase 1 por ser opcional.
 
 Se escribirá en su propio plan, partiendo de lo que deje la Tarea 9.
+
+---
+
+### Task 9: CI de tests optimizado (petición del usuario: «prepara todo esto»)
+
+**Contexto:** la batería completa corre en el CI y en local solo lo afectado. faro-harness ya tiene `npm run test:afectados`, cuatro trozos en paralelo, solo Ubuntu en el PR y la matriz completa en `main`. Faltan estas piezas:
+
+**Ficheros:**
+- Modificar `.github/workflows/ci.yml`:
+  - añadir `concurrency: { group: ci-${{ github.event.pull_request.number || github.ref }}, cancel-in-progress: ${{ github.event_name == 'pull_request' }} }` a nivel de workflow, para que un push nuevo al PR cancele el run anterior;
+  - el job de release en `main` conserva su propio `concurrency` sin cancelar.
+- Modificar `plugins/faro/hooks/lib/code.js`:
+  - **(bug heredado de la 3.0)** `ramaBase()` (~L364) y los textos que hablan de `develop` (~L348, L399, L622, L644, L648, L805) pasan a usar la rama principal (`RAMA_PRINCIPAL`/`lib/flujo.js`). Hoy, sin `develop`, el cálculo de afectados cae siempre a «todas» y en el PR se ejecuta todo.
+  - La plantilla de CI generada (`ciPlan`) añade el mismo `concurrency` con cancelación solo en el PR. Sus disparadores quedan en `pull_request` a `main`, `push` a `main` y `merge_group`, sin `develop`. Las apps afectadas se filtran contra `origin/<main>` en el PR, y en `push` a `main` se prueban todas.
+- Tests: ampliar `test/ci-generado.test.mjs`. Casos:
+  - la plantilla trae `concurrency` y `cancel-in-progress`;
+  - no aparece `develop` en ningún disparador;
+  - `ramaBase` resuelve `origin/main` en un repo temporal sin `develop`.
+
+**No hacer:** filtros `paths`/`paths-ignore` en el workflow de la puerta. Un check obligatorio que se omite deja el PR esperando y bloquea el auto-merge.
+
+- [ ] Paso 1: tests que fallan.
+- [ ] Paso 2: implementar.
+- [ ] Paso 3: `node test/run.js test/ci-generado.test.mjs test/ci-vigente.test.mjs` y `npm test`, todo en verde.
+- [ ] Paso 4: commit `perf(ci): cancelar runs superados y calcular afectados contra main`.
