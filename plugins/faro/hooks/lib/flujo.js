@@ -135,6 +135,18 @@ function avisoRetirado(cmd, rama = DEFECTO.rama_principal) {
   return `'${cmd}' se retiro en FARO 3.0: ya no hay develop ni publicacion manual. Cada rama entra por PR a ${rama} con auto-merge (harness.js pr crear) y el CI publica tag y release al integrarse.`;
 }
 
+// ETIQUETAS DE LA PETICION: todo PR/MR sale etiquetado. Hereda las etiquetas de la(s) issue(s) que
+// cierra o referencia y, si no hay ninguna, toma la del tipo Conventional de su titulo (mismo catalogo
+// de tipos que las issues: asignar-tarea --tipo).
+const ETIQUETA_DE_TIPO = Object.freeze({ feat: 'requerimiento', fix: 'bug', perf: 'mejora', refactor: 'mejora', revert: 'bug', docs: 'documentacion', chore: 'tarea', test: 'tarea', ci: 'infra', build: 'infra', style: 'tarea' });
+function etiquetasDePeticion({ titulo = '', etiquetasIssue = [] } = {}) {
+  const propias = [...new Set((etiquetasIssue || []).map((e) => String(e || '').trim()).filter(Boolean))];
+  if (propias.length) return propias;
+  const m = String(titulo).match(RE_TITULO);
+  const tipo = m ? (ALIAS_RAMA[m[1]] || m[1]) : null;
+  return [ETIQUETA_DE_TIPO[tipo] || 'tarea'];
+}
+
 // UNA RAMA -> UN PR -> UNA ISSUE (regla firme). Decide si 'pr crear' puede abrir la peticion:
 //  - la rama ya tiene peticion abierta -> no se abre otra: los commits nuevos se SUBEN (git push) y la
 //    peticion existente se actualiza y relanza el CI;
@@ -154,5 +166,5 @@ function validarPeticion({ rama, prAbierto = null, cierra = [] } = {}) {
 
 module.exports = {
   DEFECTO, METODOS, TIPOS, ALIAS_RAMA,
-  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas, validarPeticion,
+  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas, validarPeticion, etiquetasDePeticion, ETIQUETA_DE_TIPO,
 };

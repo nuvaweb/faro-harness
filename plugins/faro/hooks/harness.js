@@ -3868,6 +3868,17 @@ async function cmdPrCrear(m) {
     if (am.ok) console.log(`  Auto-merge (${CFG_FLUJO.metodo_merge}) activado: entra en ${base} cuando el CI pase, y el CI publica la version.`);
     else console.log(`  ⚠ No pude activar el auto-merge${am.msg ? `: ${am.msg}` : ''}. Activalo en la forja (GitHub: Settings > Allow auto-merge) o integra a mano cuando el CI pase.`);
   }
+  // ETIQUETAS: toda peticion sale etiquetada. Hereda las de su(s) issue(s) (cierra o 'Refs' de su rama)
+  // y, sin issue, la del tipo de su titulo. Si la forja lo rechaza se avisa: la peticion ya esta abierta.
+  if (typeof m.etiquetarPr === 'function') {
+    const nums = [...new Set([...refs].map(String).concat(soloRef && nIssue ? [String(nIssue)] : []))];
+    let deIssue = [];
+    if (typeof m.etiquetasIssue === 'function') for (const n of nums) { try { deIssue = deIssue.concat(await m.etiquetasIssue(n)); } catch { /* sin etiquetas */ } }
+    const etiquetas = FLUJO.etiquetasDePeticion({ titulo, etiquetasIssue: deIssue });
+    let et; try { et = await m.etiquetarPr(r.numero || r.iid, etiquetas); } catch (e) { et = { ok: false, msg: e && e.message }; }
+    if (et && et.ok) console.log(`  Etiquetas: ${etiquetas.join(', ')}.`);
+    else console.log(`  ⚠ No pude etiquetar la peticion${et && et.msg ? `: ${et.msg}` : ''}.`);
+  }
   if (soloRef) console.log(`  ⓘ La peticion dice 'Refs #${nIssue}': al fusionarse la tarea #${nIssue} sigue ABIERTA (se avanza, no se termina). Cuando un PR la deje hecha, que diga "Closes #${nIssue}".`);
   else if (nIssue && cuerpoFinal !== cuerpo) console.log(`  Cierra la tarea #${nIssue} al fusionarse ("Closes #${nIssue}", anadido por el harness).`);
   else if (!nIssue) console.log(`  ⚠ La rama '${head}' no esta anclada a ninguna tarea: al fusionarse NO cerrara nada. Si corresponde a una, cierrala tu (harness.js cerrar-tarea <N>).`);

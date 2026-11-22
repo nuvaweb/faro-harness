@@ -102,3 +102,13 @@ test('validarPeticion: una peticion que cerraria varias issues -> un PR por issu
   assert.match(v.motivo, /2 issues \(#7, #9\)/);
   assert.match(v.motivo, /Un PR por issue/);
 });
+
+test('etiquetasDePeticion: hereda las de la issue, sin repetir', () => {
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'feat: x', etiquetasIssue: ['bug', 'app:web', 'bug'] }), ['bug', 'app:web']);
+});
+test('etiquetasDePeticion: sin issue, la del tipo Conventional del titulo', () => {
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'fix(guardas): algo' }), ['bug']);
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'feat!: algo' }), ['requerimiento']);
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'ci: algo' }), ['infra']);
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'titulo libre' }), ['tarea']);
+});

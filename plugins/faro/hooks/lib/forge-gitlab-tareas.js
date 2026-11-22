@@ -45,6 +45,17 @@ module.exports = function (g) {
     const r = await api(issuePath(num));
     return r.ok && r.body ? { ...r, body: issueComun(r.body) } : r;
   }
+  // etiquetasIssue(num) -> ['bug', ...] (nunca lanza). etiquetarPr(iid, etiquetas) -> {ok, msg}: anade
+  // (add_labels) sin quitar las que ya tenga la MR; GitLab crea las que no existan.
+  async function etiquetasIssue(num) {
+    if (!num) return [];
+    try { const r = await api(issuePath(num)); return r.ok && r.body && Array.isArray(r.body.labels) ? r.body.labels.filter(Boolean) : []; } catch { return []; }
+  }
+  async function etiquetarPr(iid, etiquetas) {
+    if (!iid || !etiquetas || !etiquetas.length) return { ok: true };
+    const r = await api(mrPath(`/${iid}`), { method: 'PUT', body: { add_labels: etiquetas.join(',') } });
+    return r.ok ? { ok: true } : { ok: false, msg: (r.body && r.body.message && JSON.stringify(r.body.message)) || `HTTP ${r.status}` };
+  }
   async function issueEstado(num) {
     if (!num) return null;
     const r = await leerIssue(num);
@@ -218,5 +229,5 @@ module.exports = function (g) {
     console.log(`✅ #${num} ampliado con ${subs.length} subtarea(s) — ${r.body.html_url}`);
   }
 
-  return { leerIssue, leerComentarios, adjuntosDeIssue, issueEstado, comentarIssue, cerrarIssue, editarCuerpoIssue, hechosTareas, prsDeRama, prAbiertoDe, pedirRevision, publicarRelease, asegurarEtiquetaApp, cmdCerrarTarea, cmdMoverTarea, cmdAmpliarTarea };
+  return { leerIssue, etiquetasIssue, etiquetarPr, leerComentarios, adjuntosDeIssue, issueEstado, comentarIssue, cerrarIssue, editarCuerpoIssue, hechosTareas, prsDeRama, prAbiertoDe, pedirRevision, publicarRelease, asegurarEtiquetaApp, cmdCerrarTarea, cmdMoverTarea, cmdAmpliarTarea };
 };
