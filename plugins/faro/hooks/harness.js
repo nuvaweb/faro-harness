@@ -3519,7 +3519,7 @@ const NOTA_FILTRO_CI = '# Monorepo: en cada peticion corren solo las apps cambia
 // (wrangler --dry-run, terraform init -backend=false + validate). tflint/checkov dependen del PATH de
 // quien genera, no del runner: enPath=false para que el YAML no varie por maquina.
 // Devuelve { cloudflare: { gates }, terraform: { binario, gates } } con solo lo detectado, o null.
-function iacGates() {
+function iacGates(plan) {
   let cfg = {};
   try { cfg = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG_FILE), 'utf8')); } catch { /* sin config */ }
   const D = require('./lib/despliegue.js');
@@ -3530,6 +3530,8 @@ function iacGates() {
     if (!det) continue;
     const gates = ad.gates(ctx, det);
     if (!gates.length) continue;
+    // El plan ya trae el simulacro de wrangler (con build / deploy:dry): no repetirlo, a secas puede fallar.
+    if (ad.id === 'cloudflare' && plan.gates.some((g) => /^deploy-dry-run/.test(g.name))) continue;
     out[ad.id] = ad.id === 'terraform' ? { binario: det.binario, gates } : { gates };
   }
   return Object.keys(out).length ? out : null;
@@ -3677,8 +3679,8 @@ function cmdCi() {
   }
   const f = forgeInfo();
   let rel, contenido;
-  if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates, iacGates()); }
-  else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates, iacGates()); }
+  if (f.forge === 'gitlab') { rel = '.gitlab-ci.yml'; contenido = gitlabCiYaml(plan, plan.gates, iacGates(plan)); }
+  else if (f.forge === 'github') { rel = path.join('.github', 'workflows', 'ci.yml'); contenido = githubCiYaml(plan, plan.gates, iacGates(plan)); }
   else {
     console.log(`Forja '${f.forge}' sin plantilla de CI conocida: te dejo el YAML aqui para que lo pegues donde corresponda (GitLab: .gitlab-ci.yml · GitHub: .github/workflows/ci.yml):\n\n${gitlabCiYaml(plan, plan.gates)}`);
     return;

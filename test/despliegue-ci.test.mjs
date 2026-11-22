@@ -43,13 +43,10 @@ const sinCredenciales = (yml) => {
   assert.ok(!/TOKEN|API_KEY/.test(yml), `no debe usar tokens:\n${yml}`);
 };
 
-test('github + wrangler.jsonc: job iac con wrangler deploy --dry-run tras instalar dependencias', () => {
+test('github + wrangler.jsonc: el dry-run ya lo trae el plan (gates), iac no lo repite', () => {
   const yml = ghYml(repo(GH, { 'wrangler.jsonc': WRANGLER }));
-  assert.match(yml, /\n {2}iac:\n/);
-  const iac = yml.slice(yml.indexOf('\n  iac:'));
-  assert.ok(iac.includes('npx wrangler deploy --dry-run'), yml);
-  assert.ok(iac.indexOf('npm ci') < iac.indexOf('wrangler deploy --dry-run'), 'instalar antes del dry-run');
-  assert.ok(!iac.includes('setup-terraform'));
+  assert.strictEqual((yml.match(/wrangler deploy --dry-run/g) || []).length, 1, yml);
+  assert.ok(!yml.includes('\n  iac:'), 'sin gates propios no se genera iac');
   sinCredenciales(yml);
 });
 
@@ -69,14 +66,14 @@ test('github + terraform.binario tofu: setup-opentofu', () => {
   sinCredenciales(yml);
 });
 
-test('gitlab: jobs iac con imagen oficial de terraform y con node para wrangler', () => {
+test('gitlab: job iac-terraform con imagen oficial (wrangler no se repite)', () => {
   const yml = glYml(repo(GL, { 'infra/main.tf': TF, 'wrangler.jsonc': WRANGLER }));
   assert.match(yml, /\niac-terraform:\n/);
   assert.ok(yml.includes('hashicorp/terraform'), yml);
   assert.ok(yml.indexOf('init -backend=false') < yml.indexOf('validate'), yml);
-  assert.match(yml, /\niac-cloudflare:\n/);
-  assert.ok(yml.includes('npx wrangler deploy --dry-run'));
-  assert.strictEqual((yml.match(/merge_request_event/g) || []).length, 3, 'cada job corre en MR y en main');
+  assert.ok(!yml.includes('iac-cloudflare'), 'el dry-run de wrangler ya esta en gates');
+  assert.strictEqual((yml.match(/wrangler deploy --dry-run/g) || []).length, 1, yml);
+  assert.strictEqual((yml.match(/merge_request_event/g) || []).length, 2, 'cada job corre en MR y en main');
   assert.ok(!/paths:|changes:/.test(yml), 'sin filtros por ruta');
   sinCredenciales(yml);
 });
@@ -91,4 +88,13 @@ test('gitlab + tofu: imagen de opentofu', () => {
 test('sin IaC el YAML no menciona iac (github y gitlab)', () => {
   assert.ok(!/iac/.test(ghYml(repo(GH, {}))));
   assert.ok(!/iac/.test(glYml(repo(GL, {}))));
+});
+
+test('modo cloudflare con build: el dry-run de wrangler sale una sola vez, tras el build, sin job iac', () => {
+  const dir = repo(GH, { 'wrangler.jsonc': WRANGLER });
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { test: 'vitest run', build: 'vite build' } }));
+  const yml = ghYml(dir);
+  assert.strictEqual((yml.match(/wrangler deploy --dry-run/g) || []).length, 1, yml);
+  assert.ok(yml.includes('npm run build && npx wrangler deploy --dry-run'), yml);
+  assert.ok(!/\n {2}iac:/.test(yml), 'sin gates propios, no se genera iac');
 });
