@@ -345,7 +345,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
 
   // ---- MONOREPO: gates POR APP (#130) ----
   // Cada app corre SUS scripts en SU carpeta, con su propio presupuesto de tiempo. Por defecto solo
-  // las apps AFECTADAS: diff contra develop + lo sin commitear, ampliado con sus dependientes del
+  // las apps AFECTADAS: diff contra la rama principal + lo sin commitear, ampliado con sus dependientes del
   // workspace. Al publicar/consolidar, todas.
   const gitOut = (args) => { try { return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { windowsHide: true, cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } };
   const readJsonAt = (rel) => { const t = readFileSafe(rel); if (!t) return null; try { return JSON.parse(t); } catch { return null; } };
@@ -361,7 +361,9 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   const execEnApp = (pm, a, bin) => (pm === 'npm' ? `${enApp(pm, a)} exec -- ${bin}` : pm === 'yarn' ? `${enApp(pm, a)} run ${bin}` : `${enApp(pm, a)} exec ${bin}`);
   // Ficheros de la RAIZ que cambian el workspace entero: si se tocan, todas las apps.
   const RAIZ_GLOBAL = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json', 'yarn.lock'];
-  const ramaBase = () => ['origin/develop', 'develop'].find((r) => gitOut(['rev-parse', '--verify', '--quiet', `${r}^{commit}`])) || null;
+  // Rama contra la que se calcula lo afectado: la PRINCIPAL del flujo (lib/flujo.js), no una fija.
+  const ramaPrincipal = () => require('./flujo.js').config({ root: ROOT }).rama_principal;
+  const ramaBase = () => [`origin/${ramaPrincipal()}`, ramaPrincipal()].find((r) => gitOut(['rev-parse', '--verify', '--quiet', `${r}^{commit}`])) || null;
   const ficherosCambiados = (base) => {
     const s = new Set();
     for (const args of [['diff', '--name-only', `${base}...HEAD`], ['diff', '--name-only', 'HEAD'], ['ls-files', '--others', '--exclude-standard']]) {
@@ -396,7 +398,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
     }
     if (op.todas) return todas('batería completa');
     const base = ramaBase();
-    if (!base) return todas('sin rama develop con la que comparar');
+    if (!base) return todas(`sin la rama ${ramaPrincipal()} con la que comparar`);
     const ficheros = ficherosCambiados(base);
     const globales = ficheros.filter((f) => RAIZ_GLOBAL.includes(f));
     if (globales.length) return todas(`el cambio toca ${globales.join(', ')} de la raíz`);
@@ -619,7 +621,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
         m === 'monorepo'
           ? '2. Monorepo: cada app en su carpeta del workspace, con su CLAUDE.md y su ARCHITECTURE.md; declárala en faro/config.json > monorepo.apps (node .claude/hooks/harness.js apps).'
           : '2. Back y front SEPARADOS en repos propios (filosofía microservicio); relaciónalos por sys-<slug> (topic).',
-        '3. Despliegue POR GIT (CI): feature/develop -> preview; merge a main (= aprobación) -> producción. Nunca a main directo.',
+        '3. Despliegue POR GIT (CI): rama de trabajo -> PR a la rama principal -> preview; merge a la principal (= aprobación) -> producción. Nunca commit directo a la principal.',
         '4. Secrets: nunca en git (env / secret store / CI). Validación (definición de HECHO): typecheck + test + build -> node .claude/hooks/harness.js gates.',
         ...(m === 'monorepo' ? workersInfraLines() : []),
       ].join('\n') + '\n');
@@ -641,11 +643,11 @@ module.exports = function codeModule(ROOT, ctx = {}) {
       'ARQUITECTURA: back y front SEPARADOS, comunicados por RPC (service bindings / WorkerEntrypoint), no HTTP entre ellos.',
       '',
       'DESPLIEGUE = POR GIT (automatico). Conecta el repo en Cloudflare (Workers Builds) UNA vez:',
-      '- push a develop/feature -> PREVIEW (wrangler versions upload --env staging), sin trafico.',
-      '- merge a main (= aprobacion) -> PRODUCCION (wrangler deploy/versions --env production). Lo hace la CI, no Claude.',
+      '- push a la rama de trabajo -> PREVIEW (wrangler versions upload --env staging), sin trafico.',
+      '- merge a la rama principal (= aprobacion) -> PRODUCCION (wrangler deploy/versions --env production). Lo hace la CI, no Claude.',
       '- Secrets: nunca en git; wrangler secret put / Secrets Store (o via CI). Tras cambiar bindings: cf-typegen.',
       '',
-      'VALIDACION (definicion de HECHO, ciclo git feature->develop->main):',
+      'VALIDACION (definicion de HECHO, ciclo git: rama de trabajo -> PR a la rama principal):',
       '- LOCAL: typecheck + vitest + deploy --dry-run  ->  node .claude/hooks/harness.js gates.',
       '- REMOTA: bindings sin emulacion (Vectorize/AI/Hyperdrive/Browser/Email) con remote:true (wrangler >= 4.37) o wrangler dev --remote (autenticado, lo aplica el usuario).',
       '- SEGURIDAD: audit de dependencias + skill security-review (Web Crypto, timing-safe, secrets fuera del codigo).',
@@ -841,7 +843,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
     const m = mode();
     if (m === 'monorepo') {
       // UN job que instala en la raiz y corre cada gate en las apps CAMBIADAS (+ dependientes) con el
-      // filtro nativo de pnpm '...[origin/<destino>]'; en push a develop/main el filtro va vacio = todas.
+      // filtro nativo de pnpm '...[origin/<destino>]'; en push a la rama principal el filtro va vacio = todas.
       // (Un job por app con 'paths' no sirve en GitHub: 'paths' filtra el workflow entero, no un job.)
       const pm = pkgManager();
       const lista = appsWs();

@@ -18,6 +18,8 @@
 name: ci
 on:
   pull_request:
+    # Un borrador no consume CI: arranca al marcarlo listo (ready_for_review).
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   push:
     branches: [main]
@@ -35,6 +37,7 @@ env:
 jobs:
   # Escalon 1: barato y rapido. El nombre se mantiene: lo exige la regla de la rama.
   test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +60,7 @@ jobs:
   # Escalon 2: Windows, solo si Ubuntu paso (rutas, windowsHide, taskkill...).
   test-windows:
     needs: test
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     strategy:
       fail-fast: true
       matrix:
@@ -76,7 +80,7 @@ jobs:
 
   # Aviso (no rompe): la version de plugin.json sube lo que piden los commits Conventional del PR.
   version:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

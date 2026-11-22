@@ -3658,10 +3658,17 @@ function githubCiYaml(plan, gates, iac) {
     'name: CI (gates de FARO)',
     'on:',
     '  pull_request:',
+    '    types: [opened, synchronize, reopened, ready_for_review]',
     '  push:',
-    '    branches: [main]',
+    `    branches: [${RAMA_PRINCIPAL}]`,
+    '  merge_group:',
+    // un push nuevo al mismo PR cancela el run superado; en la rama principal nunca se cancela
+    'concurrency:',
+    '  group: ci-${{ github.event.pull_request.number || github.ref }}',
+    "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
     'jobs:',
     '  gates:',
+    "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft",
     '    runs-on: ubuntu-latest',
     ...(plan.filtroCambios ? ['    env:', `      ${plan.filtroCambios}: "${'$'}{{ github.event_name == 'pull_request' && format('--filter=...[origin/{0}]', github.base_ref) || '' }}"`] : []),
     '    steps:',
@@ -3687,7 +3694,7 @@ function githubCiYaml(plan, gates, iac) {
   if (iac) {
     // Job aparte, sin filtros paths (un check obligatorio omitido bloquea el auto-merge) y sin credenciales.
     const conPasos = (p) => { lines.push(`      - uses: ${p.uses}`); if (p.with) { lines.push('        with:'); for (const [k, v] of Object.entries(p.with)) lines.push(`          ${k}: ${ymlValor(v)}`); } };
-    lines.push('  iac:', '    runs-on: ubuntu-latest', '    steps:', `      - uses: ${ACCION_CHECKOUT}`);
+    lines.push('  iac:', "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft", '    runs-on: ubuntu-latest', '    steps:', `      - uses: ${ACCION_CHECKOUT}`);
     if (iac.terraform) lines.push(`      - uses: ${iac.terraform.binario === 'tofu' ? 'opentofu/setup-opentofu@v1' : 'hashicorp/setup-terraform@v3'}`);
     if (iac.cloudflare) {
       for (const p of plan.runtime.ghPre || []) conPasos(p);
