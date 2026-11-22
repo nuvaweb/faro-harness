@@ -335,6 +335,8 @@ Se escribirá en su propio plan, partiendo de lo que deje la Tarea 9.
   - no aparece `develop` en ningún disparador;
   - `ramaBase` resuelve `origin/main` en un repo temporal sin `develop`.
 
+**Borradores:** en `ci.yml` y en la plantilla generada, `pull_request` con `types: [opened, synchronize, reopened, ready_for_review]`, y los jobs de PR con `if: github.event_name != 'pull_request' || !github.event.pull_request.draft`. Un PR en borrador no consume CI. Test: la plantilla incluye `ready_for_review` y la condición de borrador.
+
 **No hacer:** filtros `paths`/`paths-ignore` en el workflow de la puerta. Un check obligatorio que se omite deja el PR esperando y bloquea el auto-merge.
 
 - [ ] Paso 1: tests que fallan.
