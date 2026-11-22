@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 3.0.4 — 2026-11-22
+
+### Corregido
+- **La suite pasa en macOS y Windows** (#5). El gobernador de recursos mide en macOS la memoria disponible (incluye la caché inactiva y purgable), no solo `os.freemem()`, que allí da ~100 MB y paraba los tests pesados. Los procesos node se reconocen por el nombre del ejecutable, no por la ruta. En Windows, las rutas de los worktrees se comparan con `realpath` nativo (nombres cortos 8.3). El test de resumen siembra la caché con la ruta real del repo temporal.
+
 ## 3.0.3 — 2026-11-22
 
 ### Corregido
