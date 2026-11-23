@@ -3559,24 +3559,51 @@ function iacGates(plan) {
     if (!gates.length) continue;
     // El plan ya trae el simulacro de wrangler (con build / deploy:dry): no repetirlo, a secas puede fallar.
     if (ad.id === 'cloudflare' && plan.gates.some((g) => /^deploy-dry-run/.test(g.name))) continue;
-    out[ad.id] = ad.id === 'terraform' ? { binario: det.binario, gates } : { gates };
+    out[ad.id] = ad.id === 'terraform' ? { binario: det.binario, dir: det.dir || '', gates } : { gates };
   }
   return Object.keys(out).length ? out : null;
 }
 // Un job por herramienta (cada una con su imagen), en el mismo stage y con las mismas reglas que 'gates'.
 const GITLAB_REGLAS = ['  rules:', '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"', `    - if: $CI_COMMIT_BRANCH == "${RAMA_PRINCIPAL}"`];
+// CACHE en GitLab (#18): una entrada = forma de mapa (la de siempre); varias = lista. La de dependencias va
+// por lockfile; la de tareas (Turborepo/Nx) por rama, con la de la rama principal de respaldo.
+function gitlabCacheYaml(entradas) {
+  const cuerpo = (c) => [
+    ...(c.files ? ['key:', '  files:', ...c.files.map((f) => `    - ${f}`)] : [`key: ${c.key}`]),
+    ...(c.fallback ? ['fallback_keys:', ...c.fallback.map((k) => `  - ${k}`)] : []),
+    'paths:', ...c.paths.map((p) => `  - ${p}`),
+  ];
+  if (!entradas.length) return [];
+  if (entradas.length === 1) return ['  cache:', ...cuerpo(entradas[0]).map((l) => `    ${l}`)];
+  return ['  cache:', ...entradas.flatMap((c) => cuerpo(c).map((l, i) => (i ? `      ${l}` : `    - ${l}`)))];
+}
+function gitlabCachesDe(rt, conTareas) {
+  const out = [];
+  if (rt.gitlabCache) out.push({ files: [].concat(rt.gitlabCache.key), paths: rt.gitlabCache.paths });
+  if (conTareas && rt.cacheTareas) out.push({ key: `${rt.cacheTareas.id}-$CI_COMMIT_REF_SLUG`, fallback: [`${rt.cacheTareas.id}-$CI_DEFAULT_BRANCH`], paths: [rt.cacheTareas.dir] });
+  return out;
+}
+const gitlabVarsYaml = (vars) => Object.entries(vars || {}).map(([k, v]) => `    ${k}: ${JSON.stringify(String(v))}`);
 function gitlabIacJobs(plan, iac) {
   if (!iac) return [];
   const out = [];
   if (iac.terraform) {
     const tofu = iac.terraform.binario === 'tofu';
+    // Providers en caché por el lock (#18): terraform init deja de descargarlos en cada pipeline.
+    const lock = (iac.terraform.dir ? `${iac.terraform.dir}/` : '') + '.terraform.lock.hcl';
     out.push('', `iac-${tofu ? 'opentofu' : 'terraform'}:`, '  stage: gates',
       '  image:', `    name: ${tofu ? 'ghcr.io/opentofu/opentofu:latest' : 'hashicorp/terraform:latest'}`, '    entrypoint: [""]',
+      '  variables:', ...gitlabVarsYaml({ TF_PLUGIN_CACHE_DIR: '$CI_PROJECT_DIR/.terraform-plugins' }),
+      ...gitlabCacheYaml([{ files: [lock], paths: ['.terraform-plugins'] }]),
+      '  before_script:', '    - mkdir -p "$TF_PLUGIN_CACHE_DIR"',
       '  script:', ...iac.terraform.gates.map((g) => `    - ${g.run}`), ...GITLAB_REGLAS);
   }
   if (iac.cloudflare) {
     const before = plan.runtime.gitlabBefore || [];
+    const vars = gitlabVarsYaml(plan.runtime.gitlabVars);
     out.push('', 'iac-cloudflare:', '  stage: gates', `  image: ${plan.runtime.gitlabImage || 'node:lts'}`,
+      ...(vars.length ? ['  variables:', ...vars] : []),
+      ...gitlabCacheYaml(gitlabCachesDe(plan.runtime, false)),
       ...(before.length ? ['  before_script:', ...before.map((c) => `    - ${c}`)] : []),
       '  script:', ...(plan.install ? [`    - ${plan.install}`] : []), ...iac.cloudflare.gates.map((g) => `    - ${g.run}`), ...GITLAB_REGLAS);
   }
@@ -3590,8 +3617,8 @@ function gitlabCiYaml(plan, gates, iac) {
   const script = [...(plan.install ? [plan.install] : []), ...filtro, ...gates.map((g) => g.run)];
   // Gestor que no trae la imagen (pnpm, #143): before_script lo habilita y cache guarda su store.
   const before = plan.runtime.gitlabBefore || [];
-  const cache = plan.runtime.gitlabCache;
   const variables = [
+    ...gitlabVarsYaml(plan.runtime.gitlabVars),
     ...(plan.filtroCambios ? [`    GIT_DEPTH: ${ymlValor('0')}`] : []),
     // corepack pregunta antes de descargar el gestor; en CI no hay nadie que conteste
     ...(before.some((l) => /corepack/.test(l)) ? [`    COREPACK_ENABLE_DOWNLOAD_PROMPT: ${ymlValor('0')}`] : []),
@@ -3614,7 +3641,7 @@ function gitlabCiYaml(plan, gates, iac) {
     '  stage: gates',
     `  image: ${img}`,
     ...(variables.length ? ['  variables:', ...variables] : []),
-    ...(cache ? ['  cache:', '    key:', '      files:', `        - ${cache.key}`, '    paths:', ...cache.paths.map((p) => `      - ${p}`)] : []),
+    ...gitlabCacheYaml(gitlabCachesDe(plan.runtime, true)),
     ...(before.length ? ['  before_script:', ...before.map((c) => `    - ${c}`)] : []),
     '  script:',
     ...script.map((c) => `    - ${c}`),
@@ -3626,6 +3653,8 @@ function gitlabCiYaml(plan, gates, iac) {
 // actions/checkout en su mayor vigente (github.com/actions/checkout/releases, verificado 2026-10-11: v7,
 // node24, runner >= 2.327.1: los hospedados ya lo cumplen). setup-node y pnpm/action-setup, en lib/code.js.
 const ACCION_CHECKOUT = 'actions/checkout@v7';
+// actions/cache en su mayor vigente (github.com/actions/cache/releases, verificado 2026-11-23: v6).
+const ACCION_CACHE = 'actions/cache@v6';
 // Pasos de runtime que un CI propio necesita ademas de instalar y correr gates (habilitar pnpm, setup de
 // Node): se listan en el aviso de «mergea a mano» para que no falte el que habilita el gestor.
 function pasosRuntimeManuales(plan, forge) {
@@ -3635,9 +3664,12 @@ function pasosRuntimeManuales(plan, forge) {
   if (forge === 'github') {
     for (const p of rt.ghPre || []) out.push('paso ' + p.uses + (p.with ? ' con ' + con(p.with) : '') + ' (antes de setup-node)');
     if (rt.ghSetup) out.push('paso ' + rt.ghSetup.uses + ' con ' + con(rt.ghSetup.with));
+    if (rt.cacheTareas) out.push('paso actions/cache@v6 con path: ' + rt.cacheTareas.dir + ' (caché de ' + rt.cacheTareas.id + ': no repite tareas ya validadas)');
   } else {
     for (const l of rt.gitlabBefore || []) out.push('before_script: ' + l);
-    if (rt.gitlabCache) out.push('cache: key ' + rt.gitlabCache.key + ', paths ' + rt.gitlabCache.paths.join(', '));
+    for (const [k, v] of Object.entries(rt.gitlabVars || {})) out.push('variables: ' + k + '=' + v);
+    if (rt.gitlabCache) out.push('cache: key ' + [].concat(rt.gitlabCache.key).join(', ') + ', paths ' + rt.gitlabCache.paths.join(', '));
+    if (rt.cacheTareas) out.push('cache: key ' + rt.cacheTareas.id + '-$CI_COMMIT_REF_SLUG, paths ' + rt.cacheTareas.dir + ' (caché de ' + rt.cacheTareas.id + ')');
   }
   return out;
 }
@@ -3671,6 +3703,11 @@ function githubCiYaml(plan, gates, iac) {
     // el filtro por cambios compara con la rama destino: necesita la historia, no un clon superficial
     ...(plan.filtroCambios ? ['        with:', '          fetch-depth: 0'] : []),
   ];
+  // Caché de Turborepo/Nx (#18): clave por commit y restauración de la más reciente; una tarea con las mismas
+  // entradas ya validada no se repite.
+  const t = plan.runtime.cacheTareas;
+  if (t) lines.push(`      - uses: ${ACCION_CACHE}`, '        with:', `          path: ${t.dir}`,
+    `          key: ${t.id}-${'$'}{{ runner.os }}-${'$'}{{ github.sha }}`, `          restore-keys: ${t.id}-${'$'}{{ runner.os }}-`);
   // Gestor que no trae el runner (pnpm, #143): va ANTES de setup-node, que lo necesita para cachear.
   for (const p of plan.runtime.ghPre || []) {
     lines.push(`      - uses: ${p.uses}`);
@@ -3690,7 +3727,13 @@ function githubCiYaml(plan, gates, iac) {
     // Job aparte, sin filtros paths (un check obligatorio omitido bloquea el auto-merge) y sin credenciales.
     const conPasos = (p) => { lines.push(`      - uses: ${p.uses}`); if (p.with) { lines.push('        with:'); for (const [k, v] of Object.entries(p.with)) lines.push(`          ${k}: ${ymlValor(v)}`); } };
     lines.push('  iac:', "    if: github.event_name != 'pull_request' || !github.event.pull_request.draft", '    runs-on: ubuntu-latest', '    steps:', `      - uses: ${ACCION_CHECKOUT}`);
-    if (iac.terraform) lines.push(`      - uses: ${iac.terraform.binario === 'tofu' ? 'opentofu/setup-opentofu@v1' : 'hashicorp/setup-terraform@v3'}`);
+    if (iac.terraform) {
+      lines.push(`      - uses: ${iac.terraform.binario === 'tofu' ? 'opentofu/setup-opentofu@v1' : 'hashicorp/setup-terraform@v3'}`);
+      // Providers en caché por el lock (#18): init deja de descargarlos en cada run.
+      lines.push('      - run: mkdir -p "$RUNNER_TEMP/tf-plugins" && echo "TF_PLUGIN_CACHE_DIR=$RUNNER_TEMP/tf-plugins" >> "$GITHUB_ENV"',
+        `      - uses: ${ACCION_CACHE}`, '        with:', `          path: ${'$'}{{ runner.temp }}/tf-plugins`,
+        `          key: tf-${'$'}{{ runner.os }}-${'$'}{{ hashFiles('**/.terraform.lock.hcl') }}`);
+    }
     if (iac.cloudflare) {
       for (const p of plan.runtime.ghPre || []) conPasos(p);
       if (setup) conPasos(setup);
