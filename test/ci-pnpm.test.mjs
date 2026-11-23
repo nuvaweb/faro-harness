@@ -96,13 +96,13 @@ test('ciPlan monorepo pnpm: tambien habilita pnpm (y conserva el filtro de apps 
   assert.ok(plan.runtime.gitlabBefore.some((l) => /corepack enable/.test(l)));
 });
 
-test('NO REGRESION: ciPlan npm y yarn no llevan pasos de pnpm ni cache nueva', () => {
+test('NO REGRESION: ciPlan npm y yarn no llevan pasos de pnpm (su caché es la de su gestor, #18)', () => {
   for (const pm of ['npm', 'yarn']) {
     const plan = codeModule(simple({ pm })).ciPlan();
     assert.ok(!plan.runtime.ghPre || !plan.runtime.ghPre.length, `${pm}: ${JSON.stringify(plan.runtime)}`);
-    assert.deepStrictEqual(plan.runtime.ghSetup, { uses: 'actions/setup-node@v7', with: { 'node-version': '22' } }, pm);
+    assert.deepStrictEqual(plan.runtime.ghSetup, { uses: 'actions/setup-node@v7', with: { 'node-version': '22', cache: pm } }, pm);
     assert.ok(!plan.runtime.gitlabBefore || !plan.runtime.gitlabBefore.length, pm);
-    assert.ok(!plan.runtime.gitlabCache, pm);
+    assert.doesNotMatch(JSON.stringify(plan.runtime.gitlabCache), /pnpm/, pm);
   }
 });
 
@@ -152,11 +152,11 @@ test('NO REGRESION: el CI generado para npm no cambia (ni pnpm/action-setup ni b
   iniciarGit(gh, 'git@github.com:org/n.git');
   assert.strictEqual(harness(gh, 'ci').status, 0);
   const y1 = fs.readFileSync(path.join(gh, '.github', 'workflows', 'ci.yml'), 'utf8');
-  assert.doesNotMatch(y1, /pnpm|cache:/, y1);
+  assert.doesNotMatch(y1, /pnpm/, y1);
   assert.match(y1, /- run: npm ci/, y1);
   const gl = simple({ pm: 'npm' });
   iniciarGit(gl, 'git@gitlab.com:g/n.git');
   assert.strictEqual(harness(gl, 'ci').status, 0);
   const y2 = fs.readFileSync(path.join(gl, '.gitlab-ci.yml'), 'utf8');
-  assert.doesNotMatch(y2, /before_script|corepack|cache:/, y2);
+  assert.doesNotMatch(y2, /before_script|corepack|pnpm/, y2);
 });

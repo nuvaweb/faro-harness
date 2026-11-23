@@ -257,6 +257,7 @@
           "test/ci-fallos.test.mjs",
           "test/skill-desplegar.test.mjs",
           "test/ci-pnpm.test.mjs",
+          "test/ci-cache.test.mjs",
           "test/ci-vigente.test.mjs",
           "test/gates-por-app.test.mjs",
           "test/monorepo-apps.test.mjs",

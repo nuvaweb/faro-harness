@@ -93,7 +93,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   // El template 'app' es neutral: no impone lenguaje; code.js detecta el stack que el usuario trae por su MANIFIESTO.
   const STACK_MANIFESTS = [
     ['node', 'package.json'], ['python', 'pyproject.toml'], ['python', 'requirements.txt'], ['python', 'setup.py'],
-    ['go', 'go.mod'], ['rust', 'Cargo.toml'], ['java', 'pom.xml'], ['java', 'build.gradle'],
+    ['go', 'go.mod'], ['rust', 'Cargo.toml'], ['java', 'pom.xml'], ['java', 'build.gradle'], ['java', 'build.gradle.kts'],
     ['ruby', 'Gemfile'], ['php', 'composer.json'], ['dotnet', 'global.json'],
   ];
   const detectStack = () => { for (const [s, f] of STACK_MANIFESTS) if (fs.existsSync(path.join(ROOT, f))) return s; return null; };
@@ -821,10 +821,10 @@ module.exports = function codeModule(ROOT, ctx = {}) {
   // ghSetup:null = el runner de GitHub ya trae ese lenguaje preinstalado (rust en ubuntu-latest).
   const RUNTIMES = {
     node: { gitlabImage: (v) => `node:${v}`, ghSetup: (v) => ({ uses: 'actions/setup-node@v7', with: { 'node-version': v } }) },
-    python: { gitlabImage: () => 'python:3.12-slim', ghSetup: () => ({ uses: 'actions/setup-python@v6', with: { 'python-version': '3.12' } }) },
-    go: { gitlabImage: () => 'golang:1.23', ghSetup: () => ({ uses: 'actions/setup-go@v5', with: { 'go-version': '1.23' } }) },
+    python: { gitlabImage: () => 'python:3.12-slim', ghSetup: () => ({ uses: 'actions/setup-python@v7', with: { 'python-version': '3.12' } }) },
+    go: { gitlabImage: () => 'golang:1.23', ghSetup: () => ({ uses: 'actions/setup-go@v7', with: { 'go-version': '1.23' } }) },
     rust: { gitlabImage: () => 'rust:1.82', ghSetup: () => null },
-    java: { gitlabImage: () => 'eclipse-temurin:21-jdk', ghSetup: () => ({ uses: 'actions/setup-java@v5', with: { distribution: 'temurin', 'java-version': '21' } }) },
+    java: { gitlabImage: () => 'eclipse-temurin:21-jdk', ghSetup: () => ({ uses: 'actions/setup-java@v6', with: { distribution: 'temurin', 'java-version': '21' } }) },
     ruby: { gitlabImage: () => 'ruby:3.3', ghSetup: () => ({ uses: 'ruby/setup-ruby@v1', with: { 'ruby-version': '3.3' } }) },
     php: { gitlabImage: () => 'php:8.3-cli', ghSetup: () => ({ uses: 'shivammathur/setup-php@v2', with: { 'php-version': '8.3' } }) },
     dotnet: { gitlabImage: () => 'mcr.microsoft.com/dotnet/sdk:8.0', ghSetup: () => ({ uses: 'actions/setup-dotnet@v5', with: { 'dotnet-version': '8.0.x' } }) },
@@ -833,6 +833,52 @@ module.exports = function codeModule(ROOT, ctx = {}) {
     const r = RUNTIMES[lang];
     if (!r) return { lang: null, gitlabImage: null, ghSetup: null }; // lenguaje sin manifiesto reconocido: el comando declarado manda, el runtime lo elige el equipo
     return { lang, gitlabImage: r.gitlabImage(version), ghSetup: r.ghSetup(version) };
+  };
+
+  // CACHE DEL CI (#18), la estandar de cada stack y con el LOCKFILE como clave (si cambia, se invalida):
+  // - GitHub: el mecanismo nativo de la accion de setup (cache: npm|yarn|pip|maven|gradle, bundler-cache;
+  //   setup-go cachea por defecto). SIN lockfile no se pide: setup-node/setup-python FALLAN si no lo hay.
+  // - GitLab: la carpeta de caché del gestor dentro del proyecto (variable de entorno) + cache: por lockfile.
+  // pnpm ya la trae conGestor. uv/poetry no: la caché de pip no les sirve y su setup no es de este runtime.
+  const hayF = (f) => fs.existsSync(path.join(ROOT, f));
+  const dep = (gh, key, dir, vars) => ({ gh, key, dir, vars });
+  const CACHE_DEPS = {
+    node: (pm) => {
+      if (pm === 'npm' && hayF('package-lock.json')) return dep({ cache: 'npm' }, 'package-lock.json', '.npm', { npm_config_cache: '$CI_PROJECT_DIR/.npm' });
+      if (pm === 'yarn' && hayF('yarn.lock')) return dep({ cache: 'yarn' }, 'yarn.lock', '.yarn-cache', { YARN_CACHE_FOLDER: '$CI_PROJECT_DIR/.yarn-cache' });
+      return null;
+    },
+    python: () => {
+      if (hayF('uv.lock') || hayF('poetry.lock')) return null;
+      const pip = { PIP_CACHE_DIR: '$CI_PROJECT_DIR/.pip-cache' };
+      if (hayF('requirements.txt')) return dep({ cache: 'pip' }, 'requirements.txt', '.pip-cache', pip);
+      if (hayF('pyproject.toml')) return dep({ cache: 'pip', 'cache-dependency-path': 'pyproject.toml' }, 'pyproject.toml', '.pip-cache', pip);
+      return null;
+    },
+    go: () => (hayF('go.sum') ? dep({}, 'go.sum', '.go-mod', { GOMODCACHE: '$CI_PROJECT_DIR/.go-mod' }) : null),
+    java: () => {
+      if (hayF('pom.xml')) return dep({ cache: 'maven' }, 'pom.xml', '.m2/repository', { MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository' });
+      const g = ['build.gradle.kts', 'build.gradle'].find(hayF);
+      return g ? dep({ cache: 'gradle' }, g, '.gradle', { GRADLE_USER_HOME: '$CI_PROJECT_DIR/.gradle' }) : null;
+    },
+    ruby: () => (hayF('Gemfile.lock') ? dep({ 'bundler-cache': true }, 'Gemfile.lock', 'vendor/bundle', { BUNDLE_PATH: 'vendor/bundle' }) : null),
+  };
+  // Turborepo/Nx calculan el hash EXACTO de las entradas de cada tarea: con su caché restaurada, una tarea
+  // ya validada (mismo codigo) no se repite. Es la unica forma segura de saltar tests ya pasados.
+  const cacheTareasDe = () => (hayF('turbo.json') ? { id: 'turbo', dir: '.turbo/cache' } : hayF('nx.json') ? { id: 'nx', dir: '.nx/cache' } : null);
+  const conCache = (rt) => {
+    if (!rt || !rt.lang) return rt;
+    const pm = rt.lang === 'node' ? pkgManager() : null;
+    const d = CACHE_DEPS[rt.lang] ? CACHE_DEPS[rt.lang](pm) : null;
+    const out = { ...rt };
+    if (d) {
+      if (out.ghSetup) out.ghSetup = { ...out.ghSetup, with: { ...out.ghSetup.with, ...d.gh } };
+      out.gitlabCache = { key: d.key, paths: [d.dir] };
+      out.gitlabVars = d.vars;
+    }
+    const t = rt.lang === 'node' ? cacheTareasDe() : null;
+    if (t) out.cacheTareas = t;
+    return out;
   };
 
   // PLAN DE CI: los MISMOS gates que corre 'harness.js gates', en forma de {name, run}, mas el
@@ -853,7 +899,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
       for (const a of lista) if (a.worker && !placeholdersApp(a)) gates.push({ name: `deploy-dry-run-${a.id}`, run: simulacroApp(a).run });
       const dg = declaredGates();
       if (dg) gates.push({ name: 'faro-gates', run: dg });
-      return { mode: m, runtime: conGestor(runtimeDe('node', nodeVersion()), pm), install: instalarCmd(pm), gates, filtroCambios: pm === 'pnpm' ? 'FARO_FILTRO' : null };
+      return { mode: m, runtime: conCache(conGestor(runtimeDe('node', nodeVersion()), pm)), install: instalarCmd(pm), gates, filtroCambios: pm === 'pnpm' ? 'FARO_FILTRO' : null };
     }
     if (m === 'cloudflare') {
       const pm = pkgManager();
@@ -862,7 +908,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
       if (hasScript('lint')) gates.push({ name: 'lint', run: `${pm} run lint` });
       if (hasScript('test')) gates.push({ name: 'test', run: `${pm} run test` });
       if (!wranglerPlaceholders().length) gates.push({ name: 'deploy-dry-run', run: simulacroDespliegue().run });
-      return { mode: m, runtime: conGestor(runtimeDe('node', nodeVersion()), pm), install: instalarCmd(pm), gates };
+      return { mode: m, runtime: conCache(conGestor(runtimeDe('node', nodeVersion()), pm)), install: instalarCmd(pm), gates };
     }
     if (esGenerico(m)) {
       const gates = [];
@@ -875,7 +921,7 @@ module.exports = function codeModule(ROOT, ctx = {}) {
       }
       const dg = declaredGates();
       if (dg) gates.push({ name: 'faro-gates', run: dg });
-      return { mode: m, runtime, install, gates };
+      return { mode: m, runtime: conCache(runtime), install, gates };
     }
     return { mode: 'none', runtime: { lang: null, gitlabImage: null, ghSetup: null }, install: null, gates: [] };
   };

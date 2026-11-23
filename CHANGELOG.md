@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## 3.2.0 — 2026-11-23
+
+### Añadido
+- **Caché en el CI generado** (`harness.js ci`, GitHub y GitLab), con el lockfile como clave: npm, yarn, pip, Maven, Gradle, Bundler y módulos de Go (pnpm ya la tenía). En GitHub usa la caché nativa de cada acción de setup; en GitLab, la carpeta del gestor dentro del proyecto. Sin lockfile no se pide caché, porque las acciones de setup fallarían. uv y poetry quedan fuera.
+- **Tareas ya validadas no se repiten** si el repo usa Turborepo o Nx: se restaura su caché (`.turbo/cache`, `.nx/cache`), que calcula el hash exacto de las entradas de cada tarea.
+- **Providers de Terraform en caché** en el job de IaC (`TF_PLUGIN_CACHE_DIR`, clave = `.terraform.lock.hcl`): `terraform init` deja de descargarlos en cada run.
+- Si el repo ya tiene CI, el aviso de «mergea a mano» incluye las líneas de caché.
+
+### Cambiado
+- `setup-python` v7, `setup-go` v7 y `setup-java` v6 (mayor vigente). Se detecta también `build.gradle.kts`.
+
 ## 3.1.0 — 2026-11-22
 
 ### Añadido
