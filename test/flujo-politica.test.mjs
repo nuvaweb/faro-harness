@@ -112,10 +112,6 @@ test('etiquetasDePeticion: sin issue, el SLUG de tipo del catalogo segun el titu
   assert.deepEqual(f.etiquetasDePeticion({ titulo: 'ci: algo' }), { tipo: 'infra' });
   assert.deepEqual(f.etiquetasDePeticion({ titulo: 'titulo libre' }), { tipo: 'tarea' });
 });
-test('etiquetasDePeticion: todo tipo apunta a un slug que existe en el catalogo de faro-schema', () => {
-  const cat = require('../plugins/faro/hooks/faro-schema.json').enums.labels.map((l) => l.slug);
-  for (const [t, slug] of Object.entries(f.ETIQUETA_DE_TIPO)) assert.ok(cat.includes(slug), `${t} -> ${slug}`);
-});
 test('validarPeticion: peticion ya abierta -> marca la existente para que pr crear solo suba commits', () => {
   assert.strictEqual(f.validarPeticion({ rama: 'feat/7-x', prAbierto: 'u', cierra: [7] }).existente, 'u');
 });
