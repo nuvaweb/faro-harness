@@ -3889,7 +3889,8 @@ async function cmdPrCrear(m) {
   }
   if (soloRef) console.log(`  ⓘ La peticion dice 'Refs #${nIssue}': al fusionarse la tarea #${nIssue} sigue ABIERTA (se avanza, no se termina). Cuando un PR la deje hecha, que diga "Closes #${nIssue}".`);
   else if (nIssue && cuerpoFinal !== cuerpo) console.log(`  Cierra la tarea #${nIssue} al fusionarse ("Closes #${nIssue}", anadido por el harness).`);
-  else if (!nIssue) console.log(`  ⚠ La rama '${head}' no esta anclada a ninguna tarea: al fusionarse NO cerrara nada. Si corresponde a una, cierrala tu (harness.js cerrar-tarea <N>).`);
+  else if (!nIssue && refs.size) console.log(`  Cierra ${[...refs].map((n) => `#${n}`).join(', ')} al fusionarse ("Closes" del cuerpo).`);
+  else if (!nIssue && !refs.size) console.log(`  ⚠ La rama '${head}' no esta anclada a ninguna tarea: al fusionarse NO cerrara nada. Si corresponde a una, cierrala tu (harness.js cerrar-tarea <N>).`);
 }
 
 // terminar — UNA orden que cierra el ciclo del trabajo de esta rama: commitea lo que quede, valida y
