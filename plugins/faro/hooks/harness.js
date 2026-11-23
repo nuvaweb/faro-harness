@@ -3838,6 +3838,13 @@ async function cmdPrCrear(m) {
     let prAbierto = null;
     if (typeof m.prAbiertoDe === 'function') { try { prAbierto = await m.prAbiertoDe(head); } catch { prAbierto = null; } }
     const v = FLUJO.validarPeticion({ rama: head, prAbierto, cierra: refs });
+    // Ya abierta: repetir 'pr crear' (reintento, commits nuevos) solo sube lo pendiente y termina bien.
+    if (v.existente) {
+      const p = publicarRamaSiHaceFalta(head);
+      if (!p.ok) { console.log(`La peticion ya existe (${v.existente}) pero no pude subir los commits: ${p.msg}`); process.exit(1); }
+      console.log(`✅ La rama '${head}' ya tiene su peticion: ${v.existente}  ·  ${p.publicada ? 'commits nuevos subidos: se actualiza y el CI se relanza' : 'ya estaba al dia'}. No se abre otra (una rama = un PR).`);
+      return;
+    }
     if (!v.ok) { console.log(`No abro la peticion: ${v.motivo}`); process.exit(1); }
   }
   // La rama TIENE que estar publicada antes: la forja no abre una peticion desde algo que no ha
@@ -3874,9 +3881,10 @@ async function cmdPrCrear(m) {
     const nums = [...new Set([...refs].map(String).concat(soloRef && nIssue ? [String(nIssue)] : []))];
     let deIssue = [];
     if (typeof m.etiquetasIssue === 'function') for (const n of nums) { try { deIssue = deIssue.concat(await m.etiquetasIssue(n)); } catch { /* sin etiquetas */ } }
-    const etiquetas = FLUJO.etiquetasDePeticion({ titulo, etiquetasIssue: deIssue });
-    let et; try { et = await m.etiquetarPr(r.numero || r.iid, etiquetas); } catch (e) { et = { ok: false, msg: e && e.message }; }
-    if (et && et.ok) console.log(`  Etiquetas: ${etiquetas.join(', ')}.`);
+    const pide = FLUJO.etiquetasDePeticion({ titulo, etiquetasIssue: deIssue });
+    let et; try { et = await m.etiquetarPr(r.numero || r.iid, pide); } catch (e) { et = { ok: false, msg: e && e.message }; }
+    if (et && et.ok && et.etiquetas && et.etiquetas.length) console.log(`  Etiquetas: ${et.etiquetas.join(', ')}.`);
+    else if (et && et.ok) console.log('  ⚠ La peticion sale sin etiqueta: el tipo no esta en el catalogo de la forja.');
     else console.log(`  ⚠ No pude etiquetar la peticion${et && et.msg ? `: ${et.msg}` : ''}.`);
   }
   if (soloRef) console.log(`  ⓘ La peticion dice 'Refs #${nIssue}': al fusionarse la tarea #${nIssue} sigue ABIERTA (se avanza, no se termina). Cuando un PR la deje hecha, que diga "Closes #${nIssue}".`);

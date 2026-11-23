@@ -136,26 +136,28 @@ function avisoRetirado(cmd, rama = DEFECTO.rama_principal) {
 }
 
 // ETIQUETAS DE LA PETICION: todo PR/MR sale etiquetado. Hereda las etiquetas de la(s) issue(s) que
-// cierra o referencia y, si no hay ninguna, toma la del tipo Conventional de su titulo (mismo catalogo
-// de tipos que las issues: asignar-tarea --tipo).
+// cierra o referencia; si no hay ninguna, el SLUG de tipo del catalogo (faro-schema enums.labels) segun
+// el tipo Conventional del titulo. El slug NO es el nombre de la etiqueta: cada forja lo resuelve igual
+// que con las issues (GitHub: 'bug'/'enhancement' nativas o 'faro:<slug>'; GitLab: 'tipo::<slug>').
+// Devuelve { etiquetas: [...] } (heredadas, nombres reales) o { tipo: '<slug>' }.
 const ETIQUETA_DE_TIPO = Object.freeze({ feat: 'requerimiento', fix: 'bug', perf: 'mejora', refactor: 'mejora', revert: 'bug', docs: 'documentacion', chore: 'tarea', test: 'tarea', ci: 'infra', build: 'infra', style: 'tarea' });
 function etiquetasDePeticion({ titulo = '', etiquetasIssue = [] } = {}) {
   const propias = [...new Set((etiquetasIssue || []).map((e) => String(e || '').trim()).filter(Boolean))];
-  if (propias.length) return propias;
+  if (propias.length) return { etiquetas: propias };
   const m = String(titulo).match(RE_TITULO);
   const tipo = m ? (ALIAS_RAMA[m[1]] || m[1]) : null;
-  return [ETIQUETA_DE_TIPO[tipo] || 'tarea'];
+  return { tipo: ETIQUETA_DE_TIPO[tipo] || 'tarea' };
 }
 
 // UNA RAMA -> UN PR -> UNA ISSUE (regla firme). Decide si 'pr crear' puede abrir la peticion:
-//  - la rama ya tiene peticion abierta -> no se abre otra: los commits nuevos se SUBEN (git push) y la
-//    peticion existente se actualiza y relanza el CI;
+//  - la rama ya tiene peticion abierta -> no se abre otra ({existente}): 'pr crear' sube los commits
+//    pendientes (la peticion se actualiza y relanza el CI) y termina bien; repetirlo es inocuo;
 //  - la peticion cerraria mas de una issue -> se parte en una rama por issue.
 // Puro (sin red): 'prAbierto' es la url que devuelve la forja (prAbiertoDe) o null; 'cierra' son los
 // numeros de issue que la peticion cerraria (tarea.js issuesDePr).
 function validarPeticion({ rama, prAbierto = null, cierra = [] } = {}) {
   if (prAbierto) {
-    return { ok: false, motivo: `La rama '${rama}' ya tiene su peticion abierta: ${prAbierto}. Una rama = un PR: sigue haciendo commits en la rama y 'git push'; la peticion se actualiza sola, el CI se relanza y el auto-merge la integra cuando pase.` };
+    return { ok: false, existente: prAbierto, motivo: `La rama '${rama}' ya tiene su peticion abierta: ${prAbierto}. Una rama = un PR: sigue haciendo commits en la rama y 'git push'; la peticion se actualiza sola, el CI se relanza y el auto-merge la integra cuando pase.` };
   }
   const nums = [...new Set([...(cierra || [])].map(String))].sort((a, b) => Number(a) - Number(b));
   if (nums.length > 1) {
