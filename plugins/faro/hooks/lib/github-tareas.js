@@ -356,7 +356,7 @@ module.exports = function (g) {
         const AL = require('./alcance.js');
         motivo = AL.evaluarGh(`repos/${R.org}/${R.repo}/issues`, 'POST', ghRepo(), { permitidos: AL.leerAlcance(raiz).repos_permitidos, cuerpo: JSON.stringify(body) });
       } catch (e) { motivo = `error interno del control de alcance (${(e && e.message) || e})`; }
-      if (motivo) { console.log(`BLOQUEADO: ${motivo}.`); process.exit(2); }
+      if (motivo && require('./guardas-modo.js').guardasActivas()) { console.log(`BLOQUEADO: ${motivo}.`); process.exit(2); }
     }
     // FECHA OBJETIVO heredada del HITO (#215), sea fase, version o cualquier otro: solo si no se dio a mano.
     let heredada = null;
