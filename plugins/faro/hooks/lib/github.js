@@ -240,6 +240,26 @@ module.exports = function (ctx) {
     return { ok: true, numero: r.body.number, url: r.body.html_url, nodeId: r.body.node_id };
   }
 
+  // etiquetasIssue(num) -> ['bug', ...] (nunca lanza). etiquetarPr(numero, {etiquetas}|{tipo}) ->
+  // {ok, etiquetas, msg}: un PR es una issue para la API de etiquetas. Un {tipo} (slug del catalogo) se
+  // resuelve con resolverLabel, el MISMO que usan las issues: no se duplican etiquetas.
+  async function etiquetasIssue(num) {
+    const R = ghRepo(); if (!R || !num) return [];
+    try { const r = await ghApi(`repos/${R.org}/${R.repo}/issues/${encodeURIComponent(num)}`); return r.ok && r.body && Array.isArray(r.body.labels) ? r.body.labels.map((l) => (typeof l === 'string' ? l : l && l.name)).filter(Boolean) : []; } catch { return []; }
+  }
+  async function etiquetarPr(numero, pide = {}) {
+    const R = ghRepo(); if (!R) return { ok: false, msg: 'sin remoto de GitHub' };
+    let etiquetas = Array.isArray(pide) ? pide : (pide.etiquetas || []);
+    if (!etiquetas.length && pide.tipo) {
+      const def = labelsCatalogo().find((l) => l.slug === pide.tipo);
+      const n = def ? await resolverLabel(R.org, R.repo, def) : null;
+      if (n) etiquetas = [n];
+    }
+    if (!numero || !etiquetas.length) return { ok: true, etiquetas: [] };
+    const r = await ghApi(`repos/${R.org}/${R.repo}/issues/${numero}/labels`, { method: 'POST', body: { labels: etiquetas } });
+    return r.ok ? { ok: true, etiquetas } : { ok: false, msg: (r.body && r.body.message) || `HTTP ${r.status}` };
+  }
+
   // activarAutoMerge({numero, nodeId, metodo, titulo}) -> {ok, msg} (FARO 3.0). La peticion entra sola
   // en cuanto pasan los checks obligatorios. Solo existe en GraphQL. Si el repo no lo permite
   // (Settings > Allow auto-merge) o la rama no exige checks, GitHub lo rechaza y se dice por que.
@@ -437,5 +457,5 @@ module.exports = function (ctx) {
   // ghApi/ghRepo salen tambien hacia fuera: otros modulos (el planificador, los comandos de
   // tareas) LEEN la forja con el mismo token del harness.
   const contrato = require('./github-contrato.js')({ ghApi, ghRepo, ghToken, ghHost, ensureUser });
-  return { CRED, crearPr, activarAutoMerge, integrarPorPeticion, prAbiertoDe, prsDeRama,issueEstado, cerrarIssue, comentarIssue, hechosTareas, ghApi, ghRepo, ...ident, ghToken, cmdGh, cmdPr, cmdRole, roleInfo, collaborators, approvers, cmdEquipo, ...tareas, cachedUser, ensureUser, ...clave, cmdProteger, ...gestion, ...contrato };
+  return { CRED, crearPr, activarAutoMerge, etiquetasIssue, etiquetarPr, integrarPorPeticion, prAbiertoDe, prsDeRama,issueEstado, cerrarIssue, comentarIssue, hechosTareas, ghApi, ghRepo, ...ident, ghToken, cmdGh, cmdPr, cmdRole, roleInfo, collaborators, approvers, cmdEquipo, ...tareas, cachedUser, ensureUser, ...clave, cmdProteger, ...gestion, ...contrato };
 };

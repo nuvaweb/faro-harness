@@ -280,3 +280,46 @@ test('marketplace: GitLab recomienda el origen publico; un espejo declarado usa 
   assert.deepStrictEqual(Object.keys(bloque.extraKnownMarketplaces['faro-marketplace'].source), ['source', 'url']);
   assert.match(diagnosticoDescarga(espejo), /^git ls-remote https:\/\/git\.miempresa\.com\//);
 });
+
+test('GitLab: la MR hereda las etiquetas de su issue (add_labels, sin quitar las suyas)', async () => {
+  const ll = apiFalsa(GL, [
+    [/\/issues\/7$/, 'GET', () => ({ status: 200, body: incidencia({ labels: ['tipo::bug', 'app:web'] }) })],
+    [/\/merge_requests\/3$/, 'PUT', () => ({ status: 200, body: mr() })],
+  ]);
+  const a = await gitlab();
+  const et = await a.etiquetasIssue(7);
+  assert.deepStrictEqual(et, ['tipo::bug', 'app:web']);
+  assert.deepStrictEqual(await a.etiquetarPr(3, { etiquetas: et }), { ok: true, etiquetas: et });
+  assert.deepStrictEqual(ll.find((l) => l.metodo === 'PUT').body, { add_labels: 'tipo::bug,app:web' });
+});
+
+test('GitLab: sin issue, la MR lleva la etiqueta de TIPO del catalogo (tipo::<slug>), la misma que las incidencias', async () => {
+  const ll = apiFalsa(GL, [
+    [/\/labels(\?.*)?$/, 'GET', () => ({ status: 200, body: [{ name: 'tipo::requerimiento' }] })],
+    [/\/merge_requests\/3$/, 'PUT', () => ({ status: 200, body: mr() })],
+  ]);
+  const a = await gitlab();
+  assert.deepStrictEqual(await a.etiquetarPr(3, { tipo: 'requerimiento' }), { ok: true, etiquetas: ['tipo::requerimiento'] });
+  assert.deepStrictEqual(ll.find((l) => l.metodo === 'PUT').body, { add_labels: 'tipo::requerimiento' });
+});
+
+test('GitHub: el PR hereda las etiquetas de su issue', async () => {
+  const ll = apiFalsa(GH, [
+    [/repos\/org\/repo\/issues\/7$/, 'GET', () => ({ status: 200, body: { number: 7, labels: [{ name: 'bug' }, 'app:web'] } })],
+    [/repos\/org\/repo\/issues\/12\/labels$/, 'POST', () => ({ status: 200, body: [] })],
+  ]);
+  const a = await github();
+  const et = await a.etiquetasIssue(7);
+  assert.deepStrictEqual(et, ['bug', 'app:web']);
+  assert.deepStrictEqual(await a.etiquetarPr(12, { etiquetas: et }), { ok: true, etiquetas: et });
+  assert.deepStrictEqual(ll.find((l) => l.metodo === 'POST').body, { labels: ['bug', 'app:web'] });
+});
+
+test('GitHub: sin issue, el PR lleva la etiqueta de TIPO del catalogo (nativa si la hay), no un nombre suelto', async () => {
+  const ll = apiFalsa(GH, [
+    [/repos\/org\/repo\/issues\/12\/labels$/, 'POST', () => ({ status: 200, body: [] })],
+  ]);
+  const a = await github();
+  assert.deepStrictEqual(await a.etiquetarPr(12, { tipo: 'mejora' }), { ok: true, etiquetas: ['enhancement'] });
+  assert.deepStrictEqual(ll.find((l) => l.metodo === 'POST').body, { labels: ['enhancement'] });
+});

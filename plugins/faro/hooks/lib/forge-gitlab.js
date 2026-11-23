@@ -390,7 +390,7 @@ module.exports = function (ctx) {
   // Submodulos (atomicidad): ajustes del proyecto y gestion nativa (hitos, tiempo, enlaces).
   const proyecto = require('./forge-gitlab-proyecto.js')({ api, pid, f, git, SIN_TOKEN, ROOT, roleInfo });
   const gestion = require('./forge-gitlab-gestion.js')({ api, pid, f, SIN_TOKEN, invalidarResumen, fases: ctx.fases, isDone: ctx.isDone });
-  const tareas = require('./forge-gitlab-tareas.js')({ api, pid, f, git, SIN_TOKEN, invalidarResumen, fases: ctx.fases, labelsCatalogo, collaborators, gestion, tokenPara, planificacion });
+  const tareas = require('./forge-gitlab-tareas.js')({ api, pid, f, git, SIN_TOKEN, invalidarResumen, fases: ctx.fases, labelsCatalogo, resolverLabel, collaborators, gestion, tokenPara, planificacion });
 
   return { api, me, roleInfo, cmdRole, collaborators, approvers, cmdPr, crearPr, activarAutoMerge, cmdAsignarTarea, cmdDescartarTarea, ...equipo, cmdMisTareas, cmdClave, claveDeEsteRepo, claveEnUso, estamparClave, ghResumenCache, ghResumenFresco, refrescarResumen, cmdGhRefresh, invalidarResumen, cmdAuth, nivelARol, ...proyecto, ...gestion, ...tareas };
 };

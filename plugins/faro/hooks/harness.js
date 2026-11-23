@@ -3833,6 +3833,20 @@ async function cmdPrCrear(m) {
       process.exit(1);
     }
   }
+  // UNA RAMA -> UN PR -> UNA ISSUE: ni segunda peticion para la misma rama ni una que cierre varias.
+  {
+    let prAbierto = null;
+    if (typeof m.prAbiertoDe === 'function') { try { prAbierto = await m.prAbiertoDe(head); } catch { prAbierto = null; } }
+    const v = FLUJO.validarPeticion({ rama: head, prAbierto, cierra: refs });
+    // Ya abierta: repetir 'pr crear' (reintento, commits nuevos) solo sube lo pendiente y termina bien.
+    if (v.existente) {
+      const p = publicarRamaSiHaceFalta(head);
+      if (!p.ok) { console.log(`La peticion ya existe (${v.existente}) pero no pude subir los commits: ${p.msg}`); process.exit(1); }
+      console.log(`✅ La rama '${head}' ya tiene su peticion: ${v.existente}  ·  ${p.publicada ? 'commits nuevos subidos: se actualiza y el CI se relanza' : 'ya estaba al dia'}. No se abre otra (una rama = un PR).`);
+      return;
+    }
+    if (!v.ok) { console.log(`No abro la peticion: ${v.motivo}`); process.exit(1); }
+  }
   // La rama TIENE que estar publicada antes: la forja no abre una peticion desde algo que no ha
   // visto. Sin esto fallaba siempre la primera vez, y el 'push -u' manual que venia despues era lo
   // que de verdad lo arreglaba (se vivia como un error transitorio que se iba al reintentar).
@@ -3861,9 +3875,22 @@ async function cmdPrCrear(m) {
     if (am.ok) console.log(`  Auto-merge (${CFG_FLUJO.metodo_merge}) activado: entra en ${base} cuando el CI pase, y el CI publica la version.`);
     else console.log(`  ⚠ No pude activar el auto-merge${am.msg ? `: ${am.msg}` : ''}. Activalo en la forja (GitHub: Settings > Allow auto-merge) o integra a mano cuando el CI pase.`);
   }
+  // ETIQUETAS: toda peticion sale etiquetada. Hereda las de su(s) issue(s) (cierra o 'Refs' de su rama)
+  // y, sin issue, la del tipo de su titulo. Si la forja lo rechaza se avisa: la peticion ya esta abierta.
+  if (typeof m.etiquetarPr === 'function') {
+    const nums = [...new Set([...refs].map(String).concat(soloRef && nIssue ? [String(nIssue)] : []))];
+    let deIssue = [];
+    if (typeof m.etiquetasIssue === 'function') for (const n of nums) { try { deIssue = deIssue.concat(await m.etiquetasIssue(n)); } catch { /* sin etiquetas */ } }
+    const pide = FLUJO.etiquetasDePeticion({ titulo, etiquetasIssue: deIssue });
+    let et; try { et = await m.etiquetarPr(r.numero || r.iid, pide); } catch (e) { et = { ok: false, msg: e && e.message }; }
+    if (et && et.ok && et.etiquetas && et.etiquetas.length) console.log(`  Etiquetas: ${et.etiquetas.join(', ')}.`);
+    else if (et && et.ok) console.log('  ⚠ La peticion sale sin etiqueta: el tipo no esta en el catalogo de la forja.');
+    else console.log(`  ⚠ No pude etiquetar la peticion${et && et.msg ? `: ${et.msg}` : ''}.`);
+  }
   if (soloRef) console.log(`  ⓘ La peticion dice 'Refs #${nIssue}': al fusionarse la tarea #${nIssue} sigue ABIERTA (se avanza, no se termina). Cuando un PR la deje hecha, que diga "Closes #${nIssue}".`);
   else if (nIssue && cuerpoFinal !== cuerpo) console.log(`  Cierra la tarea #${nIssue} al fusionarse ("Closes #${nIssue}", anadido por el harness).`);
-  else if (!nIssue) console.log(`  ⚠ La rama '${head}' no esta anclada a ninguna tarea: al fusionarse NO cerrara nada. Si corresponde a una, cierrala tu (harness.js cerrar-tarea <N>).`);
+  else if (!nIssue && refs.size) console.log(`  Cierra ${[...refs].map((n) => `#${n}`).join(', ')} al fusionarse ("Closes" del cuerpo).`);
+  else if (!nIssue && !refs.size) console.log(`  ⚠ La rama '${head}' no esta anclada a ninguna tarea: al fusionarse NO cerrara nada. Si corresponde a una, cierrala tu (harness.js cerrar-tarea <N>).`);
 }
 
 // terminar — UNA orden que cierra el ciclo del trabajo de esta rama: commitea lo que quede, valida y

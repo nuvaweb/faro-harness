@@ -135,7 +135,38 @@ function avisoRetirado(cmd, rama = DEFECTO.rama_principal) {
   return `'${cmd}' se retiro en FARO 3.0: ya no hay develop ni publicacion manual. Cada rama entra por PR a ${rama} con auto-merge (harness.js pr crear) y el CI publica tag y release al integrarse.`;
 }
 
+// ETIQUETAS DE LA PETICION: todo PR/MR sale etiquetado. Hereda las etiquetas de la(s) issue(s) que
+// cierra o referencia; si no hay ninguna, el SLUG de tipo del catalogo (faro-schema enums.labels) segun
+// el tipo Conventional del titulo. El slug NO es el nombre de la etiqueta: cada forja lo resuelve igual
+// que con las issues (GitHub: 'bug'/'enhancement' nativas o 'faro:<slug>'; GitLab: 'tipo::<slug>').
+// Devuelve { etiquetas: [...] } (heredadas, nombres reales) o { tipo: '<slug>' }.
+const ETIQUETA_DE_TIPO = Object.freeze({ feat: 'requerimiento', fix: 'bug', perf: 'mejora', refactor: 'mejora', revert: 'bug', docs: 'documentacion', chore: 'tarea', test: 'tarea', ci: 'infra', build: 'infra', style: 'tarea' });
+function etiquetasDePeticion({ titulo = '', etiquetasIssue = [] } = {}) {
+  const propias = [...new Set((etiquetasIssue || []).map((e) => String(e || '').trim()).filter(Boolean))];
+  if (propias.length) return { etiquetas: propias };
+  const m = String(titulo).match(RE_TITULO);
+  const tipo = m ? (ALIAS_RAMA[m[1]] || m[1]) : null;
+  return { tipo: ETIQUETA_DE_TIPO[tipo] || 'tarea' };
+}
+
+// UNA RAMA -> UN PR -> UNA ISSUE (regla firme). Decide si 'pr crear' puede abrir la peticion:
+//  - la rama ya tiene peticion abierta -> no se abre otra ({existente}): 'pr crear' sube los commits
+//    pendientes (la peticion se actualiza y relanza el CI) y termina bien; repetirlo es inocuo;
+//  - la peticion cerraria mas de una issue -> se parte en una rama por issue.
+// Puro (sin red): 'prAbierto' es la url que devuelve la forja (prAbiertoDe) o null; 'cierra' son los
+// numeros de issue que la peticion cerraria (tarea.js issuesDePr).
+function validarPeticion({ rama, prAbierto = null, cierra = [] } = {}) {
+  if (prAbierto) {
+    return { ok: false, existente: prAbierto, motivo: `La rama '${rama}' ya tiene su peticion abierta: ${prAbierto}. Una rama = un PR: sigue haciendo commits en la rama y 'git push'; la peticion se actualiza sola, el CI se relanza y el auto-merge la integra cuando pase.` };
+  }
+  const nums = [...new Set([...(cierra || [])].map(String))].sort((a, b) => Number(a) - Number(b));
+  if (nums.length > 1) {
+    return { ok: false, motivo: `Esta peticion cerraria ${nums.length} issues (${nums.map((n) => `#${n}`).join(', ')}). Un PR por issue: abre una rama por cada una (harness.js rama <tipo> "<desc>" --issue <N>) y deja en esta solo la suya.` };
+  }
+  return { ok: true };
+}
+
 module.exports = {
   DEFECTO, METODOS, TIPOS, ALIAS_RAMA,
-  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas,
+  config, leerConfig, ramaValida, tipoDeRama, analizarTitulo, tituloConventional, bumpDe, siguienteVersion, avisoRetirado, basesCandidatas, validarPeticion, etiquetasDePeticion, ETIQUETA_DE_TIPO,
 };

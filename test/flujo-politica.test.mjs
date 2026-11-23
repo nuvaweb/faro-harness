@@ -81,3 +81,37 @@ test('avisoRetirado: dice que se retiro y por donde se va ahora', () => {
   assert.match(t, /3\.0/);
   assert.match(t, /PR a main/);
 });
+
+// UNA RAMA -> UN PR -> UNA ISSUE (regla firme): 'pr crear' no abre una segunda peticion para la misma
+// rama ni una que cierre varias issues.
+test('validarPeticion: rama sin peticion y una sola issue -> se puede abrir', () => {
+  assert.deepStrictEqual(f.validarPeticion({ rama: 'feat/7-x', prAbierto: null, cierra: new Set([7]) }), { ok: true });
+  assert.deepStrictEqual(f.validarPeticion({ rama: 'chore/docs', cierra: [] }), { ok: true });
+});
+
+test('validarPeticion: la rama ya tiene peticion -> no se abre otra; se dice que basta con push', () => {
+  const v = f.validarPeticion({ rama: 'feat/7-x', prAbierto: 'https://forja/pr/3', cierra: new Set([7]) });
+  assert.strictEqual(v.ok, false);
+  assert.match(v.motivo, /https:\/\/forja\/pr\/3/);
+  assert.match(v.motivo, /git push/);
+});
+
+test('validarPeticion: una peticion que cerraria varias issues -> un PR por issue', () => {
+  const v = f.validarPeticion({ rama: 'feat/7-x', cierra: new Set([9, 7, 7]) });
+  assert.strictEqual(v.ok, false);
+  assert.match(v.motivo, /2 issues \(#7, #9\)/);
+  assert.match(v.motivo, /Un PR por issue/);
+});
+
+test('etiquetasDePeticion: hereda las de la issue, sin repetir', () => {
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'feat: x', etiquetasIssue: ['bug', 'app:web', 'bug'] }), { etiquetas: ['bug', 'app:web'] });
+});
+test('etiquetasDePeticion: sin issue, el SLUG de tipo del catalogo segun el titulo (la forja lo resuelve)', () => {
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'fix(guardas): algo' }), { tipo: 'bug' });
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'feat!: algo' }), { tipo: 'requerimiento' });
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'ci: algo' }), { tipo: 'infra' });
+  assert.deepEqual(f.etiquetasDePeticion({ titulo: 'titulo libre' }), { tipo: 'tarea' });
+});
+test('validarPeticion: peticion ya abierta -> marca la existente para que pr crear solo suba commits', () => {
+  assert.strictEqual(f.validarPeticion({ rama: 'feat/7-x', prAbierto: 'u', cierra: [7] }).existente, 'u');
+});

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## 3.3.0 — 2026-11-23
+
+### Añadido
+- **Una rama = un PR = una issue** en `harness.js pr crear`: no abre una petición que cierre varias issues (pide una rama por issue).
+- **`pr crear` repetible**: si la rama ya tiene su petición, no abre otra ni falla; sube los commits pendientes (la petición se actualiza y el CI se relanza) y devuelve la existente. Un reintento tras un corte de red ya no da error.
+- **Toda petición sale etiquetada**: hereda las etiquetas de su issue y, sin issue, lleva la de tipo según su título Conventional, resuelta con el mismo catálogo que las issues (GitHub: `bug`, `enhancement` o `faro:<tipo>`; GitLab: `tipo::<tipo>`). No crea etiquetas duplicadas.
+
 ## 3.2.0 — 2026-11-23
 
 ### Añadido
