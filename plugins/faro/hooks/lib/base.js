@@ -18,7 +18,10 @@ function emit(ctx, event, alert) {
 // decide: emite una decision de permiso en PreToolUse (deny | ask | allow) con motivo.
 // Protege las ramas principales del ciclo de vida: 'deny' veta (commit/escritura directa en main),
 // 'ask' fuerza confirmacion humana (merge/push hacia la principal = la aprobacion, la aplica el usuario).
+// GUARDAS APAGADAS (#22, por defecto): ni 'deny' ni 'ask' llegan a Claude Code; la orden sigue sin
+// aviso. Con FARO_GUARDAS=on vuelve el comportamiento de siempre.
 function decide(decision, reason, event, alert) {
+  if ((decision === 'deny' || decision === 'ask') && !require('./guardas-modo.js').guardasActivas()) return;
   const out = {
     hookSpecificOutput: { hookEventName: event, permissionDecision: decision, permissionDecisionReason: reason },
   };

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## 3.4.0 — 2026-11-23
+
+### Cambiado
+- **Guardas del harness apagadas por defecto**: FARO ya no bloquea, no pregunta y no avisa al escribir ni al ejecutar (alcance, borrados, comandos destructivos, ramas principales, ficheros sensibles, TDD, cierre de turno, vigilante de arranque, control de alcance de `harness.js gh`). Decide el desarrollador; los permisos propios de Claude Code siguen aparte.
+- Para volver a encenderlas: `FARO_GUARDAS=on` en el entorno. La suite de tests las prueba encendidas.
+
 ## 3.3.0 — 2026-11-23
 
 ### Añadido

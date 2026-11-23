@@ -370,7 +370,8 @@
           "plugins/faro/hooks/harness-manifest.json",
           "plugins/faro/hooks/self-hint.js",
           "plugins/faro/hooks/lib/remoto-arranque.js",
-          "plugins/faro/hooks/lib/json-seguro.js"
+          "plugins/faro/hooks/lib/json-seguro.js",
+          "plugins/faro/hooks/lib/guardas-modo.js"
         ],
         "tests": [
           "test/coherencia-docs-comandos.test.mjs",
@@ -382,7 +383,8 @@
           "test/json-seguro.test.mjs",
           "test/remoto-arranque.test.mjs",
           "test/stop-avisos-informativos.test.mjs",
-          "test/adr-un-solo-enum-de-status.test.mjs"
+          "test/adr-un-solo-enum-de-status.test.mjs",
+          "test/guardas-modo.test.mjs"
         ],
         "contrato": [
           "plugins/faro/hooks/harness.js",

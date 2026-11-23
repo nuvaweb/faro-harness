@@ -24,6 +24,10 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+// GUARDAS APAGADAS POR DEFECTO (#22): los hooks que solo vigilan (bloquear, preguntar, avisar) salen
+// aqui mismo, sin leer el payload ni cargar nada. Se encienden con FARO_GUARDAS=on (lib/guardas-modo.js).
+if (require('./lib/guardas-modo.js').hookSilenciado(process.argv[2], process.argv.slice(3))) return;
+
 // Payload del hook leido de una vez y de forma SINCRONA (lo necesitan prompt-context, por su
 // session_id, y la salida temprana de pre-bash). En una terminal (TTY) no hay payload: {}.
 let _payloadSync;
@@ -1648,7 +1652,7 @@ function cmdSession(opts = {}) {
   // SessionStart = INDICE (#127, #123). El bloque completo de abajo pasaba de 26.000 caracteres en un
   // repo de trabajo real: la plataforma corta a 10.000 y el modelo solo ve 2.000 de vista previa.
   if (!completo) {
-    emit(indiceSesion({ cabecera, comunicacion, resumen, funcionalL, estadoBloque, weekly }).join('\n'), 'SessionStart', alert);
+    emit(indiceSesion({ cabecera, comunicacion, resumen, funcionalL, estadoBloque, weekly }).join('\n'), 'SessionStart', require('./lib/guardas-modo.js').guardasActivas() ? alert : undefined);
     if (opts.ruta) sembrarDeltas(opts.ruta);
     return;
   }
@@ -1736,7 +1740,7 @@ function cmdSession(opts = {}) {
     : 'Agent teams NO activado en este repo (falta env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS="1" en .claude/settings.json) — sin el, no se pueden lanzar equipos de subagentes en paralelo.');
   // 'estado' (CLI, a peticion): texto plano para leerlo. 'status': el payload de hook de siempre.
   if (opts.texto) { console.log(lines.join('\n')); return; }
-  emit(lines.join('\n'), 'SessionStart', alert);
+  emit(lines.join('\n'), 'SessionStart', require('./lib/guardas-modo.js').guardasActivas() ? alert : undefined);
 }
 
 // Protocolo proactivo de specs/planes: en cada prompt el modelo recibe el inventario

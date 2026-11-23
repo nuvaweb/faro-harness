@@ -23,6 +23,9 @@ const P = require('../plugins/faro/hooks/lib/procesos.js');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'faro-suite-'));
 process.env.FARO_CONFIG_PATH = process.env.FARO_CONFIG_PATH || path.join(dir, 'faro.json');
+// Las guardas estan apagadas por defecto (#22); la suite las prueba ENCENDIDAS. Los tests del modo por
+// defecto (test/guardas-modo.test.mjs) lanzan sus hooks con FARO_GUARDAS vacio.
+process.env.FARO_GUARDAS = process.env.FARO_GUARDAS || 'on';
 // Estado de deltas de los hooks (#127): siempre a un temporal de la suite, nunca al del plugin real.
 process.env.CLAUDE_PLUGIN_DATA = path.join(dir, 'plugin-data');
 // Cache de gates (#182): los tests nunca escriben en la cache real del usuario.

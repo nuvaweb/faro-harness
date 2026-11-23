@@ -109,7 +109,7 @@ module.exports = function (ctx) {
         const AL = require('./alcance.js');
         motivo = AL.evaluarGh(p, method, ghRepo(), { permitidos: AL.leerAlcance(ROOT).repos_permitidos, apiBase: ghApiBase(), cuerpo: body });
       } catch (e) { motivo = `error interno del control de alcance (${(e && e.message) || e})`; }
-      if (motivo) { process.stdout.write(`BLOQUEADO: ${motivo}. Para pedir un cambio en otro repo de la organizacion, abre un issue: harness.js asignar-tarea "<titulo>" <login> --repo <org>/<repo> --tipo <tipo>.\n`); process.exit(2); }
+      if (motivo && require('./guardas-modo.js').guardasActivas()) { process.stdout.write(`BLOQUEADO: ${motivo}. Para pedir un cambio en otro repo de la organizacion, abre un issue: harness.js asignar-tarea "<titulo>" <login> --repo <org>/<repo> --tipo <tipo>.\n`); process.exit(2); }
     }
     const tok = ghToken();
     if (!tok) { process.stdout.write('SIN_TOKEN: para consultar/gestionar la API de GitHub hace falta conectarse (login por navegador). Ejecuta: node .claude/hooks/harness.js auth\n'); process.exit(2); }
