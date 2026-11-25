@@ -70,6 +70,21 @@ test('evaluar con --todo (rangos None): todo cuenta como tocado', { skip: sinPyt
   assert.strictEqual(py(`print(json.dumps(c.evaluar(${j(f)}, [], None)))`).crap.length, 1);
 });
 
+test('evaluar: lo que vive en .faro/ es de FARO, no del proyecto: ni se mide ni cuenta', { skip: sinPython }, () => {
+  const f = [{ fichero: '.faro/calidad.py', nombre: 'calidad.main', inicio: 1, fin: 9, complejidad: 30, crap: null },
+    { fichero: 'src/a.py', nombre: 'a.f', inicio: 1, fin: 9, complejidad: 2, crap: null }];
+  const d = [{ score: 1, a: { fichero: '.faro/calidad.py', inicio: 1, fin: 9 }, b: { fichero: '.faro/calidad.py', inicio: 20, fin: 29 } }];
+  const r = py(`print(json.dumps(c.evaluar(${j(f)}, ${j(d)}, None)))`);
+  assert.deepStrictEqual([r.crap, r.dup, r.medidas], [[], [], 1]);
+});
+
+test('sin_duplicacion: los ficheros tocados que dryer no lee (p. ej. .js) se dicen, no se callan', { skip: sinPython }, () => {
+  const r = py(`print(json.dumps(c.sin_duplicacion(["src/a.js", "src/b.ts", "src/c.jsx", "src/d.py"], {".ts", ".py"})))`);
+  assert.deepStrictEqual(r, ['src/a.js', 'src/c.jsx']);
+  const t = py(`print(json.dumps(c.informe({"crap": [], "dup": [], "medidas": 1}, False, sin_dup=["src/a.js"])))`);
+  assert.match(t, /duplicación no medida en 1 fichero\(s\) \(\.js\)/);
+});
+
 test('informe: dice dónde, cuánto y qué hacer; OK cuando no hay nada', { skip: sinPython }, () => {
   const malo = { crap: [{ fichero: 'a.js', nombre: 'a.f', inicio: 3, fin: 40, complejidad: 14, crap: null }],
     dup: [{ score: 0.91, a: { fichero: 'a.js', inicio: 1, fin: 9 }, b: { fichero: 'b.js', inicio: 2, fin: 10 } }], medidas: 4 };
