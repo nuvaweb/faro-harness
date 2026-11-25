@@ -30,6 +30,9 @@ inventes ni anticipes su resultado — hasta que no lleguen, no sabes lo que dic
 
 No sustituye a `harness.js validate` ni a lint/tests (eso lo cubren los gates automáticos) — esto
 audita **coherencia con el contrato**, no estilo ni bugs línea a línea.
+La parte medible de la calidad (CRAP < 10 y sin duplicados ≥ 0,8 en lo que toca la rama, principios de
+[ub-mode](https://github.com/unclebob/ub-mode)) no se juzga a ojo: `revisor-code` corre
+`harness.js calidad` y cita las cifras.
 
 Si no existe `ARCHITECTURE.md`, dilo al usuario y sugiere `/faro:code` (lo genera al inicializar el
 código) antes de poder revisar coherencia con sentido. En un monorepo la pregunta es por app: una

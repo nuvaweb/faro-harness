@@ -46,6 +46,7 @@ Escribe `faro/config.json > tests.dominios` (sin pisar lo ya declarado ni invent
 - Razona por **funcionalidad tocada**, no por «qué tests corro»: `tests-dominios --afectados` te da los dominios y la orden exacta.
 - **Monorepo**: la app se deduce de los ficheros cambiados. Si el cambio toca **varias apps** o hay **código sin dominio**, el comando lo marca con «PREGUNTA AL USUARIO» y las opciones: pregúntalo con AskUserQuestion y repite con la respuesta (`--app apps/<x>` o `--app todas`, o declara el dominio). No elijas tú.
 - La suite completa **no la lances tú**: la corre el CI en el PR. Solo si el usuario la pide expresamente; ni siquiera «una vez al final» antes del commit o del PR. El harness registra nº de tests y tiempo de cada ejecución y avisa si encadenas baterías completas.
+- **Test primero** (principios de [ub-mode](https://github.com/unclebob/ub-mode)): el test que falla antes del código que lo hace pasar, y prueba **comportamiento** (lo que el funcional promete), no la implementación: un test que se rompe al refactorizar sin cambiar el comportamiento está mal escrito. Una función compleja sin tests sube su CRAP; `harness.js calidad` la señala.
 - No rebajes tests para que pasen: el harness contrasta el diff de los tests (aserciones eliminadas, `.skip`/`.only`, umbrales o `expect` relajados) con lo que afirmas. Si algo se quita a propósito, dilo y justifícalo: `tests-dominios --integridad --afirmacion "<lo que dirás>"`.
 
 Cuenta al final: cuántos dominios quedan declarados, cuáles siguen `pendiente` y qué hueco queda abierto.

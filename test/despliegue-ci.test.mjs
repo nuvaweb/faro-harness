@@ -73,7 +73,9 @@ test('gitlab: job iac-terraform con imagen oficial (wrangler no se repite)', () 
   assert.ok(yml.indexOf('init -backend=false') < yml.indexOf('validate'), yml);
   assert.ok(!yml.includes('iac-cloudflare'), 'el dry-run de wrangler ya esta en gates');
   assert.strictEqual((yml.match(/wrangler deploy --dry-run/g) || []).length, 1, yml);
-  assert.strictEqual((yml.match(/merge_request_event/g) || []).length, 2, 'cada job corre en MR y en main');
+  // El job calidad (último) es solo de MR a propósito: se mide en test/calidad.test.mjs.
+  const jobs = yml.slice(0, yml.indexOf('\ncalidad:'));
+  assert.strictEqual((jobs.match(/merge_request_event/g) || []).length, 2, 'cada job corre en MR y en main');
   // las rutas de la caché (#18) no son filtros: se quitan antes de mirar
   assert.ok(!/paths:|changes:/.test(yml.replace(/^ {2}cache:\n(?: {4,}.*\n)*/gm, '')), 'sin filtros por ruta');
   sinCredenciales(yml);

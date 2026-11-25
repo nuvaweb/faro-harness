@@ -471,6 +471,17 @@
           "test/grafo-arranque.test.mjs",
           "test/grafo-banco.test.mjs"
         ]
+      },
+      "calidad": {
+        "descripcion": "Calidad medible (principios de ub-mode): CRAP y duplicación en lo tocado con crapper y dryer, harness.js calidad y job calidad del CI generado",
+        "codigo": [
+          "plugins/faro/hooks/lib/calidad.py",
+          "plugins/faro/hooks/lib/calidad-ci.js",
+          "plugins/faro/hooks/lib/calidad-herramientas.js"
+        ],
+        "tests": [
+          "test/calidad.test.mjs"
+        ]
       }
     }
   },
