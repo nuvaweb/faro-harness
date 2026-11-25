@@ -135,7 +135,7 @@ module.exports = function (g) {
     return {
       ok: true, nombre: `${ruta}#${num}`, carpeta: `${ruta.split('/').pop()}-${num}`,
       textos: [r.body.description || '', ...notas.map((n) => n.body)].map(absoluta),
-      token: tokenPara(f().host), host: f().host,
+      token: tokenPara(f().host, f().owner), host: f().host,
     };
   }
 

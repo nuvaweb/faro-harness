@@ -28,7 +28,13 @@ module.exports = function (ctx) {
   const readCfg = () => CRED.leerCfg();
   const writeCfg = (j) => { CRED.escribirCfg(j); };
   // Identidad cacheada (login/nombre/correo) para recuperar info sin llamar a la API (informes).
-  const cachedUser = () => { const j = readCfg(); return j && j.user ? j.user : null; };
+  // Con varias cuentas en la forja, la del owner del repo manda: j.user es solo el ultimo login.
+  const cachedUser = () => {
+    const j = readCfg(); const u = j && j.user ? j.user : null;
+    const r = ghRepo(); const c = r ? CRED.cuentaPara(ghHost(), r.org) : null;
+    if (!c || !c.user) return u;
+    return u && String(u.login || '').toLowerCase() === c.login ? { ...c.user, ...u } : c.user;
+  };
   // Credenciales POR HOST (lib/credenciales.js): GitHub es un host mas. Migra el 'token' plano al primer uso.
 
   // ---- CLIENTE UNICO de la API de GitHub (reutilizable; evita duplicar fetch/headers en cada funcion) ----
@@ -73,13 +79,14 @@ module.exports = function (ctx) {
 
 
   // Token para la API: env -> ~/.faro.json (CLI o 'auth') -> gh auth token.
-  function ghToken() { return CRED.tokenPara(ghHost()); }
+  function ghToken() { const r = ghRepo(); return CRED.tokenPara(ghHost(), r && r.org); }
 
   // ensureUser: si HAY token pero NO estan los datos del usuario (login/nombre/correo) en el fichero,
   // hace la peticion a la API (GET /user + /user/emails) y RELLENA ~/.faro.json -> validacion.
   async function ensureUser() {
     const cfg = readCfg();
-    if (cfg.user && cfg.user.login && cfg.user.email) return cfg.user;   // ya cacheado, no re-llama
+    const cu = cachedUser();
+    if (cu && cu.login && cu.email) return cu;   // ya cacheado, no re-llama
     const tok = ghToken();
     if (!tok) return cfg.user || null;
     try {

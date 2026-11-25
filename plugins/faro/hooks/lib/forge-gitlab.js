@@ -25,7 +25,7 @@ module.exports = function (ctx) {
 
   // Cliente unico: {ok, status, body, sinToken}. Nunca lanza.
   async function api(p, { method = 'GET', body = null, token = null } = {}) {
-    const tok = token || tokenPara(f().host);
+    const tok = token || tokenPara(f().host, f().owner);
     if (!tok) return { ok: false, status: 0, body: null, sinToken: true };
     const url = /^https?:\/\//.test(p) ? p : base() + p.replace(/^\//, '');
     const opts = { method, headers: { Authorization: 'Bearer ' + tok, Accept: 'application/json' } };
