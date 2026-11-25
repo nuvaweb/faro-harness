@@ -55,7 +55,14 @@ def cruza(rangos: list[tuple[int, int]] | None, inicio: int, fin: int) -> bool:
     return any(a <= fin and inicio <= b for a, b in rangos)
 
 
+def de_faro(fichero: str) -> bool:
+    """Lo que vive en .faro/ (esta misma copia del script, por ejemplo) es de FARO, no del proyecto."""
+    return fichero.replace("\\", "/").startswith(".faro/")
+
+
 def tocado(rangos_por_fichero: dict | None, fichero: str, inicio: int, fin: int) -> bool:
+    if de_faro(fichero):
+        return False
     if rangos_por_fichero is None:
         return True
     return cruza(rangos_por_fichero.get(fichero, []), inicio, fin)
@@ -84,9 +91,18 @@ def evaluar(funciones: list[dict], duplicados: list[dict], rangos: dict | None,
             "medidas": len(medidas)}
 
 
-def informe(r: dict, con_cobertura: bool, umbral_crap: float = UMBRAL_CRAP, umbral_dup: float = UMBRAL_DUP) -> str:
+def sin_duplicacion(ficheros: list[str], extensiones_dryer) -> list[str]:
+    """Ficheros tocados cuya duplicación no se puede medir (dryer no lee su lenguaje, p. ej. .js)."""
+    return [f for f in ficheros if Path(f).suffix.lower() not in extensiones_dryer]
+
+
+def informe(r: dict, con_cobertura: bool, umbral_crap: float = UMBRAL_CRAP, umbral_dup: float = UMBRAL_DUP,
+            sin_dup: list[str] = ()) -> str:
     lineas = [f"[calidad] {r['medidas']} función(es) tocada(s) medidas"
               + ("" if con_cobertura else " (sin cobertura: se exige CC < umbral, cota segura de CRAP)")]
+    if sin_dup:
+        exts = ", ".join(sorted({Path(f).suffix for f in sin_dup}))
+        lineas.append(f"[calidad] duplicación no medida en {len(sin_dup)} fichero(s) ({exts}): dryer no lee ese lenguaje.")
     if not r["crap"] and not r["dup"]:
         lineas.append(f"[calidad] OK: CRAP < {umbral_crap:g} y sin duplicados >= {umbral_dup:g} en lo tocado.")
         return "\n".join(lineas)
@@ -194,6 +210,11 @@ def _ficheros(raiz: Path, rangos: dict | None) -> list[Path]:
     return [raiz / f for f in rangos if (raiz / f).is_file()]
 
 
+def _sin_dup(funciones: list[dict]) -> list[str]:
+    from dryer.discover import EXTENSIONS
+    return sin_duplicacion(sorted({f["fichero"] for f in funciones if not de_faro(f["fichero"])}), EXTENSIONS)
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -208,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     funciones, con_cob = medir_crap(raiz, _ficheros(raiz, rangos), a.cobertura)
     r = evaluar(funciones, medir_dup(raiz, a.umbral_dup), rangos, a.umbral_crap, a.umbral_dup)
-    print(informe(r, con_cob, a.umbral_crap, a.umbral_dup))
+    print(informe(r, con_cob, a.umbral_crap, a.umbral_dup, _sin_dup(funciones)))
     return 1 if a.ci and (r["crap"] or r["dup"]) else 0
 
 

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## 3.5.1 — 2026-11-25
+
+### Corregido
+- **`harness.js calidad` ya no mide la copia de FARO** (`.faro/calidad.py`) como si fuera código del proyecto: lo que vive en `.faro/` ni se mide ni cuenta.
+- **Avisa de lo que no puede medir**: la duplicación de los ficheros cuyo lenguaje no lee dryer (JavaScript plano, `.js`/`.jsx`) se dice en el informe, en lugar de dar a entender que no hay duplicados. CRAP sí se mide en `.js`.
+
 ## 3.5.0 — 2026-11-25
 
 ### Añadido
