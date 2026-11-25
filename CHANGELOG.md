@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## 3.5.0 — 2026-11-25
+
+### Añadido
+- **Calidad medible con los principios de [ub-mode](https://github.com/unclebob/ub-mode)** (MIT): `harness.js calidad` mide, en las funciones que toca la rama, CRAP < 10 con [crapper](https://github.com/unclebob/crapper) y duplicación estructural < 0,8 con [dryer](https://github.com/unclebob/dryer). Instala ambas, fijadas a un commit, en un venv propio de FARO (`~/.faro/herramientas`); hace falta Python 3.11+. En local informa y nunca bloquea.
+- **Job `calidad` en el CI generado** (GitHub y GitLab): `harness.js ci` copia el script a `.faro/calidad.py` y el job lo corre en cada PR/MR contra la rama destino, sin credenciales. Si el proyecto ya tiene CI, enseña los pasos para añadirlo a mano.
+- **Principios de ub-mode en skills y agentes**: estados ilegales irrepresentables, validación en el borde, lógica pura, idempotencia y un solo escritor (`code`); test primero y probar comportamiento (`tests`); commits pequeños con su porqué (`pr`); y `revisor-code` corre `calidad` y trata cada incumplimiento como mayor.
+
 ## 3.4.0 — 2026-11-23
 
 ### Cambiado

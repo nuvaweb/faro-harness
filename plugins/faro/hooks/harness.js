@@ -3651,6 +3651,7 @@ function gitlabCiYaml(plan, gates, iac) {
     ...script.map((c) => `    - ${c}`),
     ...GITLAB_REGLAS,
     ...gitlabIacJobs(plan, iac),
+    ...calidadCi().jobGitlab(),
     '',
   ].join('\n');
 }
@@ -3745,8 +3746,28 @@ function githubCiYaml(plan, gates, iac) {
     }
     for (const g of [...(iac.terraform ? iac.terraform.gates : []), ...(iac.cloudflare ? iac.cloudflare.gates : [])]) lines.push(`      - run: ${g.run}`);
   }
+  lines.push(...calidadCi().jobGithub(ACCION_CHECKOUT));
   lines.push('');
   return lines.join('\n');
+}
+// Calidad medible (ub-mode): el job del CI corre una copia del script dentro del repo, porque el CI no
+// tiene el plugin. Es de FARO y se regenera en cada `harness.js ci` (lleva las versiones fijadas).
+const calidadCi = () => require(path.join(__dirname, 'lib', 'calidad-ci.js'));
+function escribirScriptCalidad() {
+  const q = calidadCi();
+  const destino = path.join(ROOT, ...q.SCRIPT_CI.split('/'));
+  const nuevo = q.contenidoScript(fs.readFileSync(path.join(__dirname, 'lib', 'calidad.py'), 'utf8'));
+  const existia = fs.existsSync(destino);
+  if (existia && fs.readFileSync(destino, 'utf8') === nuevo) return;
+  fs.mkdirSync(path.dirname(destino), { recursive: true });
+  fs.writeFileSync(destino, nuevo);
+  console.log(`${q.SCRIPT_CI} ${existia ? 'actualizado' : 'creado'}: lo usa el job «calidad» del CI (CRAP y duplicación del código tocado). Commitealo junto al CI.`);
+}
+// harness.js calidad [--base REF] [--todo] [--cobertura] [--ci]: en local informa y sale con 0, salvo --ci.
+function cmdCalidad() {
+  const args = process.argv.slice(3);
+  const code = require(path.join(__dirname, 'lib', 'calidad-herramientas.js')).ejecutar(args, ROOT);
+  if (args.includes('--ci')) process.exitCode = code;
 }
 function cmdCi() {
   const c = codeMod();
@@ -3765,8 +3786,9 @@ function cmdCi() {
     return;
   }
   const destino = path.join(ROOT, rel);
+  escribirScriptCalidad();
   if (fs.existsSync(destino)) {
-    const pasos = [...pasosRuntimeManuales(plan, f.forge), ...(plan.install ? [plan.install] : []), ...plan.gates.map((g) => g.run)];
+    const pasos = [...pasosRuntimeManuales(plan, f.forge), ...(plan.install ? [plan.install] : []), ...plan.gates.map((g) => g.run), ...calidadCi().pasosManuales(f.forge)];
     console.log(`Ya existe ${rel.split(path.sep).join('/')}: el harness NO lo sobrescribe (podria tener cosas tuyas que este generador no sabe). Si quieres que corra los mismos gates, mergea a mano estos pasos (en este orden):\n  ${pasos.join('\n  ')}`);
     if (f.forge === 'github' && plan.mode === 'monorepo') cmdCiMonorepoGithub(true);
     return;
@@ -4998,6 +5020,7 @@ else if (cmd === 'codigo' || cmd === 'salud') cmdCodigo();
 // bloquea: una deriva puede ser deliberada, y como gate se sortearia borrando la linea del documento.
 else if (cmd === 'contrato') cmdContrato();
 else if (cmd === 'hexagonal') cmdHexagonal();
+else if (cmd === 'calidad') cmdCalidad();
 else if (cmd === 'despliegue') cmdDespliegue();
 else if (cmd === 'local') cmdLocal();
 else if (cmd === 'onepager') opMod().cmdOnepager();
@@ -5020,4 +5043,4 @@ else if (cmd === 'ci') cmdCi();
 else if (cmd === 'gates' || cmd === 'infra' || cmd === 'deps') { const c = codeMod(); if (!c) { console.log('Falta .claude/hooks/code.js (capa de codigo).'); process.exit(1); } cmd === 'gates' ? c.cmdGates(opcionesGates()) : cmd === 'infra' ? c.cmdInfra() : c.cmdDeps(); }
 else if (cmd === 'stats') cmdStats();
 else if (cmd === 'status-line') cmdStatusLine();
-else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · despliegue · local · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }
+else if (cmd) { console.error(`harness.js: subcomando desconocido '${cmd}'. Usa uno de: session|status · estado · prompt-context · validate · informe-semanal · specs · ramas · sincronizar · rama|branch · pr crear · forge|forja · atomico|atomicidad · codigo|salud · contrato · ci · calidad · exigir-pipeline · proteger · renombrar · hito · tiempo · enlazar · miembro · pr ver|aprobar|mergear · pr · role · terminar · consolidar · release · publicar · pendientes · apps · codeowners · ficha · tarea · resumen-json · estado-indice · ir · refs · tdd-pre|tdd-post|tdd-stop · tdd-revisar · tests-dominios · procesos · worktrees · grafo · recursos · monorepo · app nueva · gh · auth · gates|infra|deps · despliegue · local · onepager · reporte-negocio · estado-json · docgen · docref · tipo · plantilla · clave · identity · approvers · equipo|team · asignar-tarea|asignar · ampliar-tarea|ampliar · campos-tarea|campos · mover-tarea|mover · cerrar-tarea|cerrar · reparar-tarea · mis-tareas|mis-issues · descartar-tarea|descartar · stats · planificacion.`); process.exit(2); }
