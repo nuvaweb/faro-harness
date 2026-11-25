@@ -3512,7 +3512,7 @@ function forjaMod() {
       ROOT, git, forge: forgeInfo, faroSchema, specBase: SPEC_BASE,
       // Fases de ESTADO.md para la gestion nativa (hitos = fases): las lee el submodulo de gestion.
       fases: () => { const i = parseEstado(); return i ? i.fases : []; }, isDone, isActive,
-      tokenPara: (h) => (gh && gh.CRED ? gh.CRED.tokenPara(h) : null),
+      tokenPara: (h, o) => (gh && gh.CRED ? gh.CRED.tokenPara(h, o) : null),
       guardarToken: (h, d) => (gh && gh.CRED ? gh.CRED.guardarToken(h, d) : null),
       planificacion: planificacion(),
     }) : null;

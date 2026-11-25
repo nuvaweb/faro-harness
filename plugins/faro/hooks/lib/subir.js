@@ -45,7 +45,7 @@ function viaToken(ROOT, opts) {
   if (token === undefined || urlAlternativa === undefined) {
     f = require('./forge.js').detect(gitL(ROOT));
     if (urlAlternativa === undefined) urlAlternativa = urlHttps(f);
-    if (token === undefined) token = f && f.host ? require('./credenciales.js')().tokenPara(f.host) : null;
+    if (token === undefined) token = f && f.host ? require('./credenciales.js')().tokenPara(f.host, f.owner) : null;
   }
   if (!token || !urlAlternativa) return { msg: `${!token ? 'no hay token del harness' : 'el remoto no es de una forja conocida'}. Conectate una vez con: node .claude/hooks/harness.js auth (codigo de 6 digitos) y reintenta.` };
   const usuario = USUARIO_TOKEN[(f && f.forge) || 'github'] || 'x-access-token';

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## 3.5.2 — 2026-11-25
+
+### Corregido
+- **Varias cuentas en la misma forja** (#28): conectarse con la cuenta de otra organización ya no borra la anterior. Cada login se guarda en `tokens[host].cuentas[login]` y `tokenPara(host, owner)` usa la cuenta que llega a la organización (GitHub) o al grupo raíz (GitLab) del repo; sin owner, o si ninguna llega, el último login como antes
+- La cuenta de cada token se identifica preguntando a la forja (`GET user` y sus organizaciones/grupos), no por el campo `user` del almacén, que un escritor antiguo puede dejar desfasado. Las organizaciones se recuerdan una hora; con la API caída se usa el último login sin reintentar en cada llamada
+- La renovación OAuth de GitLab se guarda en la entrada de su cuenta, sin tocar las demás
+- Compatible con el almacén actual: `tokens[host]` sigue siendo el último login, así que faro-cli y versiones anteriores siguen leyéndolo. Un token que ya se perdió hay que reconectarlo una vez
+
 ## 3.5.1 — 2026-11-25
 
 ### Corregido
