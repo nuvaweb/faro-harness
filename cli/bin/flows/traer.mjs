@@ -29,7 +29,7 @@ async function ofrecerArchivar(cfg, dir, remotoViejo, rutaNueva) {
   const fv = detectarDeclarada(remotoViejo, { dir, perfiles: perfilesConocidos(cfg) });
   if (!['github', 'gitlab'].includes(fv.forja) || !fv.path) return;
   if (YES || !(await confirma(`¿Archivar el repo viejo ${fv.host}/${fv.path}? Queda en solo lectura; no se borra.`, 'n'))) return;
-  const r = await archivarRepo({ forja: fv.forja, host: fv.host, ruta: fv.path, token: tokenPara(fv.host, cfg) });
+  const r = await archivarRepo({ forja: fv.forja, host: fv.host, ruta: fv.path, token: tokenPara(fv.host, cfg, { owner: fv.owner }) });
   if (r.ok) ok(`Repo viejo archivado. El trabajo sigue en ${rutaNueva}.`);
   else warn(`No pude archivar ${fv.host}/${fv.path}${r.status ? ` (HTTP ${r.status})` : ' (sin sesión en esa forja)'}: hazlo desde su configuración.`);
 }

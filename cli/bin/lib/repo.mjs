@@ -9,7 +9,8 @@ import { run, ok, warn, fail, say, caja, spinner, elige, pregunta, confirma, C, 
 import { REPO_META, leerMetaRepo, escribirMetaRepo } from './meta.mjs';
 import { rutaFaro, detectarLayout } from './layout.mjs';
 import { migrarCopiaLegada, escribirSettingsPlugin, revisarPlantillasLegadas } from './plugin.mjs';
-import { usuarioHttp, overrideMarketplace, noreplyDe } from './gitcred.mjs';
+import { usuarioHttp, overrideMarketplace, noreplyDe, cablearHelper } from './gitcred.mjs';
+import { cuentasDe } from './credenciales.mjs';
 import { PERFILES } from './perfil.mjs';
 import { payloadMeta, fusionarMeta, instanciarMonorepo, clonadorPublico } from './monorepo.mjs';
 import { personalizarPlantilla } from './plantilla.mjs';
@@ -23,6 +24,19 @@ function tieneCmd(bins) { for (const b of bins) { try { execFileSync(b, ['--vers
 function parseSshLogin(salida) {
   const m = String(salida || '').match(/\bHi\s+([A-Za-z0-9-]+)!|Welcome to GitLab,\s+@([\w.-]+)!/);
   return m ? (m[1] || m[2]).toLowerCase() : null;
+}
+
+// Decision PURA del remoto. Una clave SSH es de UNA cuenta; con varias cuentas en la misma forja la
+// clave solo vale para la org de su cuenta. 'ssh' solo si la clave esta VERIFICADA como de la cuenta de
+// la sesion; 'https' (helper de FARO acotado a la org, que elige la cuenta de esa org) si es de otra o si
+// no se sabe de quien es y hay varias cuentas; 'detectar' (comportamiento de siempre) con una sola.
+function viaRemoto({ sshLogin = null, loginTok = null, nCuentas = 0 } = {}) {
+  const s = sshLogin ? String(sshLogin).toLowerCase() : null;
+  const t = loginTok ? String(loginTok).toLowerCase() : null;
+  if (s && t && s === t) return 'ssh';
+  if (s && t) return 'https';
+  if (!s && nCuentas > 1) return 'https';
+  return 'detectar';
 }
 
 // Cuenta de la forja con la que EMPUJARÍA tu SSH (la que mueve el código). No fija clave: lee qué
@@ -202,25 +216,27 @@ async function asegurarGitIdentidad(auth, perfil = PERFILES.github) {
 async function configurarRemotoSeamless(destino, org, repoName, auth, ctx = null) {
   const host = (ctx && ctx.perfil && ctx.perfil.host) || 'github.com';
   const forjaId = (ctx && ctx.perfil && ctx.perfil.forja) || 'github';
-  // GUARDA ANTI-CRUCE: si tu SSH empuja como OTRA cuenta distinta a la del token login, NO ponemos
-  // el remoto por SSH (caería en HTTPS con la credencial del token, que es la cuenta correcta).
-  // El código lo mueve el SSH, y DEBE ser el mismo usuario que autenticó el token.
+  // Una clave SSH es de una cuenta: el remoto va por SSH solo si la clave es de la cuenta de la sesión;
+  // si es de otra (o no se sabe y hay varias cuentas en el host), HTTPS con el helper de FARO acotado a
+  // la org, que da el token de la cuenta de esa org. Nunca se bloquea.
   const loginTok = auth && auth.login ? String(auth.login).toLowerCase() : null;
   // Reusa el handshake SSH ya hecho en la sesión (no repetirlo: son hasta 6 s por intento).
   const sshLogin = (ctx && ctx.sshLogin !== undefined) ? ctx.sshLogin : cuentaSsh(host);
-  if (loginTok && sshLogin && sshLogin !== loginTok) {
-    warn(`Tu SSH empuja como @${sshLogin} pero tu sesión es @${loginTok} — NO configuro el remoto por SSH (evito commits con la cuenta equivocada). Uso HTTPS con tu token.`);
+  let nCuentas = 0;
+  try { nCuentas = cuentasDe(host, loadConfig()).length; } catch {}
+  const via = viaRemoto({ sshLogin, loginTok, nCuentas });
+  if (via === 'https') {
+    // Sin gh setup-git: el token de gh puede ser de OTRA cuenta. El helper de FARO (idempotente) responde
+    // con la cuenta guardada de ESTA org.
+    try { cablearHelper(host, org); } catch {}
     run('git', ['-C', destino, 'remote', 'set-url', 'origin', `https://${host}/${org}/${repoName}.git`], { stdio: 'ignore' });
-    if (forjaId === 'github') try {
-      execFileSync('gh', ['auth', 'status'], { stdio: 'ignore' });
-      execFileSync('gh', ['auth', 'setup-git'], { stdio: 'ignore' });
-    } catch {}
-    say(`  ${C.d}Para empujar con la cuenta correcta: usa el token (HTTPS) o carga en tu agente la clave SSH de @${loginTok}.${C.x}`);
+    if (sshLogin) ok(`Tu clave SSH es de @${sshLogin}; para ${org} git irá por HTTPS con tu sesión de @${loginTok} (sin pedirte nada).`);
+    else ok(`Tienes varias cuentas en ${host}: para ${org} git irá por HTTPS con tu sesión de @${loginTok} (sin pedirte nada).`);
     return;
   }
   // 1) ¿SSH disponible? Test silencioso; y si falla por AGENTE INTERACTIVO (1Password: pide Touch ID
   //    en cada uso y BatchMode lo bloquea), lo detectamos por el agente/IdentityAgent del ~/.ssh/config.
-  let ssh = !!sshLogin;   // ya calculado una vez por sesión: no repetir el handshake
+  let ssh = via === 'ssh';   // ya calculado una vez por sesión: no repetir el handshake
   if (!ssh) { try { const l = execFileSync('ssh-add', ['-l'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); if (l && !/no identities/i.test(l)) ssh = true; } catch {} }
   if (!ssh) { try { const cfgSsh = fs.readFileSync(path.join(os.homedir(), '.ssh', 'config'), 'utf8'); if (/IdentityAgent|1password/i.test(cfgSsh) || cfgSsh.includes(host)) ssh = true; } catch {} }
   if (ssh) {
@@ -529,7 +545,7 @@ export * from './plugin.mjs';
 export * from './meta.mjs';
 export {
   personalizarPlantilla,
-  tieneCmd, cuentaSsh, cuentaSshGithub, parseSshLogin, editorBin, checkPrerrequisitos, asegurarGitIdentidad,
+  tieneCmd, cuentaSsh, viaRemoto, cuentaSshGithub, parseSshLogin, editorBin, checkPrerrequisitos, asegurarGitIdentidad,
   configurarRemotoSeamless, estamparIdentidad,
   finalizarLocal, aplicarExigirPipeline, elegirDestino, overlayFaro, FARO_ROOTS, FARO_TREE, faroRoots, faroTree, carpetasFaroQueFaltan, mergeGitignore,
   cdSugerido, comandoDependencias, inventarioRamas, asegurarDevelopLocal, normalizarPrincipalLocal,

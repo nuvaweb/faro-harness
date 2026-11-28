@@ -36,7 +36,14 @@ Sin opciones, el wizard pregunta qué quieres hacer.
 
 ## Conectar
 
-El wizard busca una sesión antes de preguntar, en este orden: el remoto de la carpeta, `~/.faro.json`, las variables `FARO_GITHUB_TOKEN`/`GITHUB_TOKEN` o `FARO_GITLAB_TOKEN`/`GITLAB_TOKEN` y `git credential`. Te dice cuál ha encontrado, o te deja elegir si hay varias. Si no hay ninguna, te pide un token personal (GitHub: `repo` y `read:org`; GitLab: `api`) y te explica dónde se crea; también vale `--token=<token>`. El token es siempre tuyo. Solo si declaras una app OAuth propia (ver abajo) se abre en su lugar el login del navegador.
+El wizard busca una sesión antes de preguntar, en este orden: el remoto de la carpeta, `~/.faro.json`, las variables `FARO_GITHUB_TOKEN`/`GITHUB_TOKEN` o `FARO_GITLAB_TOKEN`/`GITLAB_TOKEN` y `git credential`. Te dice cuál ha encontrado, o te deja elegir si hay varias.
+
+`faro --login` solo pregunta **dónde** está tu código: GitHub, GitLab o una forja propia. La autorización es siempre en el navegador (device flow) y nunca se pide pegar un token. No pregunta la organización: tras autorizar lee por API tus organizaciones (GitHub) o grupos (GitLab) y las guarda con la cuenta. El resumen muestra la forja, la cuenta, las organizaciones detectadas y de qué cuenta es tu clave SSH.
+
+- **App OAuth**: en GitHub se usa la de `FARO_CLIENT_ID` o `git config --global faro.githubClientId`; sin ella, el login web de `gh`. En GitLab, la de `git config --global faro.gitlabClientId` (o `FARO_GITLAB_CLIENT_ID`). FARO no trae ninguna embebida.
+- **Varias cuentas en la misma forja**: cada `faro --login` añade una cuenta sin borrar las anteriores. Cada repo usa la cuenta de su organización; `--reautorizar` borra solo esa cuenta.
+- **SSH**: una clave es de una cuenta. Si es de la cuenta de la sesión, git va por SSH; si no, por HTTPS con el helper de FARO. Nunca bloquea.
+- `--token=<token>` queda solo para CI y automatización.
 
 El token se usa para la API y para clonar y empujar por HTTPS. Para eso, el wizard configura un helper de git acotado a ese host y a ese dueño: nunca es global y el token no se guarda en `.git/config`. Además, el token solo se envía a github.com, a gitlab.com o a un servidor que tú hayas declarado.
 

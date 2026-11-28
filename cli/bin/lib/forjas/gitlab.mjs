@@ -10,7 +10,8 @@
 //   · No se gatea por plan: se intenta y se lee la respuesta real (403/404/vacío según versión).
 //   · 'Equipo' no existe: el proyecto vive en el subgrupo y sus miembros heredan el acceso.
 //   · Crear desde plantilla NO existe (no hay /generate): el alta sale del esqueleto del paquete.
-import { guardarToken } from '../credenciales.mjs';
+import { execFileSync } from 'node:child_process';
+import { guardarToken, entrada } from '../credenciales.mjs';
 
 const pid = (p) => encodeURIComponent(String(p || ''));
 
@@ -137,21 +138,37 @@ async function crearSubgrupo(host, token, padre, nombre, o = {}) {
   return api(host, token, 'groups', { ...o, method: 'POST', body: { name: nombre, path, parent_id: g.body.id, visibility: 'private' } });
 }
 
-// Login: token personal (--token / pegado) o device flow con la app del perfil. Guarda tokens[host]
-// con el client_id del perfil: es la tercera fuente que el plugin consulta (harness.js auth), así el
-// harness queda conectado sin 'git config faro.gitlabClientId'.
-async function login(perfil, cfg, { tokenPegado = null, ui = {}, fetchImpl = fetch } = {}) {
+// Grupos RAIZ a los que llega la cuenta (cualquier nivel de acceso): es lo que el almacen guarda como
+// 'orgs' de la cuenta (misma consulta que el plugin, lib/credenciales.js). null si no se pudo leer.
+async function gruposDe(host, token, o = {}) {
+  const r = await api(host, token, 'groups?min_access_level=10&top_level_only=true&per_page=100', o);
+  return r.ok && Array.isArray(r.body) ? r.body.map((g) => String(g.full_path || g.path || '').toLowerCase()).filter(Boolean) : null;
+}
+
+const gitConfig = (k) => { try { return execFileSync('git', ['config', '--global', k], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim(); } catch { return ''; } };
+// App OAuth del host, en el mismo orden que el plugin (forge-gitlab.js): perfil > FARO_GITLAB_CLIENT_ID >
+// git config faro.gitlabClientId > la que ya quedo guardada en tokens[host]. Ninguna embebida en el codigo.
+function clientIdGitlab(perfil, cfg, { env = process.env, git = gitConfig } = {}) {
+  const en = entrada(perfil.host, cfg) || {};
+  return perfil.client_id || String(env.FARO_GITLAB_CLIENT_ID || '').trim() || git('faro.gitlabClientId') || en.client_id || null;
+}
+
+// Login: device flow con la app OAuth del host (nunca se pide pegar un token). --token <token> queda
+// para CI/automatizacion. Guarda tokens[host] con el client_id: es la fuente que el plugin consulta
+// (harness.js auth) y la que permite renovar sin navegador.
+async function login(perfil, cfg, { tokenPegado = null, ui = {}, fetchImpl = fetch, clientId = undefined } = {}) {
   const host = perfil.host;
+  const cid = clientId === undefined ? clientIdGitlab(perfil, cfg) : clientId;
   let cred = null;
   if (tokenPegado) cred = { token: String(tokenPegado).trim() };
-  else if (perfil.client_id) cred = await deviceFlow(host, perfil.client_id, { ui, fetchImpl });
-  else throw new Error(`El perfil ${perfil.id} no tiene app OAuth: usa --token <token personal con scope api>.`);
+  else if (cid) cred = await deviceFlow(host, cid, { ui, fetchImpl });
+  else throw new Error(`No hay app OAuth para ${host}: el login por navegador (device flow) necesita su client_id. Créala en ${host} > Preferencias > Aplicaciones (pública, scope api, "Device authorization grant") y declárala con  git config --global faro.gitlabClientId <client_id>  (o FARO_GITLAB_CLIENT_ID). En CI: --token.`);
   const u = await usuario(host, cred.token, { fetchImpl });
   if (!u) throw new Error(`El token no vale para ${host} (¿scope api? ¿caducado?).`);
   const scopes = (await scopesToken(host, cred.token, { fetchImpl })) || ['api'];
   guardarToken(host, {
     token: cred.token, user: u, scopes, forja: 'gitlab',
-    client_id: perfil.client_id || undefined,
+    client_id: cid || undefined,
     ...(cred.refresh_token ? { refresh_token: cred.refresh_token } : {}),
     ...(cred.expira ? { expira: cred.expira } : {}),
   }, cfg);
@@ -210,6 +227,6 @@ const alta = {
 
 const FORJA_GITLAB = {
   id: 'gitlab', alta, api, pid, login, usuario, scopesToken, miembroDe, rolEn, repo, ramas, ramaPorDefecto, proteger, topics, estamparTopics,
-  repos, crearProyecto, renovar, anadirMiembro, subgrupos, crearSubgrupo, usuarioHttp: 'oauth2',
+  repos, crearProyecto, renovar, anadirMiembro, subgrupos, crearSubgrupo, gruposDe, usuarioHttp: 'oauth2',
 };
-export { FORJA_GITLAB, api, pid, deviceFlow, renovar, subgrupos, crearSubgrupo, anadirMiembro, usuario, scopesToken, miembroDe, rolEn, repo, ramas, ramaPorDefecto, proteger, topics, estamparTopics, repos, crearProyecto, login };
+export { FORJA_GITLAB, gruposDe, clientIdGitlab, api, pid, deviceFlow, renovar, subgrupos, crearSubgrupo, anadirMiembro, usuario, scopesToken, miembroDe, rolEn, repo, ramas, ramaPorDefecto, proteger, topics, estamparTopics, repos, crearProyecto, login };

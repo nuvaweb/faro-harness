@@ -41,5 +41,5 @@ test('cablearHelper: reset + add con la ruta del script, sin tocar otros helpers
   const llamadas = [];
   cablearHelper('gitlab.com', 'Acme/plataforma/equipo', { git: (a) => { llamadas.push(a.join(' ')); return ''; }, escribirScript: () => 'C:/u/.faro/git-credential-faro.sh' });
   const k = 'credential.https://gitlab.com/Acme/plataforma/equipo.helper';
-  assert.deepEqual(llamadas, [`config --global --unset-all ${k}`, `config --global ${k} `, `config --global --add ${k} !sh 'C:/u/.faro/git-credential-faro.sh'`]);
+  assert.deepEqual(llamadas, [`config --global --unset-all ${k}`, `config --global ${k} `, `config --global --add ${k} !FARO_ORG='Acme/plataforma/equipo' sh 'C:/u/.faro/git-credential-faro.sh'`]);
 });
