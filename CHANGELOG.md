@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## 3.5.3 — 2026-11-28
+
+### Corregido
+- **Varias cuentas y una clave SSH** (#30): la identidad del repo sale de la cuenta de la organización (o grupo) de ese repo, no del último login. Antes, conectarse a otra org dejaba una «CUENTA CRUZADA» falsa en los repos de la primera
+- `harness.js auth` ya no rechaza la cuenta correcta porque la clave SSH sea de otra cuenta: una clave es de una sola cuenta, y lo que manda es la membresía en la org. Si no es miembro, pide repetir entrando con la cuenta de esa org
+- Si el remoto va por SSH con la clave de otra cuenta, `identity` y `auth` avisan (sin bloquear) y proponen `git remote set-url origin https://…`: por HTTPS la credencial de FARO responde con la cuenta de la org. No se toca `~/.ssh/config` ni el remoto
+- GitLab: se reconoce su saludo SSH (`Welcome to GitLab, @login!`)
+
 ## 3.5.2 — 2026-11-25
 
 ### Corregido
