@@ -15,14 +15,14 @@ const pluginPublico = { marketplace: 'faro-marketplace', source: { source: 'gith
 const PERFILES = {
   github: {
     id: 'github', forja: 'github', host: 'github.com', org: null,
-    client_id: null,   // OAuth App de FARO (device flow); sin ella: FARO_CLIENT_ID o token pegado
+    client_id: null,   // app OAuth (device flow): FARO_CLIENT_ID o git config faro.githubClientId; sin ella, gh auth login --web
     scopes: ['repo', 'read:org', 'workflow', 'user:email'],
     plugin: pluginPublico,
     etiqueta: 'GitHub',
   },
   gitlab: {
     id: 'gitlab', forja: 'gitlab', host: 'gitlab.com', org: null,
-    client_id: null,   // sin app OAuth embebida: token personal pegado (scope api); una app propia se declara en ~/.faro.json > perfiles
+    client_id: null,   // sin app OAuth embebida: git config faro.gitlabClientId (o ~/.faro.json > perfiles); device flow siempre
     scopes: ['api'],
     plugin: pluginPublico,
     etiqueta: 'GitLab',

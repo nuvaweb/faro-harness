@@ -5,7 +5,7 @@ const MENU = {
   instalar: { etiqueta: 'Instalar o actualizar el plugin', explica: 'Deja faro y superpowers en Claude Code. Sin cuenta ni token.' },
   crear: { etiqueta: 'Crear un repositorio nuevo', explica: 'Desde el esqueleto FARO, en GitHub o GitLab, con su clon local.' },
   traer: { etiqueta: 'Traer un repositorio que ya existe', explica: 'Esta carpeta o una URL: le pone la capa FARO o lo revisa, y si quieres lo mueve de forja.' },
-  conectar: { etiqueta: 'Conectar con una forja', explica: 'Iniciar sesión (navegador o token). Vale para el wizard y para el plugin de Claude Code.' },
+  conectar: { etiqueta: 'Conectar con una forja', explica: 'Iniciar sesión en el navegador (sin pegar tokens). Vale para el wizard y para el plugin de Claude Code.' },
 };
 
 // Devuelve { modo } con modo null cuando decide el menú. Para traer: origen 'carpeta' | 'repo', el repo
@@ -39,7 +39,7 @@ Modos (sin opciones, el wizard pregunta):
   --migrar=<url-destino>  Con --traer: lo mueve a otra forja o cuenta. Crea el destino, sube todas las
                           ramas y tags, cambia origin y ofrece archivar el viejo (nunca lo borra).
   --migrar --perfil=<id>  Igual, eligiendo el destino desde el perfil (github, gitlab o los tuyos).
-  --login                 Conectar con una forja (navegador o token) y salir.
+  --login                 Conectar con una forja (en el navegador) y salir. Admite varias cuentas.
 
 Crear sin preguntas (CI):
   npx faro-harness --nombre="Analisis de red" --domain=producto --naturaleza=worker --dir=./proyectos --yes
@@ -56,10 +56,9 @@ Opciones:
   --dir=<ruta>            Carpeta donde clonar, o la carpeta a traer.
   --perfil=<id>           Perfil: github | gitlab | los de ~/.faro.json.
   --forja=github|gitlab   Acota el perfil cuando no hay remoto que leer.
-  --token=<token>         Token personal (GitHub: repo, read:org; GitLab: api).
+  --token=<token>         Solo CI/automatización: token personal (GitHub: repo, read:org; GitLab: api).
   --reautorizar           Vuelve a pedir permisos. Alias: --reauth.
   --yes / --si            Sin confirmaciones.
-  --force                 Sigue aunque tu SSH empuje como otra cuenta distinta a tu sesión.
   --no-open               No abre el editor al terminar.
   --dry-run               Simula sin crear nada.
   --help                  Esta ayuda.

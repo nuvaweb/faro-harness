@@ -66,9 +66,9 @@ test('login con token personal: guarda tokens[host] con el client_id de la app p
   assert.equal(cfg.token, undefined, 'gitlab no toca el plano de github');
 });
 
-test('gitlab.com sin app OAuth embebida (#277): sin token pegado no hay device flow, se pide el token personal', async () => {
+test('gitlab.com sin app OAuth embebida (#277): sin client_id se explica cómo declararla; nunca se pide pegar un token', async () => {
   let llamadas = 0;
-  await assert.rejects(() => login(PERFILES.gitlab, {}, { fetchImpl: async () => { llamadas++; return json(200, {}); } }), /token personal/);
+  await assert.rejects(() => login(PERFILES.gitlab, {}, { clientId: null, fetchImpl: async () => { llamadas++; return json(200, {}); } }), /faro\.gitlabClientId/);
   assert.equal(llamadas, 0, 'no llama a ninguna app OAuth');
 });
 

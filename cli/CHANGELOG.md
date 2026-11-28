@@ -3,6 +3,22 @@
 Una entrada por versión publicada, la más reciente arriba. Criterio SemVer: **major** rompe un flujo o el
 contrato de un comando · **minor** añade comportamiento · **patch** corrige sin cambiar el comportamiento.
 
+## 3.1.0 — 2026-11-28
+
+- **Varias cuentas en la misma forja**: `~/.faro.json` guarda cada login en `tokens[host].cuentas[login] = { token, user, orgs, orgs_ts }` (la misma forma que el plugin).
+  - Un login con otra cuenta no borra la anterior. `tokens[host]` sigue siendo el último login.
+  - Cada flujo (crear, traer, adoptar y la migración) usa la cuenta de la organización del repo, no la del último login.
+  - El helper de git elige la cuenta por la organización (`FARO_ORG`, acotado a host/org).
+  - Las renovaciones de GitLab conservan su cuenta. `--reautorizar` borra solo la cuenta de esa organización.
+- **`faro --login` solo pregunta dónde**: GitHub, GitLab o una forja propia (que queda declarada en git config).
+  - La autorización es siempre en el navegador (device flow). Nunca se pide pegar un token; `--token` queda para CI.
+  - No pregunta la organización: lee por API las organizaciones (GitHub) o grupos raíz (GitLab) y las guarda con la cuenta.
+  - El resumen muestra la forja, la cuenta, las organizaciones detectadas y de qué cuenta es la clave SSH.
+  - Sin app OAuth declarada: en GitHub delega en `gh auth login --web`; en GitLab explica cómo declararla (`git config --global faro.gitlabClientId`).
+- **SSH por cuenta**: la clave SSH ya no bloquea por «cuenta cruzada» y desaparece `--force`.
+  - El remoto va por SSH solo si la clave verificada es de la cuenta de la sesión; si no, por HTTPS con el helper de FARO.
+  - Con varias cuentas y una clave sin verificar, HTTPS (no se adivina).
+
 ## 3.0.0 — 2026-11-10
 
 - **Todo lo de FARO en `faro/`** (#293, rompe el layout): el esqueleto de `crear` nace con `faro/{gestion,fuentes,documentos,flujos,borrador,notebooks}/`, `faro/ESTADO.md` y `faro/config.json` (antes `.faro.json`).

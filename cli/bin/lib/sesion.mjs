@@ -7,7 +7,7 @@
 // configuración: guardar la sesión elegida es cosa del login de cada forja.
 import { execFileSync } from 'node:child_process';
 import { PERFILES, perfilesConocidos } from './perfil.mjs';
-import { esGithub, esGitlab, hostConfiable, cfgMigrada, tokenDeEntorno, ghAuthToken, caduca } from './credenciales.mjs';
+import { esGithub, esGitlab, hostConfiable, cfgMigrada, entradaPara, tokenDeEntorno, ghAuthToken, caduca } from './credenciales.mjs';
 import { ghHost } from './forjas/github.mjs';
 import { api } from './forjas/gitlab.mjs';
 
@@ -51,8 +51,10 @@ function perfilDeHost(host, forja, perfil, entradaHost) {
   return perfil || { ...PERFILES[forja], id: `${forja}@${host}`, host, client_id: (entradaHost && entradaHost.client_id) || null, etiqueta: `${nombreForja(forja)} · ${host}`, derivado: true };
 }
 
-async function sesionDeHost(host, { cfg, lista, env, gh, credencialGit, fetchImpl, declarada = null }) {
-  const guardada = cfg.tokens[host] || null;
+// Con varias cuentas guardadas en el host, la sesión guardada es la de la cuenta que llega a 'owner'
+// (la org del repo); sin owner, o si ninguna llega, el último login.
+async function sesionDeHost(host, { cfg, lista, env, gh, credencialGit, fetchImpl, declarada = null, owner = null }) {
+  const guardada = entradaPara(host, cfg, owner);
   const conocido = lista.find((p) => low(p.host) === host) || null;
   const forja = forjaDeHost(host, guardada, conocido, declarada);
   if (!forja) return null;
@@ -83,13 +85,14 @@ async function sesionDeHost(host, { cfg, lista, env, gh, credencialGit, fetchImp
 }
 
 // Sesiones válidas, una por host como mucho. `remoto` es el resultado de detectarForja.
-async function buscarSesiones({ cfg = {}, perfiles = null, env = process.env, credencialGit = leerCredencialGit, gh = ghAuthToken, fetchImpl = fetch, remoto = null } = {}) {
+async function buscarSesiones({ cfg = {}, perfiles = null, env = process.env, credencialGit = leerCredencialGit, gh = ghAuthToken, fetchImpl = fetch, remoto = null, owner = null } = {}) {
   const copia = cfgMigrada({ ...cfg, tokens: { ...(cfg.tokens || {}) } });
   copia.tokens = Object.fromEntries(Object.entries(copia.tokens).map(([k, v]) => [low(k), v]));
   const lista = perfiles || perfilesConocidos(cfg);
   const hosts = remoto && remoto.host ? [low(remoto.host)] : [...new Set([...lista.map((p) => low(p.host)), ...Object.keys(copia.tokens)])];
   const declarada = remoto && remoto.declarada ? remoto.forja : null;
-  const halladas = await Promise.all(hosts.map((host) => sesionDeHost(host, { cfg: copia, lista, env, gh, credencialGit, fetchImpl, declarada })));
+  const dueno = owner || (remoto && remoto.owner) || null;
+  const halladas = await Promise.all(hosts.map((host) => sesionDeHost(host, { cfg: copia, lista, env, gh, credencialGit, fetchImpl, declarada, owner: dueno })));
   return halladas.filter(Boolean);
 }
 

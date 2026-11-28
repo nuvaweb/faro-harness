@@ -276,7 +276,7 @@ async function flujoAdoptar(auth, org, cfg, catalogo, esOwner, ctx) {
 
   // El repo VIEJO (otra cuenta u otra forja): se ofrece archivarlo (solo lectura, nunca se borra), con
   // el token de SU host: nunca uno de otra forja.
-  const viejoTok = fRem.host === host ? auth.token : tokenPara(fRem.host, cfg);
+  const viejoTok = fRem.host === host ? auth.token : tokenPara(fRem.host, cfg, { owner: fRem.owner });
   if (['github', 'gitlab'].includes(fRem.forja) && fRem.path && viejoTok && `${fRem.host}/${fRem.path}`.toLowerCase() !== `${host}/${rutaRepo()}`.toLowerCase()
     && (await confirma(`¿Archivar el repo viejo ${fRem.host}/${fRem.path}? Queda en solo lectura; no se borra.`, 'n'))) {
     const ar = await archivarRepo({ forja: fRem.forja, host: fRem.host, ruta: fRem.path, token: viejoTok });

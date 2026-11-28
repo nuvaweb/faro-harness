@@ -47,7 +47,7 @@ async function instalar() {
 async function conectar(cfg) {
   ui.pasoT = 1; paso('Conectar con la forja');
   const dir = argVal('dir');
-  await flujoLogin(cfg, { perfilFlag: argVal('perfil'), soloForja: argVal('forja'), forjaDetectada: dir ? await forjaDeCarpeta(dir, cfg) : detectarForja(null), reautorizar: argFlag('reautorizar') || argFlag('reauth'), tokenPegado: argVal('token') });
+  await flujoLogin(cfg, { perfilFlag: argVal('perfil'), soloForja: argVal('forja'), forjaDetectada: dir ? await forjaDeCarpeta(dir, cfg) : detectarForja(null), reautorizar: argFlag('reautorizar') || argFlag('reauth'), tokenPegado: argVal('token'), nueva: !YES && !!process.stdin.isTTY });
   p.outro(`${C.g}✅ Conectado${C.x}`);
 }
 

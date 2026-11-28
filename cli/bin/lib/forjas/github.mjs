@@ -4,10 +4,10 @@
 // el plugin. FORJA_GITHUB expone la interfaz común que consumen los flujos (misma forma que gitlab.mjs).
 
 import { execFileSync } from 'node:child_process';
-import { gh, ok, warn, say, caja, spinner, C, YES, argFlag, saveConfig, secreto, confirma } from '../core.mjs';
+import { gh, ok, warn, say, caja, spinner, C, YES, argFlag, saveConfig, confirma } from '../core.mjs';
 import { SCOPES_PEDIDOS, SCOPES_CRITICOS, SCOPES_CI, SCOPE_AYUDA } from '../model.mjs';
 import { cablearHelper, retirarReescritura, noreplyDe } from '../gitcred.mjs';
-import { tokenPara, guardarToken, borrarToken, entrada, cfgMigrada, tokenDeEntorno } from '../credenciales.mjs';
+import { tokenPara, guardarToken, borrarToken, entrada, cuentaPara, cuentasDe, anotarOrg, cfgMigrada, tokenDeEntorno } from '../credenciales.mjs';
 import { PERFILES } from '../perfil.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -68,7 +68,9 @@ function copiarPortapapeles(txt) {
   return false;
 }
 
-async function deviceFlow(clientId) {
+// Device flow contra el host de la forja (github.com o un GitHub Enterprise: mismo /login/device/code).
+async function deviceFlow(clientId, host = 'github.com') {
+  const base = `https://${String(host || 'github.com').toLowerCase()}`;
   const form = (o) => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   const post = async (url, data) => {
     const res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: form(data) });
@@ -79,7 +81,7 @@ async function deviceFlow(clientId) {
   // App to create or update workflow ... without workflow scope' (reproducido 2026-07-30, plugin
   // faro). Si el usuario YA tenía una sesión sin este scope, hay que REVOCAR y reautorizar desde
   // cero (GitHub no siempre re-pide consentimiento solo por ampliar el scope de una app existente).
-  const d = await post('https://github.com/login/device/code', { client_id: clientId, scope: SCOPES_PEDIDOS.join(' ') });
+  const d = await post(`${base}/login/device/code`, { client_id: clientId, scope: SCOPES_PEDIDOS.join(' ') });
   if (!d.device_code) throw new Error(`device flow: ${JSON.stringify(d)}`);
   const abierto = abrirNavegador(d.verification_uri);
   say('');
@@ -101,7 +103,7 @@ async function deviceFlow(clientId) {
   for (;;) {
     if (Date.now() > limite) { spin(); throw new Error('device flow: caducó el código sin autorizar (vuelve a intentarlo)'); }
     await new Promise((r) => setTimeout(r, intervalo));
-    const t = await post('https://github.com/login/oauth/access_token', {
+    const t = await post(`${base}/login/oauth/access_token`, {
       client_id: clientId, device_code: d.device_code, grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     });
     if (t.access_token) { spin(); return t.access_token; }
@@ -161,7 +163,7 @@ function criticosPara(destino) {
 // host (scopes_cache) para no llamar a la API en cada flujo. `ok:false` = hay que re-loguearse.
 async function validarTokenSesion(cfg, perfil = PERFILES.github, { silencioSiOk = true, destino = null, fetchImpl = fetch, ui = null, gh: ghTok = undefined, guardar = saveConfig } = {}) {
   const U = ui || { say, ok, caja };
-  const tok = tokenPara(perfil.host, cfg, ghTok ? { gh: ghTok } : {});
+  const tok = tokenPara(perfil.host, cfg, { owner: perfil.org, ...(ghTok ? { gh: ghTok } : {}) });
   if (!tok) return { ok: false, faltan: SCOPES_PEDIDOS, ssoPendiente: false };
   const huella = String(tok).slice(-8);
   const en = entrada(perfil.host, cfg) || {};
@@ -202,26 +204,60 @@ async function validarTokenSesion(cfg, perfil = PERFILES.github, { silencioSiOk 
   return { ok: false, faltan, ssoPendiente: !!est.ssoPendiente };
 }
 
+// El user va SIEMPRE con el token: sin el, la cuenta del token no se sabe y un login de otra cuenta
+// (otra organizacion) se confundiria con la anterior en ~/.faro.json > tokens[host].cuentas.
+const usuarioDe = (me) => ({ login: me.login, id: me.id, name: me.name || null, email: me.email || null });
+
+const gitConfigGlobal = (k) => { try { return execFileSync('git', ['config', '--global', k], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim(); } catch { return ''; } };
+// App OAuth del device flow. Ninguna embebida (FARO es agnostico): la de github.com sale de
+// FARO_CLIENT_ID, ~/.faro.json > client_id o 'git config faro.githubClientId' (la misma clave que lee el
+// plugin); un GitHub Enterprise usa la de su perfil.
+function clientIdGithub(cfg, perfil, { env = process.env, git = gitConfigGlobal } = {}) {
+  const publico = String(perfil.host).toLowerCase() === 'github.com';
+  return (publico && (String(env.FARO_CLIENT_ID || '').trim() || cfg.client_id || git('faro.githubClientId'))) || perfil.client_id || null;
+}
+
+// Sin app OAuth propia: el device flow de la CLI oficial de GitHub (gh auth login --web pide el mismo
+// código en el navegador). Nunca se pide pegar un token. null si no hay gh o no se completo.
+function loginConGh(host, { run = execFileSync } = {}) {
+  try { run('gh', ['--version'], { stdio: 'ignore', windowsHide: true }); } catch { return null; }
+  try {
+    run('gh', ['auth', 'login', '--web', '--hostname', host, '--git-protocol', 'https', '--scopes', SCOPES_PEDIDOS.join(',')], { stdio: 'inherit' });
+    return String(run('gh', ['auth', 'token', '--hostname', host], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 8000, windowsHide: true }) || '').trim() || null;
+  } catch { return null; }
+}
+
 // Cascada de autenticación. Devuelve también id/name/email (Item 9: identidad git).
 // `tokenInicial` ({token, via}): sesión ya encontrada por sesion.mjs; va primero y evita repetir la búsqueda.
-async function obtenerToken(cfg, perfil = PERFILES.github, { reautorizar = false, tokenInicial = null } = {}) {
+// `owner`: organización del repo con el que se va a trabajar (si el perfil no la fija): con varias
+// cuentas en la forja, se usa la que llega a ella. `nueva`: conectar OTRA cuenta (device flow directo).
+// `gh`: token de la CLI gh, inyectable para tests.
+async function obtenerToken(cfg, perfil = PERFILES.github, { reautorizar = false, tokenInicial = null, owner = null, nueva = false, gh: ghCli = null } = {}) {
   // El client_id global (entorno o ~/.faro.json) es el de github.com: un GitHub Enterprise usa el de su perfil.
   const publico = String(perfil.host).toLowerCase() === 'github.com';
-  const clientIdCfg = (publico && (process.env.FARO_CLIENT_ID || cfg.client_id)) || perfil.client_id;
+  const clientIdCfg = clientIdGithub(cfg, perfil);
+  const org = perfil.org || owner || null;
   const candidatos = [];
-  if (tokenInicial) candidatos.push([tokenInicial.via, tokenInicial.token]);
+  const envTok = tokenDeEntorno(perfil.host);
+  if (nueva) { /* conectar otra cuenta: sin candidatos, directo al device flow */ }
+  else if (tokenInicial) candidatos.push([tokenInicial.via, tokenInicial.token]);
   else {
-    const envTok = tokenDeEntorno(perfil.host);
     if (envTok) candidatos.push(['variable de entorno (FARO_GITHUB_TOKEN / GITHUB_TOKEN)', envTok]);
-    // Sesión guardada: tokens[host] (forma compartida con el plugin); el plano antiguo solo como fallback.
+    // Sesión guardada: primero la cuenta que ya sabemos que llega a la org; luego el ultimo login
+    // (tokens[host]) y el resto de cuentas guardadas; el plano antiguo solo como fallback.
+    const deOrg = cuentaPara(perfil.host, cfg, org);
+    if (deOrg) candidatos.push([`sesión guardada de @${deOrg.login} (~/.faro.json)`, deOrg.token]);
     const guardada = entrada(perfil.host, cfg);
     if (guardada && guardada.token) candidatos.push(['sesión guardada (~/.faro.json)', guardada.token]);
     else if (publico && cfg.token) candidatos.push(['sesión guardada (~/.faro.json, formato antiguo)', cfg.token]);
+    for (const c of cuentasDe(perfil.host, cfg)) candidatos.push([`sesión guardada de @${c.login} (~/.faro.json)`, c.token]);
     // El token de la CLI gh es el de github.com: no viaja a ningún otro servidor.
-    if (publico) try {
-      const t = execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 8000 }).trim();
+    if (publico) {
+      let t = null;
+      if (ghCli) t = ghCli();
+      else try { t = execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 8000, windowsHide: true }).trim(); } catch {}
       if (t) candidatos.push(['GitHub CLI (gh auth token)', t]);
-    } catch {}
+    }
   }
   // desde(): construye la identidad Y la PERSISTE en ~/.faro.json (fuente de verdad UNICA que
   // el harness reutiliza sin re-llamar a la API). Guarda token + user{login,name,email} SIEMPRE, venga
@@ -255,12 +291,27 @@ async function obtenerToken(cfg, perfil = PERFILES.github, { reautorizar = false
     } catch {}
     return { token: tok, login: me.login, id: me.id, name: me.name, email, email_contacto: contacto, via };
   };
+  // Device flow con la app OAuth si la hay; si no, el de la CLI gh. Nunca se pide pegar un token.
+  const autorizar = async () => {
+    if (clientIdCfg) return deviceFlow(clientIdCfg, perfil.host);
+    if (process.stdin.isTTY) {
+      say(`  ${C.d}Sin app OAuth propia declarada: inicio sesión con el navegador mediante la CLI de GitHub (gh).${C.x}`);
+      const t = loginConGh(perfil.host);
+      if (t) return t;
+    }
+    throw new Error([
+      `No puedo abrir el login por navegador en ${perfil.host}: no hay app OAuth declarada ni CLI de GitHub (gh).`,
+      `  · Instala gh (https://cli.github.com) y repite  faro --login, o`,
+      `  · declara tu app OAuth (device flow activado):  git config --global faro.githubClientId <client_id>  (o FARO_CLIENT_ID).`,
+      `  En CI: variable GITHUB_TOKEN / FARO_GITHUB_TOKEN o --token.`,
+    ].join('\n'));
+  };
   // --reautorizar: AMPLIAR permisos de una sesion existente. Repetir el login a secas NO sirve —
   // GitHub no vuelve a pedir consentimiento a una OAuth App ya autorizada, asi que reemite el token
   // con los permisos VIEJOS. Hay que REVOCAR primero, y eso solo puede hacerlo el usuario en su
   // cuenta (no hay API para revocar la propia autorizacion). Se le lleva a la pagina exacta.
   if (reautorizar || argFlag('reautorizar') || argFlag('reauth')) {
-    const url = `https://github.com/settings/connections/applications/${clientIdCfg}`;
+    const url = clientIdCfg ? `https://${perfil.host}/settings/connections/applications/${clientIdCfg}` : `https://${perfil.host}/settings/applications`;
     caja([
       `${C.b}Ampliar los permisos de tu sesión de GitHub${C.x}`,
       `Permisos que pide el CLI: ${C.c}${SCOPES_PEDIDOS.join(', ')}${C.x}`,
@@ -273,15 +324,17 @@ async function obtenerToken(cfg, perfil = PERFILES.github, { reautorizar = false
     ], { titulo: 'Reautorizar', color: C.c });
     abrirNavegador(url);
     if (!YES) await confirma('¿Ya has revocado el acceso? Continúo con el login', 's');
-    borrarToken(perfil.host, cfg);                              // fuerza device flow limpio
+    // Solo la cuenta que se reautoriza (la de la org si se sabe; si no, la del ultimo login): las demas siguen.
+    const deEsta = cuentaPara(perfil.host, cfg, org) || entrada(perfil.host, cfg) || {};
+    borrarToken(perfil.host, cfg, deEsta.login || (deEsta.user || {}).login);
     try { retirarReescritura(perfil.plugin.url); } catch {}      // la reescritura del marketplace llevaba el token que se va a revocar
     try { saveConfig(cfg); } catch {}
-    const tokR = await deviceFlow(clientIdCfg);
+    const tokR = await autorizar();
     const meR = await gh(tokR, '/user');
     if (!meR.ok) throw new Error('el token del device flow no valida');
     const scR = String(meR.headers['x-oauth-scopes'] || '').split(',').map((s) => s.trim()).filter(Boolean);
     const faltanR = scR.length ? SCOPES_PEDIDOS.filter((s) => !scR.includes(s)) : [];
-    guardarToken(perfil.host, { token: tokR, scopes: scR, forja: 'github' }, cfg); saveConfig(cfg);
+    guardarToken(perfil.host, { token: tokR, scopes: scR, forja: 'github', user: usuarioDe(meR.body) }, cfg); saveConfig(cfg);
     if (faltanR.length) warn(`La sesión nueva SIGUE sin: ${faltanR.join(', ')}. ¿Seguro que revocaste el acceso en el paso 2? Repite ${C.c}faro --login --reautorizar${C.x}.`);
     else ok(`Sesión reautorizada: @${meR.body.login} con todos los permisos (${SCOPES_PEDIDOS.join(', ')}).`);
     return await desde(tokR, meR.body, 'login FARO (reautorizado)', scR);
@@ -292,19 +345,41 @@ async function obtenerToken(cfg, perfil = PERFILES.github, { reautorizar = false
   // sigue -> acaba en el device flow, que los pide de nuevo.
   const CRITICOS = SCOPES_CRITICOS;   // fuente unica en model.mjs (no re-declarar la lista aqui)
   let degradado = null;   // 1er token valido pero corto de scopes: respaldo si no hay nada mejor
+  // VARIAS CUENTAS: un token valido de OTRA organizacion no sirve para esta. Se comprueba la membresia
+  // (salvo el token del entorno, que manda siempre); el primero valido pero ajeno queda de respaldo.
+  let ajeno = null;
+  const vistos = new Set();
   for (const [via, tok] of candidatos) {
+    if (vistos.has(tok)) continue;
+    vistos.add(tok);
     const me = await gh(tok, '/user');
     if (!me.ok) continue;
     const scopes = String((me.headers && (me.headers['x-oauth-scopes'] || me.headers.get?.('x-oauth-scopes'))) || '')
       .split(',').map((s) => s.trim()).filter(Boolean);
     // Sin cabecera (p.ej. token fine-grained, que no la expone) no se puede juzgar: se acepta.
     const faltan = scopes.length ? CRITICOS.filter((s) => !scopes.includes(s)) : [];
+    const deEntorno = tok === envTok;
+    const esLaCuenta = org && me.body && String(me.body.login || '').toLowerCase() === String(org).toLowerCase();
+    const m = !faltan.length && org && !deEntorno && !esLaCuenta ? await miembroDe(tok, org, perfil.host) : null;
+    if (!faltan.length && m === false) { if (!ajeno) ajeno = { tok, me, via, scopes }; continue; }
     if (!faltan.length) {
       if (!tokenInicial) ok(`Sesión GitHub válida vía ${via}: @${me.body.login}`);
-      return await desde(tok, me.body, via, scopes.length ? scopes : null);
+      const r = await desde(tok, me.body, via, scopes.length ? scopes : null);
+      if (m === true) { try { if (anotarOrg(perfil.host, cfg, me.body.login, org)) saveConfig(cfg); } catch {} }
+      return r;
     }
     warn(`Ignoro la sesión de ${via} (@${me.body.login}): le faltan permisos ${faltan.join(', ')} — no podría clonar repositorios privados.`);
     if (!degradado) degradado = { tok, me, via, faltan };
+  }
+  // Hay sesiones validas pero de cuentas que NO estan en la org: o se conecta otra cuenta (la de esa
+  // org) o se sigue con la que hay, como antes, y lo que necesite esa organizacion fallara.
+  if (ajeno && !degradado) {
+    const logins = [...new Set(cuentasDe(perfil.host, cfg).map((c) => '@' + c.login).concat('@' + ajeno.me.body.login))].join(', ');
+    const conectar = process.stdin.isTTY && !YES && await confirma(`Ninguna de tus cuentas guardadas (${logins}) pertenece a ${org}. ¿Conectar la cuenta de ${org}? (en el navegador, entra con esa cuenta)`, 's');
+    if (!conectar) {
+      warn(`Sigo con @${ajeno.me.body.login}, que no es miembro de ${org}: lo que necesite esa organización fallará.`);
+      return await desde(ajeno.tok, ajeno.me.body, ajeno.via, ajeno.scopes.length ? ajeno.scopes : null);
+    }
   }
   // Se llega aqui sin token utilizable. Si habia uno VALIDO pero corto de scopes, se explica por que
   // hay que repetir el login: el usuario acaba de ver "sesion guardada" y merece saber que no basta.
@@ -322,54 +397,58 @@ async function obtenerToken(cfg, perfil = PERFILES.github, { reautorizar = false
       `Vamos a reconectar para pedirlos — es el mismo login de siempre.`,
     ], { titulo: 'Hay que ampliar los permisos', color: C.c });
   }
-  const clientId = clientIdCfg;
-  if (clientId) {
-    let tok = null;
-    try { tok = await deviceFlow(clientId); } catch (e) {
-      // Si el re-login falla (sin red, el usuario cancela) y teniamos un token corto, es mejor
-      // seguir con el que hay que abortar: sirve para casi todo menos para los repos privados.
-      if (degradado) { warn('No pude ampliar los permisos — sigo con la sesión actual (limitada: fallará con repositorios privados).'); return await desde(degradado.tok, degradado.me.body, degradado.via + ' · permisos limitados'); }
-      throw e;
-    }
-    const me = await gh(tok, '/user');
-    if (!me.ok) throw new Error('el token del device flow no valida');
-    // El token RECIEN emitido puede seguir corto: GitHub no siempre re-pide consentimiento al
-    // ampliar scopes de una OAuth App ya autorizada (reproducido con 'workflow', ver arriba) —
-    // devuelve los permisos VIEJOS sin avisar. Si pasa, re-loguear no sirve: hay que revocar.
-    // Se comprueban los CUATRO scopes pedidos, no solo los criticos: 'workflow' es el que mas veces
-    // se queda corto (es el ultimo que se anadio) y su ausencia rompe el push COMPLETO en cuanto el
-    // repo tiene .github/workflows/ — no es un extra.
-    const scNuevo = String(me.headers['x-oauth-scopes'] || '').split(',').map((s) => s.trim()).filter(Boolean);
-    const cortos = scNuevo.length ? SCOPES_PEDIDOS.filter((s) => !scNuevo.includes(s)) : [];
-    if (cortos.length) {
-      caja([
-        `GitHub emitió la sesión ${C.b}sin los permisos pedidos${C.x} (falta ${C.c}${cortos.join(', ')}${C.x}).`,
-        `Pasa cuando la app ya estaba autorizada con permisos menores: ${C.b}no vuelve a pedir consentimiento${C.x},`,
-        `así que repetir el login NO lo arregla — hay que revocar la autorización y volver a entrar:`,
-        ``,
-        `  1) Abre  ${C.c}https://github.com/settings/connections/applications/${clientId}${C.x}`,
-        `  2) Abajo del todo: ${C.b}Revoke access${C.x}`,
-        `  3) Vuelve a ejecutar  ${C.c}faro --login${C.x}  y acepta los permisos`,
-        ``,
-        cortos.includes('workflow')
-          ? `${C.d}Sin 'workflow', GitHub rechaza el push ENTERO (no solo el fichero) en repos con .github/workflows/.${C.x}`
-          : `${C.d}Sin 'user:email' el commit se atribuye con tu noreply de GitHub (funciona, pero no lleva tu correo real).${C.x}`,
-      ], { titulo: 'Permisos no concedidos', color: C.c });
-      try { abrirNavegador(`https://github.com/settings/connections/applications/${clientId}`); } catch {}
-    }
-    guardarToken(perfil.host, { token: tok, scopes: scNuevo, forja: 'github' }, cfg); saveConfig(cfg);
-    ok(`Sesión iniciada: @${me.body.login} (guardada para próximas veces)`);
-    return await desde(tok, me.body, 'login FARO (device flow)', scNuevo);
+  let tok = null;
+  try { tok = await autorizar(); } catch (e) {
+    // Si el re-login falla (sin red, el usuario cancela) y teniamos un token corto, es mejor
+    // seguir con el que hay que abortar: sirve para casi todo menos para los repos privados.
+    if (degradado) { warn('No pude ampliar los permisos — sigo con la sesión actual (limitada: fallará con repositorios privados).'); return await desde(degradado.tok, degradado.me.body, degradado.via + ' · permisos limitados'); }
+    throw e;
   }
-  say('');
-  warn('Login por navegador no disponible todavía (falta configurar la OAuth App de la organización).');
-  say(`${C.d}  Crea un token en https://github.com/settings/tokens (classic, scopes: repo + read:org + workflow + user:email) y pégalo.${C.x}`);
-  const tok = await secreto('Token de GitHub (ghp_...)');
   const me = await gh(tok, '/user');
-  if (!me.ok) throw new Error('el token pegado no es válido');
-  guardarToken(perfil.host, { token: tok, forja: 'github' }, cfg); saveConfig(cfg);
+  if (!me.ok) throw new Error('el token del device flow no valida');
+  // El token RECIEN emitido puede seguir corto: GitHub no siempre re-pide consentimiento al
+  // ampliar scopes de una OAuth App ya autorizada (reproducido con 'workflow', ver arriba) —
+  // devuelve los permisos VIEJOS sin avisar. Si pasa, re-loguear no sirve: hay que revocar.
+  // Se comprueban los CUATRO scopes pedidos, no solo los criticos: 'workflow' es el que mas veces
+  // se queda corto (es el ultimo que se anadio) y su ausencia rompe el push COMPLETO en cuanto el
+  // repo tiene .github/workflows/ — no es un extra.
+  const scNuevo = String(me.headers['x-oauth-scopes'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const cortos = scNuevo.length ? SCOPES_PEDIDOS.filter((s) => !scNuevo.includes(s)) : [];
+  if (cortos.length) {
+    const urlApp = clientIdCfg ? `https://${perfil.host}/settings/connections/applications/${clientIdCfg}` : `https://${perfil.host}/settings/applications`;
+    caja([
+      `GitHub emitió la sesión ${C.b}sin los permisos pedidos${C.x} (falta ${C.c}${cortos.join(', ')}${C.x}).`,
+      `Pasa cuando la app ya estaba autorizada con permisos menores: ${C.b}no vuelve a pedir consentimiento${C.x},`,
+      `así que repetir el login NO lo arregla — hay que revocar la autorización y volver a entrar:`,
+      ``,
+      `  1) Abre  ${C.c}${urlApp}${C.x}`,
+      `  2) Abajo del todo: ${C.b}Revoke access${C.x}`,
+      `  3) Vuelve a ejecutar  ${C.c}faro --login${C.x}  y acepta los permisos`,
+      ``,
+      cortos.includes('workflow')
+        ? `${C.d}Sin 'workflow', GitHub rechaza el push ENTERO (no solo el fichero) en repos con .github/workflows/.${C.x}`
+        : `${C.d}Sin 'user:email' el commit se atribuye con tu noreply de GitHub (funciona, pero no lleva tu correo real).${C.x}`,
+    ], { titulo: 'Permisos no concedidos', color: C.c });
+    try { abrirNavegador(urlApp); } catch {}
+  }
+  guardarToken(perfil.host, { token: tok, scopes: scNuevo, forja: 'github', user: usuarioDe(me.body) }, cfg); saveConfig(cfg);
   ok(`Sesión iniciada: @${me.body.login} (guardada para próximas veces)`);
-  return await desde(tok, me.body, 'token pegado a mano');
+  return await desde(tok, me.body, 'login FARO (device flow)', scNuevo);
+}
+
+// Organizaciones a las que llega la cuenta (GET /user/orgs, en minúsculas): lo que el almacén guarda
+// como 'orgs' de la cuenta. null si no se pudo leer (sin red, sin 'read:org').
+async function orgsDe(token, host = 'github.com', { fetchImpl = fetch } = {}) {
+  const out = [];
+  try {
+    for (let page = 1; page <= 10; page++) {
+      const r = await ghHost(token, host, `/user/orgs?per_page=100&page=${page}`, {}, fetchImpl);
+      if (!r.ok || !Array.isArray(r.body)) return page === 1 ? null : out;
+      out.push(...r.body.map((o) => String(o.login || '').toLowerCase()).filter(Boolean));
+      if (r.body.length < 100) break;
+    }
+    return out;
+  } catch { return null; }
 }
 
 // Config higiénica del repo (best-effort; GRATIS en plan Free para repos privados). No bloquea si falla.
@@ -509,11 +588,11 @@ const alta = {
   }), o),
 };
 
-const FORJA_GITHUB = { id: 'github', apiBase, login, validarTokenSesion, miembroDe, estadoToken, repos: listarReposFaro, protegerRama, estamparTopics, alta, usuarioHttp: 'x-access-token' };
+const FORJA_GITHUB = { id: 'github', apiBase, login, orgsDe, validarTokenSesion, miembroDe, estadoToken, repos: listarReposFaro, protegerRama, estamparTopics, alta, usuarioHttp: 'x-access-token' };
 
 export {
   apiBase, ghHost, estadoToken, miembroDe, criticosPara, validarTokenSesion, login, FORJA_GITHUB, abrirNavegador, copiarPortapapeles,
-  obtenerToken, estamparTopics, aplicarConfigRepo,
+  obtenerToken, orgsDe, clientIdGithub, loginConGh, usuarioDe, deviceFlow, estamparTopics, aplicarConfigRepo,
   esPlanDePago, planDeOrg, protegerRama,
   teamsDeRepo,
   listarReposFaro, reposDelDestino,

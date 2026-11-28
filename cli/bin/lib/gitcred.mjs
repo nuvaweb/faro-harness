@@ -3,7 +3,8 @@
 //
 // 1) HELPER de credenciales, acotado por git a host/org (credential.https://<host>/<org>.helper,
 //    nunca global a todo el host): git le pasa 'host=<host>' por stdin y el helper responde con el
-//    token de ESE host. Usuario 'x-access-token' en GitHub y 'oauth2' en GitLab (asi lo esperan).
+//    token de ESE host; con varias cuentas en el host, el de la cuenta que llega a la org (FARO_ORG,
+//    misma regla que tokenPara(host, { owner })). Usuario 'x-access-token' en GitHub y 'oauth2' en GitLab (asi lo esperan).
 // 2) REESCRITURA url.<con token>.insteadOf <url limpia>, acotada al repo del marketplace: las
 //    actualizaciones EN SEGUNDO PLANO de un marketplace privado desactivan los credential helpers
 //    (documentado por Claude Code), asi que el helper de arriba sirve para instalar pero el
@@ -35,7 +36,11 @@ function contenidoHelper() {
     "const host=String(process.env.FARO_HOST||'').toLowerCase();",
     "const esGithub=/(^|[.])github[.]com$/.test(host);",
     "try { const cfg=JSON.parse(fs.readFileSync(path.join(os.homedir(),'.faro.json'),'utf8'));",
-    "  const e=(cfg.tokens||{})[host]; let tok=e&&e.token;",
+    "  const e=(cfg.tokens||{})[host]; let tok=null;",
+    "  const org=String(process.env.FARO_ORG||'').toLowerCase(), raiz=org.split('/')[0];",
+    "  const tiene=(c,x)=>Array.isArray(c.orgs)&&c.orgs.includes(x);",
+    "  if(org&&e&&e.cuentas) for(const [l,c] of Object.entries(e.cuentas)) if(c&&c.token&&(l===org||l===raiz||tiene(c,org)||tiene(c,raiz))){ tok=c.token; break; }",
+    "  if(!tok) tok=e&&e.token;",
     "  if(!tok && esGithub) tok=cfg.token;",
     "  if(tok){ console.log('username='+(esGithub?'x-access-token':'oauth2')); console.log('password='+tok); } } catch {}",
     '"',
@@ -58,7 +63,9 @@ function cablearHelper(host, org, { git = gitGlobal, escribirScript = escribirSc
   const k = claveHelper(host, org);
   git(['config', '--global', '--unset-all', k]);
   git(['config', '--global', k, '']);
-  git(['config', '--global', '--add', k, `!sh '${ruta}'`]);
+  // FARO_ORG: con varias cuentas en el host, el helper da el token de la cuenta que llega a ESTA org.
+  const o = String(org || '').replace(/[^A-Za-z0-9._/-]/g, '');
+  git(['config', '--global', '--add', k, `!FARO_ORG='${o}' sh '${ruta}'`]);
 }
 
 const urlConToken = (url, usuario, token) => String(url).replace(/^https:\/\//, `https://${usuario}:${token}@`);
