@@ -159,6 +159,7 @@
           "test/almacen-credenciales-aislado.test.mjs",
           "test/credenciales-concurrencia.test.mjs",
           "test/credenciales-cuentas.test.mjs",
+          "test/identidad-varias-cuentas.test.mjs",
           "test/credenciales-refresh.test.mjs",
           "test/hito-auditar-repo-correcto.test.mjs",
           "test/hito-cerrar-valida.test.mjs",

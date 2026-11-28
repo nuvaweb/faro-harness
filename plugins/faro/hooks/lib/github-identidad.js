@@ -18,17 +18,55 @@ module.exports = function (g) {
 
   // Identidad cacheada POR PROCESO: resolverla toca git y, a veces, la red. Se calcula una vez.
   let _authId;
+  const run = g.runCmd || ((cmd, args, ms) => { try { return execFileSync(cmd, args, { windowsHide: true, cwd: ROOT, encoding: 'utf8', timeout: ms || 6000, stdio: ['ignore', 'pipe', 'pipe'] }).toString(); } catch (e) { return String((e && (e.stdout || e.stderr)) || ''); } });
+  const hostDe = (remote) => (remote.match(/@([^:/]+)/) || [])[1] || (remote.match(/\/\/([^/]+)\//) || [])[1] || null;
+  const remotoSsh = (remote) => /^git@|^ssh:\/\//.test(String(remote || '').trim());
+  // Dueno del repo (org de GitHub o grupo de GitLab), para elegir la cuenta de ESA org en el almacen.
+  const ownerDelRepo = () => { try { return require('./forge.js').detect(git).owner || null; } catch { return null; } };
+
+  // Cuenta de la CLAVE SSH (ssh -T): una clave es de UNA sola cuenta. Solo toca la red cuando se pide
+  // (auth/identity o sin almacen), nunca en el arranque normal. Cacheada por proceso.
+  let _sshId;
+  function sshIdentity() {
+    if (_sshId !== undefined) return _sshId;
+    _sshId = null;
+    const host = hostDe(git('remote', 'get-url', 'origin') || '');
+    if (!host) return _sshId;
+    const sshRaw = (git('config', 'core.sshCommand') || process.env.GIT_SSH || 'ssh').trim();
+    const sshExe = /^".*"$/.test(sshRaw) ? sshRaw.replace(/^"|"$/g, '') : (/\s/.test(sshRaw) ? sshRaw.split(/\s+/)[0] : sshRaw);
+    const out = run(sshExe, ['-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', `git@${host}`], 8000);
+    const m = out.match(/\bHi\s+([A-Za-z0-9-]+)!/) || out.match(/Welcome to GitLab,\s*@([A-Za-z0-9._-]+)!/);
+    if (m) _sshId = m[1].toLowerCase();
+    return _sshId;
+  }
+  // Aviso (no bloquea) si el remoto va por SSH con la clave de OTRA cuenta: con varias cuentas en la
+  // forja, el push saldria con esa cuenta o fallaria. La salida es HTTPS: la credencial de FARO responde
+  // con la cuenta de esta org. null si no aplica.
+  function avisoSshAjeno(login) {
+    const remote = git('remote', 'get-url', 'origin') || '';
+    if (!login || !remotoSsh(remote)) return null;
+    const clave = sshIdentity();
+    if (!clave || clave === String(login).toLowerCase()) return null;
+    const host = hostDe(remote);
+    const ruta = (remote.trim().match(/^(?:ssh:\/\/)?git@[^:/]+[:/](.+?)(?:\.git)?$/) || [])[1];
+    const https = host && ruta ? `https://${host}/${ruta}.git` : '<url https del repo>';
+    return `⚠ Tu clave SSH es de @${clave}, pero en este repo trabajas como @${login}: los push por SSH saldrian con @${clave} (o fallarian). Pasa el remoto a HTTPS, que usa tu sesion de @${login}: git remote set-url origin ${https}`;
+  }
+
   function authIdentity() {
     if (_authId !== undefined) return _authId;
     _authId = { login: null, email: null, source: null };
-    const run = (cmd, args, ms) => { try { return execFileSync(cmd, args, { windowsHide: true, cwd: ROOT, encoding: 'utf8', timeout: ms || 6000, stdio: ['ignore', 'pipe', 'pipe'] }).toString(); } catch (e) { return String((e && (e.stdout || e.stderr)) || ''); } };
     const remote = git('remote', 'get-url', 'origin') || '';
-    const host = (remote.match(/@([^:/]+)/) || [])[1] || (remote.match(/\/\/([^/]+)\//) || [])[1] || null;
+    const host = hostDe(remote);
     // EL ALMACEN MANDA: el CLI ya guardo QUIEN eres en cada forja al autenticarte (tokens[host].user).
     // Sin esto se sondeaba la RED en cada arranque de sesion — gh api (6s), ssh -T (8s) y curl de
     // eventos (8s) — y con gh sin instalar el arranque costaba ~12s medidos. La respuesta ya la
     // teniamos en disco. Las sondas siguen abajo como respaldo para quien no se haya autenticado.
-    const guardado = (host && CRED && typeof CRED.entrada === 'function') ? CRED.entrada(host) : null;
+    // Con VARIAS cuentas en la forja manda la de la org de ESTE repo, no el ultimo login (que puede ser
+    // de otra org y daria una cuenta cruzada falsa).
+    const owner = ownerDelRepo();
+    const deOrg = (host && owner && CRED && typeof CRED.cuentaPara === 'function') ? CRED.cuentaPara(host, owner) : null;
+    const guardado = (deOrg && deOrg.user) ? deOrg : ((host && CRED && typeof CRED.entrada === 'function') ? CRED.entrada(host) : null);
     if (guardado && guardado.user && guardado.user.login) {
       const em = guardado.user.email ? String(guardado.user.email).toLowerCase() : null;
       _authId = { login: String(guardado.user.login), email: em, source: 'almacen' };
@@ -43,11 +81,8 @@ module.exports = function (g) {
       }
     }
     if (host && !_authId.login) {
-      const sshRaw = (git('config', 'core.sshCommand') || process.env.GIT_SSH || 'ssh').trim();
-      const sshExe = /^".*"$/.test(sshRaw) ? sshRaw.replace(/^"|"$/g, '') : (/\s/.test(sshRaw) ? sshRaw.split(/\s+/)[0] : sshRaw);
-      const out = run(sshExe, ['-T', '-o', 'StrictHostKeyChecking=accept-new', `git@${host}`], 8000);
-      const m = out.match(/\bHi\s+([A-Za-z0-9-]+)!/) || out.match(/Welcome to GitLab,\s*@([A-Za-z0-9._-]+)!/);
-      if (m) _authId = { login: m[1], email: null, source: 'ssh' };
+      const l = sshIdentity();
+      if (l) _authId = { login: l, email: null, source: 'ssh' };
     }
     if (_authId.login && !_authId.email && /github/.test(remote)) {
       try {
@@ -157,6 +192,8 @@ module.exports = function (g) {
       `Verificado: ${c.verified === true ? 'SI' : c.verified === false ? 'NO' : 'DESCONOCIDO'}${c.why ? ' — ' + c.why : ''}`,
     ];
     if (c.verified !== true) lines.push('Arreglar (por repo): node .claude/hooks/harness.js identity --set <correo>  ·  o conectar con GitHub: node .claude/hooks/harness.js auth');
+    const aviso = avisoSshAjeno(auth && auth.login);
+    if (aviso) lines.push(aviso);
     process.stdout.write(lines.join('\n') + '\n');
   }
 
@@ -188,9 +225,10 @@ module.exports = function (g) {
     const me = await api('user'); if (!me || !me.login) { process.stdout.write('No pude leer tu usuario de GitHub.\n'); return; }
     const remote = git('remote', 'get-url', 'origin') || '';
     const org = (remote.match(/[:/]([^/]+)\/[^/]+?(?:\.git)?$/) || [])[1] || null;
-    const sshLogin = (authIdentity().login || '').toLowerCase();
-    if (sshLogin && me.login.toLowerCase() !== sshLogin) { process.stdout.write(`\n⚠ El token es de '${me.login}' pero tu SSH es '${sshLogin}' — cuenta equivocada. Reintenta con la de la organizacion.\n`); return; }
-    if (org && (await api(`orgs/${org}/members/${me.login}`)) !== true) { process.stdout.write(`\n⚠ '${me.login}' no aparece como miembro de ${org}. ¿Cuenta correcta?\n`); return; }
+    // La verdad es la MEMBRESIA de la cuenta autorizada en la org del repo. Una clave SSH de otra cuenta
+    // (varias cuentas en la forja) no invalida el login: solo se avisa de que el remoto SSH no sirve.
+    if (org && (await api(`orgs/${org}/members/${me.login}`)) !== true) { process.stdout.write(`\n⚠ '${me.login}' no aparece como miembro de ${org}. ¿Cuenta correcta? Repite y, en el navegador, entra con la cuenta de ${org}.\n`); return; }
+    const avisoSsh = avisoSshAjeno(me.login);
     git('config', 'faro.identityLogin', me.login);
     if (me.name) git('config', 'user.name', me.name);
     let email = me.email; if (!email) { const es = await api('user/emails'); if (Array.isArray(es)) { const p = es.find((e) => e.primary && e.verified) || es.find((e) => e.verified); email = p && p.email; } }
@@ -208,8 +246,8 @@ module.exports = function (g) {
     const usr = { login: me.login, name: uName, email: uEmail };
     CRED.guardarToken(host, { token, user: usr, scopes: 'repo read:org user:email workflow', forja: 'github', client_id: host === 'github.com' ? undefined : clientId });
     const j = readCfg(); j.org = j.org || org || null; j.user = usr; writeCfg(j);
-    process.stdout.write(`\n✅ Conectado como ${me.login}${org ? ` · ${org}` : ''}${email ? ` · ${email}` : ''}${teams.length ? ` · equipos: ${teams.join(', ')}` : ''}\n   Identidad y equipos configurados. Ya puedes consultar PRs: node .claude/hooks/harness.js gh repos/<org>/<repo>/pulls?state=open\n`);
+    process.stdout.write(`\n✅ Conectado como ${me.login}${org ? ` · ${org}` : ''}${email ? ` · ${email}` : ''}${teams.length ? ` · equipos: ${teams.join(', ')}` : ''}\n   Identidad y equipos configurados. Ya puedes consultar PRs: node .claude/hooks/harness.js gh repos/<org>/<repo>/pulls?state=open\n${avisoSsh ? '\n' + avisoSsh + '\n' : ''}`);
   }
 
-  return { authIdentity, identityCheck, asegurarEmailCommit, identityWarnCheap, identityBlockLine, identityLines, cmdIdentity, cmdAuth };
+  return { authIdentity, sshIdentity, avisoSshAjeno, identityCheck, asegurarEmailCommit, identityWarnCheap, identityBlockLine, identityLines, cmdIdentity, cmdAuth };
 };
